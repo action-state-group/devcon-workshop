@@ -30,16 +30,19 @@ LEXE_VERSION=v0.1.0
 LEXE_SHA256_AMD64=e565454cd5b8c8daf7e3091c1bffb9a30b205156c2a69cbe8c2c6f8f13589d64
 LEXE_SHA256_ARM64=c2a612e1cf6c7823a2c5fcfcfe1af363a3a66e548a79f92a2a5aa3de25e97baf
 
-# capsulectl and the deal plugin: the batched rc25 releases (deal's go.mod names capsule-cli
-# v0.1.0-rc25, so the pair installs without a version mismatch). rc25's deal carries
-# `capsulectl deal terms-leg` (evidencebook-deal#70).
-CAPSULECTL_VERSION=v0.1.0-rc25
-CAPSULECTL_SHA256_AMD64=0e2c7edf3de559ba1da19dcf5163a55a5d39a7e4dc04555168c358f03512e31e
-CAPSULECTL_SHA256_ARM64=592351eb3862e738e01b7541147409eb3708ea30c48bb3ba03d418be6885b77b
-DEAL_VERSION=v0.1.0-rc25
-DEAL_SHA256_AMD64=cd6d69465bd03e2d88ebf08d215e717f436a6ae32fb92fe7e258d34e557f870e
-DEAL_SHA256_ARM64=6ef02752a4936e45a18724d4d29d7f46c41656454a89267cb0485ef13f57baf6
+# capsulectl, the deal plugin and the book plugin: the batched rc26 releases (release run
+# 41231512772). rc26's deal carries `capsulectl deal terms-leg` (evidencebook-deal#70). The book
+# release is evidencebook tag capsulectl/v0.1.0-rc26.
+CAPSULECTL_VERSION=v0.1.0-rc26
+CAPSULECTL_SHA256_AMD64=1c900d22372bdee379fb932aa88034fd00a45fff15fbf1fe20f0fbf08c3031d3
+CAPSULECTL_SHA256_ARM64=5134d8dfd1e4bee9f7768f699c96dac4ecf8903067b97539cf58314150661611
+DEAL_VERSION=v0.1.0-rc26
+DEAL_SHA256_AMD64=5ffcf27a1b69c488937a19545f1d92340082938e71d9d55405adf92d8d4ee502
+DEAL_SHA256_ARM64=b993362ac13402169b0d89b9e477e067946efad0d0829e634fe9c58f80a795d0
 DEAL_SKILL_SHA256=da1b4f6508ace7dcc30eb33f8bd0eb261e1fe8697f8aa9d81751a4677ad69cc2
+BOOK_VERSION=v0.1.0-rc26
+BOOK_SHA256_AMD64=cffd6690376c86d07cdb02c2c38fc2b52147ed120935a6e3e50d2cdb8f862d06
+BOOK_SHA256_ARM64=bbf7f51532f9fe0cc97362213be08b739a24fcceba24b185d8ae88793c7a0367
 
 # goose
 GOOSE_VERSION=v1.57.0

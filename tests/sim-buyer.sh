@@ -10,6 +10,7 @@ unset CAPSULE_PROFILE CAPSULECTL_PLUGIN_ROOTS CAPSULE_DEAL_CHECK_URL XDG_DATA_HO
 fail() { echo "FAIL $*" >&2; exit 1; }
 deal() { capsulectl --profile deal deal "$@"; }
 capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
+capsulectl plugin install "$D/bin/capsulectl-book" >/dev/null
 deal init --dir "$T/.local/share/capsule-deal" --materiality builtin:neutral --no-witness >/dev/null
 
 SHOP=shop@agentboxnanda.org
