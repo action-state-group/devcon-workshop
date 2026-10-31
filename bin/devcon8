@@ -16,7 +16,7 @@ devcon8 brain claude|codex|mesh pick the model goose thinks with (logs in by a l
 devcon8 s02                     serve the S02 settlement record on http://127.0.0.1:8080
 devcon8 s08 setup|<step>        the S08 liar demo, four nodes inside this container (steps: start lie
                                 twins referee show omit count stop fresh)
-devcon8 nanda <email>           create your agent's Agent Box mailbox and list it in the NANDA Index
+devcon8 nanda <email> | leave   list your agent's Agent Box mailbox in the NANDA Index, or unlist it
 devcon8 trade [--buy <address>] run your trading agent: sells your sticker; with --buy, buys one there
 devcon8 wallet                  open your own lexe wallet (optional, real Lightning, mainnet)
 devcon8 go-seal                 copy, build and run the evidencebook Go SDK example
