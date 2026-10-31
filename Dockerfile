@@ -3,10 +3,11 @@
 #   docker buildx build --platform linux/arm64 -t devcon-workshop:dev .
 # Every input is pinned in versions.lock; see README.md "What is in the image".
 
-ARG DEBIAN=debian:bookworm-slim
+# Ubuntu 24.04 (glibc 2.39): the S08 release pair is built on it and needs that glibc.
+ARG BASE=ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
 
 # --- release assets, models, Go and Node: downloaded and sha256-checked ---------------------------
-FROM ${DEBIAN} AS fetch
+FROM ${BASE} AS fetch
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
     && rm -rf /var/lib/apt/lists/*
@@ -15,7 +16,7 @@ COPY build/fetch.sh /src/build/fetch.sh
 RUN /src/build/fetch.sh "$TARGETARCH" /fetch && rm -rf /fetch/dl
 
 # --- shared Rust and Node toolchain for the source builds -----------------------------------------
-FROM ${DEBIAN} AS toolchain
+FROM ${BASE} AS toolchain
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl git cmake ninja-build pkg-config libssl-dev libdbus-1-dev python3 \
@@ -84,7 +85,7 @@ RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.carg
        | gzip -n -9 > "/out/capsules-$S08_CAPSULES_VERSION-selective-log-$triple.tar.gz"
 
 # --- npm CLIs (claude, codex and their ACP adapters) ----------------------------------------------
-FROM ${DEBIAN} AS npm
+FROM ${BASE} AS npm
 COPY --from=fetch /fetch/opt/node /usr/local/node
 ENV PATH=/usr/local/node/bin:$PATH
 WORKDIR /opt/devcon8/npm
@@ -92,7 +93,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
 # --- Go programs: the SDK example, vendored so it builds offline ----------------------------------
-FROM ${DEBIAN} AS gobuild
+FROM ${BASE} AS gobuild
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git && rm -rf /var/lib/apt/lists/*
 COPY --from=fetch /fetch/opt/go /usr/local/go
 ENV PATH=/usr/local/go/bin:$PATH CGO_ENABLED=0 GOFLAGS=-trimpath GOTOOLCHAIN=local
@@ -102,12 +103,13 @@ RUN cd /src/examples/go-seal && go mod download && go mod vendor && go build -mo
     && cd /src/tools/terms-leg && go test ./... && go build -o /out/terms-leg .
 
 # --- the participant image ------------------------------------------------------------------------
-FROM ${DEBIAN}
+FROM ${BASE}
 ARG TARGETARCH
 ARG BUILD_REVISION=unknown
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates libgomp1 libdbus-1-3 bash curl jq openssl iproute2 procps python3 git tini less xxd \
     && rm -rf /var/lib/apt/lists/* \
+    && (userdel -r ubuntu 2>/dev/null || true) \
     && useradd --create-home --uid 1000 --shell /bin/bash participant
 ENV D=/opt/devcon8
 COPY --from=fetch /fetch/opt/bin/ $D/bin/
