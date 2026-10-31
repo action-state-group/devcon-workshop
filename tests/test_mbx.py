@@ -70,8 +70,19 @@ class Mbx(unittest.TestCase):
         with open(os.path.join(mbx.STATE, "buying.json"), "w") as f:
             json.dump({conv: "shop@agentboxnanda.org"}, f)
 
-    def delivery(self, files, conv="conv_1"):
-        return self.msg("request", {"delivery_for": conv, "deal_id": "d1", "files": files}, conv="delivery_conv")
+    def delivery(self, files, conv="conv_1", sender="urn:air:host39.org:personal:shop@agentboxnanda.org"):
+        m = self.msg("request", {"delivery_for": conv, "deal_id": "d1", "files": files}, conv="delivery_conv")
+        m["sender"] = sender
+        return m
+
+    def test_delivery_only_from_the_shop_bought_from(self):
+        self.bought()
+        for sender in ("urn:air:host39.org:personal:stranger@agentboxnanda.org", "https://gw.example/agents/stranger"):
+            out = mbx.parse(self.delivery([attach("sticker.png", PNG)], sender=sender))
+            self.assertEqual(out["kind"], "request", sender)
+            self.assertNotIn("files", out, sender)
+        out = mbx.parse(self.delivery([attach("sticker.png", PNG)], sender="https://gw.example/agents/shop"))
+        self.assertEqual(out["kind"], "delivery")
 
     def test_delivery_saves_checked_png_under_the_purchase(self):
         self.bought()

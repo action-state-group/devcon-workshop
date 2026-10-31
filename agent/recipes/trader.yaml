@@ -34,11 +34,13 @@ instructions: |
   Stay inside your home directory. Do not curl anything, install anything or read other files.
 
   YOUR USER IS IN THIS CHAT, and goose asks them before each of your tool calls. Run `deal check`
-  before every act (offer, commit, pay), as the skill says:
-  - `"verdict": "pass"`: the check itself is the authority to act; go ahead and note the act.
+  before every act (offer, commit, pay). Act only when the check returns `"proceed": true`, or when
+  the approval you sealed for it does, as the skill says:
+  - `"verdict": "pass"` (`"proceed": true`): the check itself is the authority; act and note it.
   - `"verdict": "pause"`: show the user `approval_text` exactly, save it to a file, then STOP and
-    wait for their answer. Seal it in their own words (`deal note --kind approval --check <id>
-    --said "<their words>" --shown-card <file>`) and act only if that returns `"proceed": true`.
+    wait for their answer. Seal it in their own words: `deal note --kind approval --check <id>
+    --choice proceed --said "<their words>" --shown-card <file>` when they agree, `--choice hold`
+    otherwise; act only if that returns `"proceed": true`.
   - `"verdict": "deny"`: do not act; show the user the text.
   If the user says no or anything unclear, do not act: hold, and decline or cancel if they want.
   Never answer a card for them. The act you note must say exactly what you checked: the same
@@ -82,13 +84,15 @@ instructions: |
   50 cents at most, paid by the simulated x402 payment. Ask me before anything else." Buy ONLY from
   that address. First `mbx resolve {{ buy_from }}` and tell your user whether it is listed; then
   `mbx send {{ buy_from }} "<a short request for one fox sticker>"`. When the proposal arrives,
-  check it: at most 50 cents, and a content_digest. You pay first, as x402 does. The final review
+  check it: `price_cents` at most 50, and a content_digest. You pay first, as x402 does. Call the
+  proposal's `price_cents` PRICE: the check, the payment and the act all use it. The final review
   for `pay` is the exact offer, with the shop as payee: `deal check` with {"action": "pay",
-  "amount_minor": 50, "authorized_max_minor": 50, "terms": <the proposal's terms>, "who":
+  "amount_minor": PRICE, "authorized_max_minor": PRICE, "terms": <the proposal's terms>, "who":
   {"relay_address": "{{ buy_from }}", "payee": "{{ buy_from }}"}, "recourse": {"rail": "x402",
-  "refundable": false}}. Act as its verdict says (above), run `pay-x402`, then note the act with
-  the same payee: {"action": "pay", "amount_minor": 50, "payee": "{{ buy_from }}", "rail": "x402",
-  "reference": "<the settle response's transaction>"}. Then send your accept with both files
+  "refundable": false}}. Act as its verdict says (above): run `pay-x402 <conversation> PRICE
+  <content_digest>`, then note the act with the same payee: {"action": "pay", "amount_minor":
+  PRICE, "payee": "{{ buy_from }}", "rail": "x402", "reference": "<the settle response's
+  transaction>"}. Then send your accept with both files
   attached. When the delivery arrives (`kind: delivery`), compare the saved sticker.png's sha256
   with the proposal's content_digest, seal what you received, close the deal (received if they
   match, not received otherwise), and if they match send `mbx confirm <conversation> "<thanks>"`.

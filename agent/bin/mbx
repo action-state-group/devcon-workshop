@@ -38,7 +38,7 @@ MAX_FILE = 64 * 1024
 # (error 1010, checked 2026-10-31); a named User-Agent is answered.
 USER_AGENT = "devcon-workshop-mbx/1 (+https://github.com/action-state-group/devcon-workshop)"
 # The only files a reply may carry, by kind: the buyer's terms leg and the simulated settle response
-# with its accept, the sticker with the seller's confirm.
+# with its accept, the sticker with the seller's delivery.
 ATTACH = {"accept": {"buyer-terms.json", "settle.json"}, "delivery": {"sticker.png"}}
 KINDS = {"request", "proposal", "accept", "decline", "confirm", "cancel"}
 SAFE = re.compile(r"[^A-Za-z0-9 _.,:/@+-]")
@@ -238,8 +238,11 @@ def parse(m):
         return None
     sender = str(m.get("sender", ""))
     bought = roles()
-    # A seller's delivery is a request of its own that names a purchase this mailbox made.
-    if kind == "request" and c.get("delivery_for") in bought:
+    # A seller's delivery is a request of its own that names a purchase this mailbox made, and it
+    # counts only from the shop that purchase was made from: every shop sells the same sticker, so
+    # its digest alone would not tell a stranger's "delivery" from the shop's.
+    shop = bought.get(c.get("delivery_for")) if isinstance(c.get("delivery_for"), str) else None
+    if kind == "request" and shop and reply_to(sender) in (shop, URN + shop, shop.split("@")[0]):
         kind, conv = "delivery", c["delivery_for"]
     out = {"seq": m.get("seq"), "message_id": str(m.get("id")) if ID.match(str(m.get("id"))) else None,
            "conversation": conv, "kind": kind, "from": sender if URNISH.match(sender) else "(unreadable sender)",
@@ -325,7 +328,9 @@ def main(argv):
         r = call("POST", f"{BASE}/api/v1/conversations/{conv}/replies",
                  {"kind": kind, "text": text[:500], "constraints": constraints, "idempotencyKey": f"reply-{conv}-{kind}-{uuid.uuid4().hex[:8]}"})
         mid = sent_id(r)
-        if kind == "accept" and mid:
+        if kind == "accept":
+            if not mid:
+                die("the accept was sent, but the gateway's answer names no message id; `mbx confirm` will need it")
             a = state("accepted.json"); a[conv] = mid; save_state("accepted.json", a)
         print(json.dumps({"sent": kind, "conversation": conv, "message_id": mid, "files": [f["name"] for f in files]}))
     elif cmd == "confirm" and len(argv) == 4:
