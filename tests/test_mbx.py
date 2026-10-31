@@ -84,6 +84,8 @@ class Mbx(unittest.TestCase):
             "empty IDAT": attach("sticker.png", png(ihdr, b"")),
             "bad deflate": attach("sticker.png", png(ihdr, b"not deflate")),
             "short pixels": attach("sticker.png", png(ihdr, zlib.compress(b"\x00" * 5))),
+            "bad filter byte": attach("sticker.png", png(ihdr, zlib.compress((b"\xff" + b"\x00" * 8) * 2))),
+            "palette type": attach("sticker.png", png(ihdr[:9] + bytes([3, 0, 0, 0]), zlib.compress((b"\x00" * 3) * 2))),
             "bad crc": attach("sticker.png", bytes(bad_crc)),
             "truncated": attach("sticker.png", PNG[:-12]),
             "svg name": attach("sticker.svg", svg),

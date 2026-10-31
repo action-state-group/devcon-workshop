@@ -111,8 +111,10 @@ REASONS = {"name_not_allowed", "size", "sha256_mismatch", "not_a_png", "not_json
 
 
 def png_ok(raw, max_side=1024):
-    """A whole, decodable PNG: signature, an IHDR of sane size (not interlaced), every chunk's CRC,
-    IEND last, and IDAT data that inflates to exactly the scanlines the IHDR implies."""
+    """A whole, decodable PNG of the one kind the workshop sends: 8-bit RGB or RGBA, not interlaced,
+    at most max_side square; every chunk's CRC right, IEND last, and IDAT inflating to exactly the
+    scanlines the IHDR implies, each starting with a valid filter type (0-4). With no palette and
+    a fixed depth, any such bytes decode."""
     if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
         return False
     i, seen, idat, expect = 8, [], b"", 0
@@ -128,11 +130,12 @@ def png_ok(raw, max_side=1024):
             if n != 13:
                 return False
             w, h = int.from_bytes(data[0:4], "big"), int.from_bytes(data[4:8], "big")
-            depth, color, interlace = data[8], data[9], data[12]
-            channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}.get(color)
-            if not (0 < w <= max_side and 0 < h <= max_side) or channels is None or depth not in (1, 2, 4, 8, 16) or interlace:
+            depth, color, compression, filtering, interlace = data[8:13]
+            channels = {2: 3, 6: 4}.get(color)
+            if not (0 < w <= max_side and 0 < h <= max_side) or channels is None or depth != 8 or compression or filtering or interlace:
                 return False
-            expect = h * (1 + (w * channels * depth + 7) // 8)
+            row = 1 + w * channels
+            expect = h * row
         elif kind == b"IDAT":
             idat += data
         i += 12 + n
@@ -143,7 +146,8 @@ def png_ok(raw, max_side=1024):
     try:
         d = zlib.decompressobj()
         pixels = d.decompress(idat, expect + 1)
-        return len(pixels) == expect and d.eof and not d.unconsumed_tail
+        return (len(pixels) == expect and d.eof and not d.unconsumed_tail
+                and all(pixels[r] <= 4 for r in range(0, expect, row)))
     except zlib.error:
         return False
 

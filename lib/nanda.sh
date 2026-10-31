@@ -71,16 +71,10 @@ TXT
   r=$(curl -fsS -X POST "$BASE/api/agent/mailboxes" -H 'Content-Type: application/json' -d "$body") || die "mailbox creation failed (try again in a minute)"
   (umask 077; jq -r .token <<<"$r" > "$A/key"; jq '{id: .mailbox.id, address: .mailbox.emailAddress, existing: (.existing // false)}' <<<"$r" > "$A/mailbox.json")
   if [ ! -s "$A/key" ] || [ "$(cat "$A/key")" = null ]; then rm -f "$A/key"; die "the gateway returned no key"; fi
-  existing=$(jq -r .existing "$A/mailbox.json")
   echo "Your agent's address: $(jq -r .address "$A/mailbox.json"). A six-digit code went to $(jq -r .codeSentTo <<<"$r")."
 fi
 id=$(jq -r .id "$A/mailbox.json")
 auth=(-H "Authorization: Bearer $(cat "$A/key")")
-# A rerun after 'rm -r ~/.devcon8/agentbox' joins the existing mailbox as another assistant, off duty
-# (SKILL.md rule 4); this agent is the one that answers, so it takes the duty once verified.
-if [ "${existing:-false}" = true ]; then
-  echo "This email already has a mailbox; this agent takes it over once you enter the code."
-fi
 verified() { [ "$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.mailbox.verified // .verified // false')" = true ]; }
 if ! verified; then
   for _ in 1 2 3 4 5; do
@@ -90,9 +84,13 @@ if ! verified; then
     echo "Not accepted: $(jq -r '.error.code // .error // .message // "unknown"' <<<"$out" | head -c 80)"
   done
   verified || die "the mailbox is not verified. For a new code: rm -r ~/.devcon8/agentbox, then 'devcon8 nanda $email' again"
-  if [ "${existing:-false}" = true ]; then
-    curl -fsS -X POST "${auth[@]}" "$BASE/api/agent/mailboxes/$id/duty" >/dev/null || warn "could not take the mailbox's duty; another assistant still answers"
-  fi
+fi
+# A mailbox joined again (after 'rm -r ~/.devcon8/agentbox') starts off duty, and another assistant
+# would answer (SKILL.md rule 4). This agent is the one that answers, so every run makes sure of it.
+if [ "$(curl -fsS "${auth[@]}" "$BASE/api/v1/me" | jq -r '.onDuty // .mailbox.onDuty // empty')" = false ]; then
+  curl -fsS -X POST "${auth[@]}" "$BASE/api/agent/mailboxes/$id/duty" >/dev/null \
+    || die "could not take over the mailbox from its other assistant; rerun 'devcon8 nanda $email'"
+  echo "This agent now answers for $(jq -r .address "$A/mailbox.json")."
 fi
 addr=$(jq -r .address "$A/mailbox.json")
 if [ "$(listed "$addr")" != active ]; then
