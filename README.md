@@ -13,7 +13,7 @@ lets you:
 - start from a short Go program on the [evidencebook](https://github.com/action-state-group/evidencebook)
   SDK.
 
-Inference runs on your CPU (Docker on a Mac has no GPU access). The image is about 2.5 GB.
+Inference runs on your CPU (Docker on a Mac has no GPU access). The image is about 3.3 GB.
 
 ## Before the workshop
 
