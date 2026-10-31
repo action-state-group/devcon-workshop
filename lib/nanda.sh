@@ -87,7 +87,7 @@ if ! verified; then
 fi
 # A mailbox joined again (after 'rm -r ~/.devcon8/agentbox') starts off duty, and another assistant
 # would answer (SKILL.md rule 4). This agent is the one that answers, so every run makes sure of it.
-if [ "$(curl -fsS "${auth[@]}" "$BASE/api/v1/me" | jq -r '.onDuty // .mailbox.onDuty // empty')" = false ]; then
+if [ "$(curl -fsS "${auth[@]}" "$BASE/api/v1/me" | jq -r '.onDuty | tostring')" = false ]; then
   curl -fsS -X POST "${auth[@]}" "$BASE/api/agent/mailboxes/$id/duty" >/dev/null \
     || die "could not take over the mailbox from its other assistant; rerun 'devcon8 nanda $email'"
   echo "This agent now answers for $(jq -r .address "$A/mailbox.json")."
