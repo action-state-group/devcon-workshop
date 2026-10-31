@@ -139,6 +139,12 @@ plugin creates one on first use, inside `~/.mesh-llm/payments` on your volume. F
 (`mesh-llm wallet policy --mode automatic --daily-budget-sats N`) are up to you, and they spend real
 sats. With a funded wallet, keep goose in approve mode. The sticker trade stays simulated either way.
 
+What has been checked: on 2026-10-31 a funded demo node paid the serving node 1,900 msat for one
+request, and its own sealed record of the payment shows on its Evidence tab. That holds at the serving
+node's current price. At a much lower price the deposit can cover the whole bill, and then no payer
+record is sealed ([evidencebook#48](https://github.com/action-state-group/evidencebook/issues/48)):
+you would pay and see no record.
+
 ## Leaving the NANDA Index
 
     devcon8 nanda leave
@@ -169,7 +175,7 @@ not byte-identical to the demo nodes' own binaries.
 
 | | |
 |---|---|
-| mesh-llm | lab branch `lab/asg-2026-10-30` of `ethanyzhang/mesh-llm` (Mesh-LLM/mesh-llm main plus four open PRs), CPU runtime |
+| mesh-llm | lab branch `lab/asg-2026-10-30` of `ethanyzhang/mesh-llm` (Mesh-LLM/mesh-llm main plus open PRs [#2620](https://github.com/Mesh-LLM/mesh-llm/pull/2620), [#2649](https://github.com/Mesh-LLM/mesh-llm/pull/2649), [#2719](https://github.com/Mesh-LLM/mesh-llm/pull/2719) and [#2721](https://github.com/Mesh-LLM/mesh-llm/pull/2721)), CPU runtime |
 | capsules plugin | Mesh-LLM/capsules-plugin `f494845` |
 | lexe-wallet plugin | Mesh-LLM/lexe-wallet-plugin v0.1.0 |
 | S08 pair | mesh-llm v0.78.1, capsules 0.1.5 (the liar: 0.1.5 plus `demos/s08-liar/redteam/selective-log.patch`) |
