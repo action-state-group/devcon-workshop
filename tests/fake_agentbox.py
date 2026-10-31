@@ -9,6 +9,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 state = {"key_verified": False, "on_duty": False}
 if sys.argv[3:] == ["verified"]:
     state.update(key_verified=True, on_duty=True)
+# "lenient": duty is granted even to an unverified key (a gateway that answers "already yours").
+lenient = sys.argv[3:] == ["lenient"]
 
 
 class H(BaseHTTPRequestHandler):
@@ -52,7 +54,7 @@ class H(BaseHTTPRequestHandler):
             state["key_verified"] = b.get("code") == "123456"
             return self.reply(200 if state["key_verified"] else 400, {"verified": state["key_verified"]})
         if self.path == "/api/agent/mailboxes/m1/duty":
-            if not state["key_verified"]:
+            if not state["key_verified"] and not lenient:
                 return self.reply(409, {"error": {"code": "not_verified"}})
             state["on_duty"] = True
             return self.reply(200, {"onDuty": True})

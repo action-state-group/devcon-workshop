@@ -31,3 +31,13 @@ out=$(HOME=$U/home MBX_BASE="http://127.0.0.1:$port" NANDA_INDEX="http://127.0.0
 if grep -q "/verify" "$U/requests.log"; then cat "$U/requests.log"; echo "FAIL a verified key was asked for a code"; exit 1; fi
 [ -f "$U/home/.devcon8/agentbox/verified" ] || { echo "FAIL no marker after the duty check"; exit 1; }
 echo "ok   nanda: a key an older image verified (no marker) is not asked for a code"
+kill "$srv"; wait "$srv" 2>/dev/null || true
+
+# A new signup against a gateway that would grant the duty to an unverified key: the code is still asked.
+N=$T/new; mkdir -p "$N"; : > "$N/requests.log"
+python3 -I "$here/fake_agentbox.py" "$port" "$N/requests.log" lenient & srv=$!
+for _ in $(seq 50); do curl -fs "http://127.0.0.1:$port/api/v1/me" >/dev/null 2>&1 && break; sleep 0.1; done
+out=$(printf 'y\n123456\n' | HOME=$N/home MBX_BASE="http://127.0.0.1:$port" NANDA_INDEX="http://127.0.0.1:$port" \
+  bash "$here/../lib/nanda.sh" p@example.com 2>&1) || { echo "$out"; echo "FAIL the new signup failed"; exit 1; }
+grep -q '/verify {"code": "123456"}' "$N/requests.log" || { cat "$N/requests.log"; echo "FAIL a new key skipped its code"; exit 1; }
+echo "ok   nanda: a new key is always asked for its code, whatever the duty answer"

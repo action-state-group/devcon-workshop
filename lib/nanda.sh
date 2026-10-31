@@ -67,6 +67,7 @@ Before you sign up:
   - The listing stays after the workshop until you remove it (README, "Leaving the NANDA Index").
 TXT
   read -rp "Create the mailbox for $email? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing created"
+  created=1
   body=$(jq -nc --arg e "$email" --arg d "$DESC" '{email:$e, displayName:"Devcon 8 workshop agent", assistant:"goose (devcon-workshop)", description:$d}')
   r=$(curl -fsS -X POST "$BASE/api/agent/mailboxes" -H 'Content-Type: application/json' -d "$body") || die "mailbox creation failed (try again in a minute)"
   (umask 077; jq -r .token <<<"$r" > "$A/key"; jq '{id: .mailbox.id, address: .mailbox.emailAddress, existing: (.existing // false)}' <<<"$r" > "$A/mailbox.json")
@@ -80,8 +81,9 @@ auth=(-H "Authorization: Bearer $(cat "$A/key")")
 # existing mailbox reads true there and is still refused ("not_verified"). Only this key's own
 # /verify answer counts, so it is recorded here when it says verified.
 verified() { [ -f "$A/verified" ]; }
-if ! verified; then
-  # A key an older image verified has no marker. Ask the gateway about this key itself: it grants a
+if ! verified && [ -z "${created:-}" ]; then
+  # A key an older image verified has no marker. (A key made in this run is never probed: it has just
+  # been sent its code, and the gateway's duty answer for a new, on-duty assistant is not known.) Ask the gateway about this key itself: it grants a
   # verified key the duty and refuses an unverified one with 409 not_verified (seen 10-31). Taking the
   # duty is what this step does anyway.
   case $(curl -sS -o /dev/null -w '%{http_code}' -X POST "${auth[@]}" "$BASE/api/agent/mailboxes/$id/duty") in
