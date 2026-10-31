@@ -71,6 +71,10 @@ jobs:
           sudo docker image prune --all --force >/dev/null
           df -h /
 
+      - name: Pins for the image labels
+        id: lock
+        run: grep -E '^(MESH_LLM_SHA|CAPSULES_COMMIT|CAPSULES_VERSION|LEXE_VERSION)=' versions.lock >> "$GITHUB_OUTPUT"
+
       - uses: docker/setup-buildx-action@v3
 
       - name: Build
@@ -80,7 +84,12 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           load: true
           tags: devcon-workshop:ci
-          build-args: BUILD_REVISION=${{ github.sha }}
+          build-args: |
+            BUILD_REVISION=${{ github.sha }}
+            MESH_LLM_SHA=${{ steps.lock.outputs.MESH_LLM_SHA }}
+            CAPSULES_COMMIT=${{ steps.lock.outputs.CAPSULES_COMMIT }}
+            CAPSULES_VERSION=${{ steps.lock.outputs.CAPSULES_VERSION }}
+            LEXE_VERSION=${{ steps.lock.outputs.LEXE_VERSION }}
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
 

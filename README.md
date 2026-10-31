@@ -171,7 +171,12 @@ mesh-llm config it creates, and its mesh-llm build carries no analytics key.
 Every component is pinned in [`versions.lock`](versions.lock), by commit or by release checksum, and
 `/opt/devcon8/MANIFEST` lists the sha256 of every shipped file. mesh-llm is built from source in CI
 for both architectures, from the lab commit the demo nodes run, so its bytes are not the demo nodes'
-own; the plugins are their published release files, checked by sha256.
+own; the plugins are their published release files, checked by sha256. The image labels name both
+commits (`dev.actionstate.mesh-llm` = `3ffa5c4f1d7d162c964fc7fb24937c7ed5a12301`,
+`dev.actionstate.capsules` = `0.1.6 f046e96e846beb91be5ed4ae32aa88f2dd934411`). Installing mesh-llm on
+your laptop instead? The same lab commit is published as the release
+[mesh-llm-lab-3ffa5c4f1](https://github.com/action-state-group/devcon-workshop/releases/tag/mesh-llm-lab-3ffa5c4f1)
+(not an official mesh-llm release); the image is built from that commit, not from those files.
 
 | | |
 |---|---|

@@ -142,9 +142,16 @@ RUN chmod -R a+rX $D \
          echo; cat $D/versions.lock; echo; \
          cd $D && find . -type f ! -path './npm/*' ! -path './node/*' ! -path './go/*' ! -name MANIFEST -print0 | sort -z | xargs -0 sha256sum; \
        } > $D/MANIFEST
+ARG MESH_LLM_SHA
+ARG CAPSULES_COMMIT
+ARG CAPSULES_VERSION
+ARG LEXE_VERSION
 LABEL org.opencontainers.image.source=https://github.com/action-state-group/devcon-workshop \
       org.opencontainers.image.revision=$BUILD_REVISION \
-      org.opencontainers.image.description="Devcon 8 workshop participant image"
+      org.opencontainers.image.description="Devcon 8 workshop participant image" \
+      dev.actionstate.mesh-llm=$MESH_LLM_SHA \
+      dev.actionstate.capsules="$CAPSULES_VERSION $CAPSULES_COMMIT" \
+      dev.actionstate.lexe-wallet=$LEXE_VERSION
 ENV PATH=$D/bin:$D/agent/bin:$D/mesh/bin:$D/npm/node_modules/.bin:$D/node/bin:$D/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     DO_NOT_TRACK=1 GOTOOLCHAIN=local
 USER participant
