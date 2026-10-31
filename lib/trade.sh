@@ -16,9 +16,10 @@ grep -qE '^GOOSE_PROVIDER: (claude|codex)-acp' "$HOME/.config/goose/config.yaml"
 if [ "$buy" = "$(jq -r .address "$ST/agentbox/mailbox.json")" ]; then
   die "that is your own address: to buy from yourself, run a second agent with a second email (README)"
 fi
-# The deal plugin is installed into the volume, so it is replaced on every run: after an image
-# upgrade the volume must not keep an older plugin beside the new capsulectl (install replaces it).
+# The deal and book plugins are installed into the volume, so they are replaced on every run: after
+# an image upgrade the volume must not keep an older plugin beside the new capsulectl (install replaces it).
 capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
+capsulectl plugin install "$D/bin/capsulectl-book" >/dev/null
 # The store is made once. With the plugin just installed, a failing 'deal list' means the deal
 # profile is missing (or its store is gone); deal init refuses a profile that already exists.
 if ! capsulectl --profile deal deal list >/dev/null 2>&1; then

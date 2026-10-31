@@ -24,6 +24,7 @@ gh=https://github.com
 get "$gh/Mesh-LLM/lexe-wallet-plugin/releases/download/$LEXE_VERSION/lexe-wallet-$LEXE_VERSION-$TRIPLE.tar.gz" "$(pin LEXE)" "lexe-wallet-$LEXE_VERSION-$TRIPLE.tar.gz"
 get "$gh/action-state-group/capsule-cli/releases/download/$CAPSULECTL_VERSION/capsulectl-$CAPSULECTL_VERSION-linux-$ARCH" "$(pin CAPSULECTL)" capsulectl
 get "$gh/action-state-group/evidencebook-deal/releases/download/$DEAL_VERSION/capsulectl-deal-$DEAL_VERSION-linux-$ARCH" "$(pin DEAL)" capsulectl-deal
+get "$gh/action-state-group/evidencebook/releases/download/capsulectl/$BOOK_VERSION/capsulectl-book-$BOOK_VERSION-linux-$ARCH" "$(pin BOOK)" capsulectl-book
 get "$gh/action-state-group/evidencebook-deal/releases/download/$DEAL_VERSION/deal-skill-$DEAL_VERSION.tar.gz" "$DEAL_SKILL_SHA256" deal-skill.tar.gz
 get "$gh/aaif-goose/goose/releases/download/$GOOSE_VERSION/goose-$TRIPLE.tar.gz" "$(pin GOOSE)" goose.tar.gz
 get "https://go.dev/dl/go$GO_VERSION.linux-$GOARCH.tar.gz" "$(pin GO)" go.tar.gz
@@ -37,6 +38,7 @@ get "$hf/$Q4_FILE" "$Q4_SHA256" "$Q4_FILE"
 rm -rf opt && mkdir -p opt/bin opt/mesh/plugins opt/models opt/agent
 install -m 0755 dl/capsulectl opt/bin/capsulectl
 install -m 0755 dl/capsulectl-deal opt/bin/capsulectl-deal
+install -m 0755 dl/capsulectl-book opt/bin/capsulectl-book
 tar -xzf dl/deal-skill.tar.gz -C opt/agent
 tar -xzf dl/goose.tar.gz -C opt/bin ./goose && chmod 0755 opt/bin/goose
 mkdir -p opt/go && tar -xzf dl/go.tar.gz -C opt/go --strip-components=1
