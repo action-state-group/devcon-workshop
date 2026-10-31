@@ -3,11 +3,11 @@
 # to you, and list it in the NANDA Index (https://my.nandaindex.org/agent/SKILL.md, steps 1, 1b, 2).
 # The mailbox key is a secret: it goes to ~/.devcon8/agentbox/key (0600) and is never printed.
 set -euo pipefail
-. /opt/devcon8/lib/common.sh
+. "$(cd "$(dirname "$0")" && pwd)/common.sh"
 BASE=${MBX_BASE:-https://connectors-production-9b5a.up.railway.app}
 A=$ST/agentbox
 DESC="Devcon 8 workshop demo agent, simulated payment, not a real shop"
-INDEX=https://api.nandaindex.org
+INDEX=${NANDA_INDEX:-https://api.nandaindex.org}
 mkdir -p "$A" && chmod 700 "$A"
 
 # nanda_mail SUBJECT_REGEX: the token in the newest Index email whose subject matches. Only mail from
@@ -75,15 +75,19 @@ TXT
 fi
 id=$(jq -r .id "$A/mailbox.json")
 auth=(-H "Authorization: Bearer $(cat "$A/key")")
-verified() { [ "$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.mailbox.verified // .verified // false')" = true ]; }
+# Whether THIS key is verified. The gateway's GET /mailboxes/<id> reports only mailbox.verified (the
+# mailbox's email, proven once by any assistant), not this key's grant: a key that rejoined an
+# existing mailbox reads true there and is still refused ("not_verified"). Only this key's own
+# /verify answer counts, so it is recorded here when it says verified.
+verified() { [ -f "$A/verified" ]; }
 if ! verified; then
   for _ in 1 2 3 4 5; do
     read -rp "Six-digit code from that email: " code
     out=$(curl -sS -X POST "${auth[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg c "$code" '{code:$c}')" "$BASE/api/agent/mailboxes/$id/verify")
-    [ "$(jq -r '.verified // false' <<<"$out")" = true ] && break
+    if [ "$(jq -r '.verified // false' <<<"$out")" = true ]; then touch "$A/verified"; break; fi
     echo "Not accepted: $(jq -r '.error.code // .error // .message // "unknown"' <<<"$out" | head -c 80)"
   done
-  verified || die "the mailbox is not verified. For a new code: rm -r ~/.devcon8/agentbox, then 'devcon8 nanda $email' again"
+  verified || die "this agent's key is not verified. For a new code: rm -r ~/.devcon8/agentbox, then 'devcon8 nanda $email' again"
 fi
 # A mailbox joined again (after 'rm -r ~/.devcon8/agentbox') starts off duty, and another assistant
 # would answer (SKILL.md rule 4). This agent is the one that answers, so every run makes sure of it.
