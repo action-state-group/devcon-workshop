@@ -1,0 +1,60 @@
+# versions.lock: every component the image ships, pinned by commit or by release asset sha256.
+# Sourced by build/fetch.sh and the Dockerfile's build stages; the build fails when a checksum differs.
+# Per-architecture values end in _AMD64 or _ARM64.
+
+# mesh-llm: the newest lab build, what the demo mesh runs (Ethan, 2026-10-31: "所有全部都用最新 lab").
+# Branch ethanyzhang/mesh-llm lab/asg-2026-10-30 = Mesh-LLM/mesh-llm main 61e2acfb9 plus #2620, #2649,
+# #2719 and #2721. Built here from that commit for both architectures; the bytes are not the demo
+# VMs' or the fork release's (compare by commit, not sha256).
+MESH_LLM_REPO=https://github.com/ethanyzhang/mesh-llm
+MESH_LLM_SHA=3ffa5c4f1d7d162c964fc7fb24937c7ed5a12301
+MESH_LLM_VERSION=0.78.0
+JUST_VERSION=1.59.0
+# capsules: release v0.1.6.
+CAPSULES_COMMIT=f046e96e846beb91be5ed4ae32aa88f2dd934411
+CAPSULES_VERSION=0.1.6
+CAPSULES_SHA256_AMD64=a85ff20517e7b1dfff58bc24a5febcc03994eaa5d3cde2b619fd91bbe4bc3c92
+CAPSULES_SHA256_ARM64=b47526ad2ea54c23db78958f434feed27d8649fc82c0f7c7466b279708e01ef3
+CAPSULES_REPO=https://github.com/Mesh-LLM/capsules-plugin
+RUST_TOOLCHAIN=1.97.1
+
+# s08-liar (company-internal-all 9c6bc847) runs all four nodes on the mesh-llm and capsules above.
+# The liar's plugin is capsules 0.1.6 plus demos/s08-liar/redteam/selective-log.patch, built here
+# from CAPSULES_COMMIT; step 8's reconcile tool is built from demos/s08-liar/reconcile (its go.mod
+# pins evidencebook d8164613).
+# lexe-wallet plugin
+LEXE_VERSION=v0.1.0
+LEXE_SHA256_AMD64=e565454cd5b8c8daf7e3091c1bffb9a30b205156c2a69cbe8c2c6f8f13589d64
+LEXE_SHA256_ARM64=c2a612e1cf6c7823a2c5fcfcfe1af363a3a66e548a79f92a2a5aa3de25e97baf
+
+# capsulectl-deal (with `deal terms-leg`, evidencebook-deal#72) and the capsulectl core it builds
+# against, both built here from source until a release carries the command. Both are stamped with
+# the core version from the deal module's go.mod, as evidencebook-deal's scripts/release-build.sh does,
+# so the plugin installs under this capsulectl without a version mismatch.
+DEAL_REPO=https://github.com/action-state-group/evidencebook-deal
+DEAL_SHA=5719e848d3a55f90b5939dbdb400596d1278b006
+CAPSULE_CLI_REPO=https://github.com/action-state-group/capsule-cli
+CAPSULE_CLI_SHA=93dff5dddeae33b724d673c1bc7613d573815c86
+
+# goose
+GOOSE_VERSION=v1.57.0
+GOOSE_SHA256_AMD64=10eb96cb6a159b6e1d38eeedbef6ab64cd28168aad91948f1fa5c34eefdf98e3
+GOOSE_SHA256_ARM64=c32605acfd560aeb2adbf17ec359cc0217e28022a7e647b35a6af5dcfca91749
+
+# Go (the evidencebook SDK's go 1.27.0 directive)
+GO_VERSION=1.27.3
+GO_SHA256_AMD64=65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40
+GO_SHA256_ARM64=a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49
+
+# Node (mesh-llm's .nvmrc); the npm CLIs are pinned in package-lock.json
+NODE_VERSION=24.20.0
+NODE_SHA256_AMD64=2f2c0da162318f0de47665410c7c8c2ed3d36c8f3105de4bbc61176c70a7cbf2
+NODE_SHA256_ARM64=5f4ddab610c1ab2016b3c227cebdbf6d9495161487e4739c7b90090595f465f7
+
+# Models: Qwen/Qwen2.5-0.5B-Instruct-GGUF at a pinned revision (same as s08-liar env.sh)
+HF_REPO=Qwen/Qwen2.5-0.5B-Instruct-GGUF
+HF_REV=9217f5db79a29953eb74d5343926648285ec7e67
+Q8_FILE=qwen2.5-0.5b-instruct-q8_0.gguf
+Q8_SHA256=ca59ca7f13d0e15a8cfa77bd17e65d24f6844b554a7b6c12e07a5f89ff76844e
+Q4_FILE=qwen2.5-0.5b-instruct-q4_k_m.gguf
+Q4_SHA256=74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db

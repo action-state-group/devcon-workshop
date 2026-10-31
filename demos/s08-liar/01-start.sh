@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Step 1: start four honest nodes on a private mesh.
+# The liar starts out honest too. Step 2 turns it into a liar.
+set -uo pipefail
+cd "$(dirname "$0")" || exit 1; . ./env.sh
+
+# Never start a second cast on top of a running one (two runs on the same box collide).
+# The lock is held for this run, and by the nodes it starts, which inherit it.
+exec 9>"$S/.01-start.lock"
+nodes=$(pgrep -u "$(id -u)" -f "$S/bin[^/ ]*/mesh-llm serve")
+if ! lock_fd9 || [ -n "$nodes" ] || [ -n "$(demo_listening)" ]; then
+  echo "refusing: another 01-start.sh or a demo node is already running on this box:"
+  [ -n "$nodes" ] && ps -o pid,lstart,args -p "$(echo "$nodes" | paste -sd, -)" | cut -c1-120
+  demo_listening
+  echo "If it is yours and finished, stop it with $PWD/99-stop.sh."
+  echo "If someone else is running the demo, wait for them."
+  exit 1
+fi
+
+rm -f "$OMIT_TOGGLE"   # every node starts out logging everything; step 6 turns the liar's omission on
+
+# Each server gets its own copy of the real Q8_0 file, in its own Hugging Face cache.
+for n in honest referee liar; do
+  f=$(q8_path "$n"); blob=$S/$n/home/$CACHE_REL/huggingface/hub/$HF_REPO_DIR/blobs/$Q8_SHA
+  [ -e "$f" ] && continue
+  mkdir -p "$(dirname "$f")" "$(dirname "$blob")"
+  [ -e "$blob" ] || ln "$S/models/$Q8_FILE" "$blob" || exit 1
+  ln -sfn "../../blobs/$Q8_SHA" "$f"
+  mkdir -p "$S/$n/home/$CACHE_REL/huggingface/hub/$HF_REPO_DIR/refs" && echo -n "$HF_REV" > "$S/$n/home/$CACHE_REL/huggingface/hub/$HF_REPO_DIR/refs/main"
+done
+
+# Up = its API lists a real model (a client also lists the "mesh" pseudo-model before it sees a server).
+wait_up() { for _ in $(seq 120); do curl -fsS -m 2 "http://127.0.0.1:$(api "$1")/v1/models" 2>/dev/null | jq -e '[.data[].id | select(. != "mesh")] | length > 0' >/dev/null && return 0; sleep 2; done; echo "$1 did not come up"; return 1; }
+
+./node.sh start honest && wait_up honest || exit 1
+# The honest node made the mesh. Its invite goes to a file, never to the screen.
+(umask 077; curl -fsS "http://127.0.0.1:$(console honest)/api/status" | jq -er .token > "$S/join.txt") && [ -s "$S/join.txt" ] \
+  || { echo "could not read the honest node's invite"; exit 1; }
+for n in liar referee; do ./node.sh start "$n" || exit 1; done
+for n in liar referee; do wait_up "$n" || exit 1; done
+for n in honest liar referee; do ./node.sh ident "$n" || { echo "could not identify $n"; exit 1; }; done
+
+# Tell the referee and the asker which key each node signs with (CAPSULES_PEER_KEYS, beside what the host announces).
+keys=$(for n in honest liar referee; do read -r id key < "$S/$n/ident"; printf '"%s":"%s",' "$id" "$key"; done)
+printf "export CAPSULES_PEER_KEYS='{%s}'\n" "${keys%,}" > "$S/referee/env"
+cp "$S/referee/env" "$S/asker/env" 2>/dev/null || { mkdir -p "$S/asker"; cp "$S/referee/env" "$S/asker/env"; }
+echo "export CAPSULES_ADJUDICATE_DIFFERING_TWINS=on   # ask a referee when two twins disagree" >> "$S/asker/env"
+./node.sh stop referee && ./node.sh start referee && wait_up referee || exit 1
+./node.sh start asker && wait_up asker && ./node.sh ident asker || exit 1
+# The liar answers the asker's signed evidence requests (step 8). It needs the asker's key under the
+# id its records name the asker by, which is not the id the host announces that key under, so it
+# gets every key here and restarts once.
+keys=$(for n in honest liar referee asker; do read -r id key < "$S/$n/ident"; printf '"%s":"%s",' "$id" "$key"; done)
+printf "export CAPSULES_PEER_KEYS='{%s}'\n" "${keys%,}" > "$S/liar/env"
+./node.sh stop liar && ./node.sh start liar && wait_up liar || exit 1
+
+echo
+echo "The mesh, as the asker sees it:"
+curl -fsS "http://127.0.0.1:$(api asker)/v1/models" | jq -r '.data[].id' | grep -v '^mesh$' | sed 's/^/  model /'
+for n in honest liar referee asker; do read -r id _ < "$S/$n/ident"; echo "  $n = node ${id:0:10}"; done

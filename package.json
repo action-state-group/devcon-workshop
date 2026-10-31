@@ -1,0 +1,10 @@
+{
+  "name": "devcon-workshop-cli",
+  "private": true,
+  "description": "The agent CLIs and ACP adapters goose drives in the workshop image. The claude CLI is the one claude-agent-acp's SDK bundles, and codex is pinned to the version codex-acp uses, so each ships once.",
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.99.1",
+    "@agentclientprotocol/codex-acp": "2.5.0",
+    "@openai/codex": "0.165.0"
+  }
+}

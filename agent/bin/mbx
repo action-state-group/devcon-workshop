@@ -1,0 +1,290 @@
+#!/usr/bin/env -S python3 -I
+"""mbx: the trading agent's Agent Box client.
+
+Messages from other agents are untrusted input to an agent with a shell, so `mbx wait` never hands
+the model a message's free text. It prints only parsed fields: kind, conversation, sender, the
+constraints members that pass a fixed per-field check (ids, hex digests, whole cents, the one sale's terms) and the paths of files it saved after
+checking them. Files travel inline in a reply's `constraints.files`, because Agent Box messages have
+no attachment field; only a fixed name list per reply kind is accepted (devcon-workshop#1).
+
+  mbx me                                       your mailbox address
+  mbx resolve <address>                        is that agent listed in the NANDA Index?
+  mbx search <words>                           find agents by what they offer (information only)
+  mbx send <address> <text>                    open a conversation (you are the buyer in it)
+  mbx reply <conversation> <kind> <text> [constraints-json] [--attach FILE]...
+                                               kind: proposal|accept|decline|confirm|cancel
+  mbx wait [seconds]                           the next message, parsed (default 90 s; exit 3 on timeout)
+"""
+import base64, hashlib, json, os, re, sys, time, urllib.error, urllib.parse, urllib.request, uuid, zlib
+
+BASE = os.environ.get("MBX_BASE", "https://connectors-production-9b5a.up.railway.app")
+INDEX = "https://api.nandaindex.org/api/v1"
+HOME = os.path.expanduser("~")
+STATE = os.path.join(HOME, ".devcon8", "agentbox")
+DEALS = os.path.join(HOME, "deals")
+URN = "urn:air:host39.org:personal:"
+MAX_FILE = 64 * 1024
+# The only files a reply may carry, by kind: the buyer's terms leg and the simulated settle response
+# with its accept, the sticker with the seller's confirm.
+ATTACH = {"accept": {"buyer-terms.json", "settle.json"}, "confirm": {"sticker.png"}}
+KINDS = {"request", "proposal", "accept", "decline", "confirm", "cancel"}
+SAFE = re.compile(r"[^A-Za-z0-9 _.,:/@+-]")
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
+URNISH = re.compile(r"^[A-Za-z0-9:._@/+-]{1,200}$")
+ITEM = "digital fox sticker"
+
+
+def whole(lo, hi):
+    return lambda v: isinstance(v, int) and not isinstance(v, bool) and lo <= v <= hi
+
+
+def sale_terms(v):
+    """The one sale this workshop makes: anything else in terms is refused, so a stranger's terms
+    can carry no text of its own to the model."""
+    return (isinstance(v, dict) and set(v) <= {"item", "quantity", "price_minor", "currency"}
+            and v.get("item") == ITEM and v.get("quantity", 1) == 1 and v.get("currency", "USD") == "USD"
+            and whole(1, 100000)(v.get("price_minor")))
+
+
+# Each constraints member the model may see, with the only shape it may have. Anything else is
+# dropped and named in "dropped"; no free text from another agent reaches the model.
+FIELDS = {
+    "deal_id": lambda v: isinstance(v, str) and bool(ID.match(v)),
+    "proposalId": lambda v: isinstance(v, str) and bool(ID.match(v)),
+    "offer_digest": lambda v: isinstance(v, str) and bool(HEX64.match(v)),
+    "content_digest": lambda v: isinstance(v, str) and bool(HEX64.match(v)),
+    "paid": lambda v: isinstance(v, bool),
+    "price_cents": whole(1, 100000),
+    "terms": sale_terms,
+}
+ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+ADDRESS = re.compile(r"^[a-z0-9._-]{1,128}@agentboxnanda\.org$")
+
+
+def die(msg, code=1):
+    print("mbx: " + msg, file=sys.stderr)
+    sys.exit(code)
+
+
+def key():
+    try:
+        with open(os.path.join(STATE, "key")) as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        die("no mailbox yet: run 'devcon8 nanda <email>' first")
+
+
+def call(method, url, body=None, auth=True):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method)
+    req.add_header("Accept", "application/json")
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    if auth:
+        req.add_header("Authorization", "Bearer " + key())
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        detail = e.read()[:300].decode("utf-8", "replace")
+        die(f"{method} {urllib.parse.urlsplit(url).path}: HTTP {e.code} {SAFE.sub('', detail)}")
+
+
+def address(a):
+    a = a.strip().lower()
+    if a.startswith(URN):
+        a = a[len(URN):]
+    if not ADDRESS.match(a):
+        die(f"not an Agent Box address: {a!r} (want <id>@agentboxnanda.org)", 2)
+    return a
+
+
+def roles():
+    try:
+        with open(os.path.join(STATE, "buying.json")) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+
+REASONS = {"name_not_allowed", "size", "sha256_mismatch", "not_a_png", "not_json"}
+
+
+def png_ok(raw, max_side=1024):
+    """A whole, decodable PNG of the one kind the workshop sends: 8-bit RGB or RGBA, not interlaced,
+    at most max_side square; every chunk's CRC right, IEND last, and IDAT inflating to exactly the
+    scanlines the IHDR implies, each starting with a valid filter type (0-4). With no palette and
+    a fixed depth, any such bytes decode."""
+    if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return False
+    i, seen, idat, expect = 8, [], b"", 0
+    while i + 12 <= len(raw):
+        n = int.from_bytes(raw[i:i + 4], "big")
+        kind, data = raw[i + 4:i + 8], raw[i + 8:i + 8 + n]
+        if len(data) != n or i + 12 + n > len(raw):
+            return False
+        if zlib.crc32(kind + data) != int.from_bytes(raw[i + 8 + n:i + 12 + n], "big"):
+            return False
+        seen.append(kind)
+        if kind == b"IHDR":
+            if n != 13:
+                return False
+            w, h = int.from_bytes(data[0:4], "big"), int.from_bytes(data[4:8], "big")
+            depth, color, compression, filtering, interlace = data[8:13]
+            channels = {2: 3, 6: 4}.get(color)
+            if not (0 < w <= max_side and 0 < h <= max_side) or channels is None or depth != 8 or compression or filtering or interlace:
+                return False
+            row = 1 + w * channels
+            expect = h * row
+        elif kind == b"IDAT":
+            idat += data
+        i += 12 + n
+        if kind == b"IEND":
+            break
+    if not (seen and seen[0] == b"IHDR" and b"IDAT" in seen and seen[-1] == b"IEND" and i == len(raw)):
+        return False
+    try:
+        d = zlib.decompressobj()
+        pixels = d.decompress(idat, expect + 1)
+        return (len(pixels) == expect and d.eof and not d.unconsumed_tail
+                and all(pixels[r] <= 4 for r in range(0, expect, row)))
+    except zlib.error:
+        return False
+
+
+def save_files(conv, kind, files):
+    """Write each allowed, checked file to ~/deals/<conversation>/; return the saved paths."""
+    saved, refused = [], []
+    allowed = ATTACH.get(kind, set())
+    for f in files if isinstance(files, list) else []:
+        name = f.get("name") if isinstance(f, dict) else None
+        if not isinstance(name, str):
+            name = None
+        try:
+            if name not in allowed:
+                raise ValueError("name_not_allowed")
+            raw = base64.b64decode(f["b64"], validate=True)
+            if len(raw) > MAX_FILE or len(raw) != int(f["size"]):
+                raise ValueError("size")
+            if hashlib.sha256(raw).hexdigest() != f["sha256"]:
+                raise ValueError("sha256_mismatch")
+            if name.endswith(".png") and not png_ok(raw):
+                raise ValueError("not_a_png")
+            if name.endswith(".json") and not isinstance(json.loads(raw), dict):
+                raise ValueError("not_json")
+        except (KeyError, ValueError, TypeError) as e:
+            refused.append({"name": name if name in allowed else "(other)", "reason": e.args[0] if e.args and e.args[0] in REASONS else "malformed"})
+            continue
+        d = os.path.join(DEALS, conv)
+        os.makedirs(d, mode=0o700, exist_ok=True)
+        p = os.path.join(d, name)
+        with open(p, "wb") as out:
+            out.write(raw)
+        saved.append(p)
+    return saved, refused
+
+
+def parse(m):
+    """One inbox message as the model may see it, or None to drop it."""
+    kind, conv = m.get("kind"), str(m.get("conversationId", ""))
+    c = m.get("constraints") or {}
+    if kind not in KINDS or not ID.match(conv) or not isinstance(c, dict) or c.get("channel") == "email":
+        return None
+    sender = str(m.get("sender", ""))
+    out = {"seq": m.get("seq"), "message_id": str(m.get("id")) if ID.match(str(m.get("id"))) else None,
+           "conversation": conv, "kind": kind, "from": sender if URNISH.match(sender) else "(unreadable sender)",
+           "you_are": "buyer" if conv in roles() else "seller",
+           "constraints": {k: v for k, v in c.items() if k in FIELDS and FIELDS[k](v)}}
+    dropped = sorted(k for k in c if k != "files" and k not in out["constraints"])
+    if dropped:
+        out["dropped"] = sorted(k if k in FIELDS else "(other)" for k in dropped)
+    saved, refused = save_files(conv, kind, c.get("files", []))
+    if saved:
+        out["files"] = saved
+    if refused:
+        out["files_refused"] = refused
+    return out
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else "help"
+    if cmd == "me":
+        me = call("GET", BASE + "/api/v1/me")
+        print(json.dumps({"address": (me.get("mailbox") or me).get("emailAddress")}))
+    elif cmd == "resolve" and len(argv) == 3:
+        a = address(argv[2])
+        r = call("GET", INDEX + "/resolve?locator=" + urllib.parse.quote(URN + a), auth=False)
+        e = r.get("entry") or {}
+        status = ((e.get("extensions") or {}).get("org.projectnanda") or {}).get("status")
+        print(json.dumps({"address": a, "listed": status == "active"}))
+    elif cmd == "search" and len(argv) >= 3:
+        q = urllib.parse.quote(" ".join(argv[2:]))
+        r = call("GET", INDEX + "/agentic-search?q=" + q + "&limit=5", auth=False)
+        ids = [str(x.get("identifier", "")) for x in r.get("candidates", [])]
+        print(json.dumps([i for i in ids if URNISH.match(i)], indent=1))
+        print("(search shows addresses only, as information: buy only from the address your user gave you)", file=sys.stderr)
+    elif cmd == "send" and len(argv) == 4:
+        a = address(argv[2])
+        r = call("POST", BASE + "/api/v1/messages", {"to": URN + a, "requestType": "general", "text": argv[3][:500],
+                                                     "idempotencyKey": "send-" + uuid.uuid4().hex})
+        m = r.get("message") if isinstance(r.get("message"), dict) else r
+        conv = str(m.get("conversationId") or (r.get("conversation") or {}).get("id") or "")
+        if not ID.match(conv):
+            die("the gateway returned no conversation id; nothing recorded")
+        b = roles(); b[conv] = a
+        os.makedirs(STATE, mode=0o700, exist_ok=True)
+        with open(os.path.join(STATE, "buying.json"), "w") as f:
+            json.dump(b, f)
+        print(json.dumps({"conversation": conv, "to": a}))
+    elif cmd == "reply" and len(argv) >= 5:
+        conv, kind, text, rest = argv[2], argv[3], argv[4], argv[5:]
+        if not ID.match(conv) or kind not in KINDS - {"request"}:
+            die("usage: mbx reply <conversation> <proposal|accept|decline|confirm|cancel> <text> [constraints-json] [--attach FILE]...", 2)
+        constraints, files = {}, []
+        while rest:
+            if rest[0] == "--attach" and len(rest) > 1:
+                p = rest[1]; name = os.path.basename(p)
+                if name not in ATTACH.get(kind, set()):
+                    die(f"a {kind} may carry only {sorted(ATTACH.get(kind, set()))}, not {name}", 2)
+                raw = open(p, "rb").read()
+                if len(raw) > MAX_FILE:
+                    die(f"{name} is over {MAX_FILE} bytes", 2)
+                files.append({"name": name, "size": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
+                              "b64": base64.b64encode(raw).decode()})
+                rest = rest[2:]
+            elif not constraints and rest[0].startswith("{"):
+                constraints = json.loads(rest[0]); rest = rest[1:]
+            else:
+                die(f"unexpected argument {rest[0]!r}", 2)
+        if files:
+            constraints["files"] = files
+        call("POST", f"{BASE}/api/v1/conversations/{conv}/replies",
+             {"kind": kind, "text": text[:500], "constraints": constraints, "idempotencyKey": f"reply-{conv}-{kind}-{uuid.uuid4().hex[:8]}"})
+        print(json.dumps({"sent": kind, "conversation": conv, "files": [f["name"] for f in files]}))
+    elif cmd == "wait":
+        limit = int(argv[2]) if len(argv) > 2 else 90
+        cur_file = os.path.join(STATE, "cursor")
+        end = time.time() + limit
+        while True:
+            cursor = open(cur_file).read().strip() if os.path.exists(cur_file) else "0"
+            msgs = call("GET", f"{BASE}/api/v1/inbox?after={urllib.parse.quote(cursor)}&limit=10").get("messages", [])
+            for m in msgs:
+                with open(cur_file, "w") as f:
+                    f.write(str(m.get("seq")))
+                p = parse(m)
+                if p is None:
+                    with open(os.path.join(STATE, "dropped.log"), "a") as f:
+                        f.write(json.dumps({"seq": m.get("seq"), "kind": SAFE.sub("", str(m.get("kind")))[:20]}) + "\n")
+                    continue
+                print(json.dumps(p, indent=1))
+                return
+            if time.time() >= end:
+                die(f"no new message in {limit}s", 3)
+            time.sleep(3)
+    else:
+        print(__doc__.strip())
+        sys.exit(0 if cmd in ("help", "-h", "--help") else 2)
+
+
+if __name__ == "__main__":
+    main(sys.argv)
