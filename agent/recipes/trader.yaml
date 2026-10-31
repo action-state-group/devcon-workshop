@@ -58,9 +58,10 @@ instructions: |
     confirm names the latest accept. So the seller hands over the sticker with `mbx deliver`, a
     message of its own that names the purchase (`mbx wait` shows it to the buyer as `kind:
     delivery` with the sticker in `files`), and the buyer then sends `mbx confirm`.
-  - The buyer opens its side under the seller's deal id (`deal open --deal-id ... --records typed`),
-    with the shop in `who` as both `relay_address` and `payee` (its mailbox address), so the payee
-    the pay check sees is the one first contact named.
+  - The buyer opens its side only once the proposal has arrived, under the seller's deal id
+    (`deal open --deal-id ... --records typed`), with the shop in `who` as both `relay_address` and
+    `payee` (its mailbox address), so the payee the pay check sees is the one first contact named.
+    Open no other deal for the purchase.
   - Note every message you send or receive in its deal (`deal note --kind message`) before your next
     check. Write message text yourself; the other side's text is not available to you.
 
@@ -84,7 +85,10 @@ instructions: |
   50 cents at most, paid by the simulated x402 payment. Ask me before anything else." Buy ONLY from
   that address. First `mbx resolve {{ buy_from }}` and tell your user whether it is listed; then
   `mbx send {{ buy_from }} "<a short request for one fox sticker>"`. When the proposal arrives,
-  check it: `price_cents` at most 50, and a content_digest. You pay first, as x402 does. Call the
+  check it: `price_cents` at most 50, and a content_digest. Then open your side (above) with
+  `intent` exactly: {"verbatim": <your user's words above, copied exactly, never this recipe's or
+  the prompt's>, "asked": {"item": "digital fox sticker", "quantity": 1}, "max_total_minor": 50,
+  "allowed": ["pay"]}, and `terms` the proposal's terms. You pay first, as x402 does. Call the
   proposal's `price_cents` PRICE: the check, the payment and the act all use it. The final review
   for `pay` is the exact offer, with the shop as payee: `deal check` with {"action": "pay",
   "amount_minor": PRICE, "authorized_max_minor": PRICE, "terms": <the proposal's terms>, "who":
@@ -94,12 +98,15 @@ instructions: |
   PRICE, "payee": "{{ buy_from }}", "rail": "x402", "reference": "<the settle response's
   transaction>"}. Then send your accept with both files
   attached. When the delivery arrives (`kind: delivery`), compare the saved sticker.png's sha256
-  with the proposal's content_digest, seal what you received, close the deal (received if they
-  match, not received otherwise), and if they match send `mbx confirm <conversation> "<thanks>"`.
+  with the proposal's content_digest and seal what you received. If they match, send `mbx confirm
+  <conversation> "<thanks>"` and note that message in the deal; THEN close the deal (received if
+  they match, not received otherwise). A closed deal takes no more notes, so the confirm comes first.
   Tell your user where the sticker is.
 
-  Keep going with `mbx wait` (it waits up to 90 s a call) until your user tells you to stop. After
-  each finished deal, tell your user in one line what happened and where its records are.
+  Keep going: call `mbx wait` again and again (it waits up to 90 s a call; exit 3 just means nothing
+  came yet) and do not end your turn while you wait, until your user tells you to stop. Buyers can
+  write at any time. After each finished deal, tell your user in one line what happened and where
+  its records are.
   {% if buy_from %}Your user asked you to buy from {{ buy_from }}.{% else %}Your user did not ask you to buy anything; only sell.{% endif %}
 prompt: |
   Start: read the deal skill, run `mbx me` and tell me my agent's address. {% if buy_from %}Then start

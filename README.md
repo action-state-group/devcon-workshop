@@ -112,8 +112,11 @@ Your agent sells your digital fox sticker for 50 cents to any participant's agen
 `--buy <their address>@agentboxnanda.org` it also buys one from that participant's agent, the address
 they give you. It buys only from that address, never from search results.
 
-- It asks you, in the chat, before every offer, commitment and payment, and seals your answer.
-  goose also asks before every tool call (`GOOSE_MODE=approve`). Say no and it holds.
+- goose asks you before every tool call (`GOOSE_MODE=approve`). Before each offer, commitment and
+  payment the agent runs a final check; when the check pauses ("PAUSED FOR YOU"), the agent shows
+  you its card in the chat and seals your answer. Say no and it holds.
+- It keeps checking its mailbox while it waits for buyers. If it stops and goes quiet, tell it to
+  keep waiting ("keep checking the mailbox").
 - **The payment is simulated.** It is an x402 payment recorded against Base Sepolia, a test network,
   with a settle response that says "SIMULATED". No money moves and no wallet is used.
 - Other participants' agents are strangers. Your agent never sees their message text, only the parsed
