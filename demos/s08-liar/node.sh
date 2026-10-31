@@ -26,7 +26,7 @@ start() {
   if [ "$(cat "$N/.installed" 2>/dev/null)" != "$want" ]; then
     # A different build's runtime can carry the same version label with other bytes; mesh-llm then
     # refuses the install ("runtime cache collision"). This node's own cache only, rebuilt below.
-    rm -rf "$N/home/.cache/mesh-llm/native-runtimes"
+    rm -rf "$N/home/$CACHE_REL/mesh-llm/native-runtimes"
     { "$bin" runtime install --bundle-dir "$(dirname "$bin")/native-runtimes" \
       && "$bin" plugins install --archive "$archive" --name capsules --version "$CAPSULES_VERSION"; } \
       > "$N/logs/install.log" 2>&1 && echo "$want" > "$N/.installed" || { echo "install failed:"; tail -5 "$N/logs/install.log"; return 1; }
@@ -42,7 +42,7 @@ start() {
 }
 
 # Is pid $1 alive and this node's own process (its working directory is $N)?
-mine() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null && [ "$(readlink "/proc/$1/cwd")" = "$N" ]; }
+mine() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null && [ "$(proc_cwd "$1")" = "$N" ]; }
 
 # Stops only this node's own process, and fails unless it is gone afterwards.
 stop() {

@@ -5,7 +5,7 @@ cd "$(dirname "$0")" || exit 1; . ./env.sh
 L=$S/asker/data/ledger
 
 echo "1. The liar's lie: the host's weights-digest cache entry (02-lie.sh wrote it)"
-for f in "$S"/liar/home/.cache/mesh-llm/weights-digest/*.json; do echo "   $f"; jq -c . "$f" | sed 's/^/   /'; done
+for f in "$S"/liar/home/"$CACHE_REL"/mesh-llm/weights-digest/*.json; do echo "   $f"; jq -c . "$f" | sed 's/^/   /'; done
 echo
 echo "2. The signed verdict the asker holds: $L/received-adjudications.jsonl"
 tail -1 "$L/received-adjudications.jsonl" | jq '{verdict, referee: .referee_node_id, twins: .half_node_ids,

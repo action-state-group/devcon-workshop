@@ -3,11 +3,15 @@
 # pair (header x-mesh-twin-bracket), at temperature 0 with a fixed seed. Same model, same weights
 # claimed, same request: two honest nodes would answer the same way.
 #   03-twins.sh [question]
-# Tested questions: the default haiku and "Name three colors." Another question may get the same
-# 48 tokens from both models, and then there is nothing for the referee to settle.
+# Tested questions, by platform: on Linux x86_64 CPU (the provider VM) the default haiku and "Name
+# three colors." both part; on macOS arm64 (Metal) the haiku gives the same words from Q4_K_M and
+# Q8_0 and "Name three colors." parts (DRYRUN dry run 8), so it is the default there. Another
+# question may get the same 48 tokens from both models, and then there is nothing for the referee
+# to settle.
 set -uo pipefail
 cd "$(dirname "$0")" || exit 1; . ./env.sh
-Q=${1:-Write a haiku about the ocean.}
+case "$(uname -s)" in Darwin) DEFAULT_Q="Name three colors." ;; *) DEFAULT_Q="Write a haiku about the ocean." ;; esac
+Q=${1:-$DEFAULT_Q}
 RUN=$S/runs/$(date +%m%d-%H%M%S); mkdir -p "$S/runs"; mkdir "$RUN" || exit 1; ln -sfn "$RUN" "$S/runs/latest"
 BRACKET=s08-$(basename "$RUN")
 read -r HONEST _ < "$S/honest/ident"; read -r LIAR _ < "$S/liar/ident"; read -r REFEREE _ < "$S/referee/ident"

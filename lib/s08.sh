@@ -3,8 +3,8 @@
 # setup copies the scripts to ~/s08-liar (on the volume) and links the image's release pair and models.
 set -euo pipefail
 . /opt/devcon8/lib/common.sh
-S=${DEVCON8_S08:-$HOME/s08-liar}
-export DEVCON8_S08=$S S08_LISTEN_ALL=1
+S=${S08_DIR:-${DEVCON8_S08:-$HOME/s08-liar}}
+export S08_DIR=$S S08_LISTEN_ALL=1   # env.sh (company-internal-all#48) reads S08_DIR
 Q8=qwen2.5-0.5b-instruct-q8_0.gguf Q4=qwen2.5-0.5b-instruct-q4_k_m.gguf
 setup() {
   mkdir -p "$S"

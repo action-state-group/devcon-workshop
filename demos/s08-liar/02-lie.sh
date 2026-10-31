@@ -15,5 +15,5 @@ for _ in $(seq 120); do curl -fsS -m 2 "http://127.0.0.1:$(api liar)/v1/models" 
 
 echo
 echo "What the liar really has on disk vs what it claims:"
-echo "  file it loads : $(head -c "$(stat -c %s "$Q4_GGUF")" "$(readlink -f "$(q8_path liar)")" | sha256sum | cut -c1-16)…  (= Q4_K_M ${Q4_SHA:0:16}…)"
-echo "  digest claimed: $(jq -r .digest "$S"/liar/home/.cache/mesh-llm/weights-digest/*.json | cut -c1-16)…  (= Q8_0   ${Q8_SHA:0:16}…)"
+echo "  file it loads : $(head -c "$(file_size "$Q4_GGUF")" "$(readlink -f "$(q8_path liar)")" | sha256sum | cut -c1-16)…  (= Q4_K_M ${Q4_SHA:0:16}…)"
+echo "  digest claimed: $(jq -r .digest "$S"/liar/home/"$CACHE_REL"/mesh-llm/weights-digest/*.json | cut -c1-16)…  (= Q8_0   ${Q8_SHA:0:16}…)"

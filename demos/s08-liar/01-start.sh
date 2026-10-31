@@ -8,11 +8,11 @@ cd "$(dirname "$0")" || exit 1; . ./env.sh
 # The lock is held for this run, and by the nodes it starts, which inherit it.
 exec 9>"$S/.01-start.lock"
 nodes=$(pgrep -u "$(id -u)" -f "$S/bin[^/ ]*/mesh-llm serve")
-if ! flock -n 9 || [ -n "$nodes" ] || ss -ltn | grep -qE ':96(0[1-4]|1[1-4]) '; then
+if ! lock_fd9 || [ -n "$nodes" ] || [ -n "$(demo_listening)" ]; then
   echo "refusing: another 01-start.sh or a demo node is already running on this box:"
   [ -n "$nodes" ] && ps -o pid,lstart,args -p "$(echo "$nodes" | paste -sd, -)" | cut -c1-120
-  ss -ltn | grep -E ':96(0[1-4]|1[1-4]) '
-  echo "If it is yours and finished, stop it with $S/99-stop.sh (devcon8 s08 stop)."
+  demo_listening
+  echo "If it is yours and finished, stop it with $PWD/99-stop.sh."
   echo "If someone else is running the demo, wait for them."
   exit 1
 fi
@@ -21,12 +21,12 @@ rm -f "$OMIT_TOGGLE"   # every node starts out logging everything; step 6 turns 
 
 # Each server gets its own copy of the real Q8_0 file, in its own Hugging Face cache.
 for n in honest referee liar; do
-  f=$(q8_path "$n"); blob=$S/$n/home/.cache/huggingface/hub/$HF_REPO_DIR/blobs/$Q8_SHA
+  f=$(q8_path "$n"); blob=$S/$n/home/$CACHE_REL/huggingface/hub/$HF_REPO_DIR/blobs/$Q8_SHA
   [ -e "$f" ] && continue
   mkdir -p "$(dirname "$f")" "$(dirname "$blob")"
-  [ -e "$blob" ] || cp -l "$S/models/$Q8_FILE" "$blob" || exit 1
+  [ -e "$blob" ] || ln "$S/models/$Q8_FILE" "$blob" || exit 1
   ln -sfn "../../blobs/$Q8_SHA" "$f"
-  mkdir -p "$S/$n/home/.cache/huggingface/hub/$HF_REPO_DIR/refs" && echo -n "$HF_REV" > "$S/$n/home/.cache/huggingface/hub/$HF_REPO_DIR/refs/main"
+  mkdir -p "$S/$n/home/$CACHE_REL/huggingface/hub/$HF_REPO_DIR/refs" && echo -n "$HF_REV" > "$S/$n/home/$CACHE_REL/huggingface/hub/$HF_REPO_DIR/refs/main"
 done
 
 # Up = its API lists a real model (a client also lists the "mesh" pseudo-model before it sees a server).

@@ -19,7 +19,7 @@ served_by='.model_attestation.compute_attestation["x-mesh-poc-v1"].serving_prove
 own()  { [ -f "$L/capsules.jsonl" ] && jq -c --arg id "$LIAR" "select($served_by == \$id and (.model_attestation.compute_attestation.received_half == null))
   | {id: .capsule_id, answer: .effect.response_digest}" "$L/capsules.jsonl"; }
 held() { [ -f "$L/received-capsules.jsonl" ] && jq -c --arg id "$LIAR" ".capsule? // . | select($served_by == \$id) | {id: .capsule_id, answer: .effect.response_digest}" "$L/received-capsules.jsonl"; }
-lines() { [ -f "$1" ] && wc -l < "$1" || echo 0; }
+lines() { count_lines "$1"; }
 # The liar's own ledger, on this same box: the cross-check that a half the asker lacks was never sealed
 # (and not merely late or lost on the way).
 LL=$S/liar/data/ledger/capsules.jsonl
@@ -42,7 +42,7 @@ done
 new() { grep -vxF -f "$1" || true; }   # lines not in file $1
 for _ in $(seq 30); do [ "$(own | new "$RUN/own-before.jsonl" | wc -l)" -ge "$K" ] && break; sleep 2; done
 own | new "$RUN/own-before.jsonl" > "$RUN/own.jsonl"
-[ "$(wc -l < "$RUN/own.jsonl")" -ge "$K" ] || { echo "the asker has not sealed its own $K halves after 60 s; run 07-count.sh again"; exit 1; }
+[ "$(count_lines "$RUN/own.jsonl")" -ge "$K" ] || { echo "the asker has not sealed its own $K halves after 60 s; run 07-count.sh again"; exit 1; }
 # The liar pushes each half it logs when the exchange completes. Wait until no new one has come for 30 s
 # (03 saw pushes arrive within seconds), so a slow push is not counted as left out.
 last=-1; quiet=0
@@ -67,7 +67,7 @@ jq -rn --slurpfile own "$RUN/own.jsonl" --slurpfile held "$RUN/held.jsonl" --slu
     (.held | take($m.answer)) as $h | (.log | take($m.answer)) as $g
     | .held = $h.rest | .log = $g.rest
     | .out += [if $h.hit then "logged" elif $g.hit then "late" else "omitted" end])
-  | .out[]' > "$RUN/pairs.txt" && [ "$(wc -l < "$RUN/pairs.txt")" -eq "$(wc -l < "$RUN/own.jsonl")" ] \
+  | .out[]' > "$RUN/pairs.txt" && [ "$(count_lines "$RUN/pairs.txt")" -eq "$(count_lines "$RUN/own.jsonl")" ] \
   || { echo "could not pair the records; no count. Run 07-count.sh again."; exit 1; }
 kept=$(grep -cx logged "$RUN/pairs.txt"); late=$(grep -cx late "$RUN/pairs.txt"); omitted=$(grep -cx omitted "$RUN/pairs.txt")
 

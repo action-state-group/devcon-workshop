@@ -24,12 +24,12 @@ case $(basename "$RUN") in omit-*) ;; *) echo "runs/latest is not a 07-count.sh 
 grep -qvE '^(logged|omitted)$' "$RUN/pairs.txt" && { echo "07-count.sh did not end with a clean count in $RUN; run it again"; exit 1; }
 read -r LIAR _ < "$S/liar/ident" || { echo "the liar is not up; run 01-start.sh first"; exit 1; }
 L=$S/asker/data/ledger
-K=$(wc -l < "$RUN/own.jsonl")
+K=$(count_lines "$RUN/own.jsonl")
 
 # Each of the asker's own halves from step 7, with both digests of its exchange (the ask names them).
 jq -c --slurpfile own "$RUN/own.jsonl" '($own | map(.id)) as $ids | select(.capsule_id as $c | $ids | index($c))
   | {id: .capsule_id, request: .effect.request_digest, answer: .effect.response_digest}' "$L/capsules.jsonl" > "$RUN/ask-halves.jsonl"
-[ "$(wc -l < "$RUN/ask-halves.jsonl")" = "$K" ] || { echo "could not find the asker's $K halves in $L/capsules.jsonl"; exit 1; }
+[ "$(count_lines "$RUN/ask-halves.jsonl")" = "$K" ] || { echo "could not find the asker's $K halves in $L/capsules.jsonl"; exit 1; }
 
 # Does the asker sign what it sends? capsules signs only once its host has announced its key
 # (peer_keys.rs logs one of these three lines at start; anything else is "unknown").
@@ -190,7 +190,7 @@ if jq -c --slurpfile run "$RUN/liar-ledger.jsonl" --slurpfile own "$RUN/own.json
      "(\$own | map(.answer)) as \$a | (\$run | map(select(.answer as \$x | \$a | index(\$x))) | map(.id)) as \$ids
       | select(.capsule_id as \$c | \$ids | index(\$c)) | {seq: $sp.seq, prev: $sp.prev_seq}" \
      "$S/liar/data/ledger/capsules.jsonl" > "$RUN/liar-seq.jsonl" 2>/dev/null \
-   && [ "$(wc -l < "$RUN/liar-seq.jsonl")" -eq "$logged" ] \
+   && [ "$(count_lines "$RUN/liar-seq.jsonl")" -eq "$logged" ] \
    && jq -se 'all(.[]; .seq | type == "number")' "$RUN/liar-seq.jsonl" > /dev/null; then ok=1; fi
 nums=$(jq -r '"\(.seq) (prev \(.prev // "none"))"' "$RUN/liar-seq.jsonl" 2>/dev/null | paste -sd, - | sed 's/,/, /g')
 if [ "$ok" = 0 ]; then
