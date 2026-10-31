@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# devcon8-entry: the container's entrypoint. Keeps the volume's plugins at this image's versions
+# (an upgraded image never runs with an old volume's plugins), then runs the command.
+set -uo pipefail
+export D=/opt/devcon8 ST=$HOME/.devcon8
+mkdir -p "$ST" && chmod 700 "$ST"
+. "$D/lib/common.sh"
+mesh_config
+plugins_sync || warn "plugins could not be checked; 'devcon8 join' retries"
+[ -t 1 ] && [ "${1:-}" = bash ] && { echo; echo "Devcon 8 workshop. Start with: devcon8 doctor   (all steps: devcon8 help)"; echo; }
+exec "$@"

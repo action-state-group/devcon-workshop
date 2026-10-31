@@ -1,0 +1,61 @@
+# versions.lock: every component the image ships, pinned by commit or by release asset sha256.
+# Sourced by build/fetch.sh and the Dockerfile's build stages; the build fails when a checksum differs.
+# Per-architecture values end in _AMD64 or _ARM64.
+
+# mesh-llm lab build: the commits the demo mesh (Brattain, Shockley) runs, built here from source for
+# both architectures. Lab branch lab/asg-2026-10-30 = Mesh-LLM/mesh-llm main 61e2acfb9 plus #2620,
+# #2649, #2719 and #2721. CI-built bytes are not the demo VM's staged bytes.
+MESH_LLM_REPO=https://github.com/ethanyzhang/mesh-llm
+MESH_LLM_SHA=3ffa5c4f1d7d162c964fc7fb24937c7ed5a12301
+CAPSULES_REPO=https://github.com/Mesh-LLM/capsules-plugin
+CAPSULES_SHA=f494845bb9e003d100429fc4c081fc11322551cc
+RUST_TOOLCHAIN=1.97.1
+JUST_VERSION=1.59.0
+
+# s08-liar runs on the release pair it was dry-run on (company-internal-all devcon8/s08-liar/DRYRUN.md):
+# mesh-llm v0.78.1 and capsules 0.1.5, plus the liar's capsules 0.1.5 + selective-log.patch built
+# here from the 0.1.5 tag.
+S08_MESH_LLM_VERSION=v0.78.1
+S08_MESH_LLM_SHA256_AMD64=6d9a0854826d034837ca77de70902ebb3e8591a0d8506ad3a037d907a206c1ee
+S08_MESH_LLM_SHA256_ARM64=1875350856c2b22bf0d809dd0fdb7dda4222a0539617ab4bd59ca9ef991c2593
+S08_CAPSULES_VERSION=0.1.5
+S08_CAPSULES_SHA=5c53ea2441f54c60c87f300af678286a2e12c8fe
+S08_CAPSULES_SHA256_AMD64=ab6418ac15bff1bdf9de02c981fd0414694f6be7a27f4288032e560f2a636d1a
+S08_CAPSULES_SHA256_ARM64=991e4256e29e0bf72629b290333af9fec87a923c51dd8b3eba6f70bb255b34cf
+
+# lexe-wallet plugin
+LEXE_VERSION=v0.1.0
+LEXE_SHA256_AMD64=e565454cd5b8c8daf7e3091c1bffb9a30b205156c2a69cbe8c2c6f8f13589d64
+LEXE_SHA256_ARM64=c2a612e1cf6c7823a2c5fcfcfe1af363a3a66e548a79f92a2a5aa3de25e97baf
+
+# capsulectl and the deal plugin (pre-releases)
+CAPSULECTL_VERSION=v0.1.0-rc24
+CAPSULECTL_SHA256_AMD64=af97b3e00b8a9f40e91c668786c0b59b50436e95b90c9842b1adfc3911158aed
+CAPSULECTL_SHA256_ARM64=83d4b1df057d49af94242df2b2c875f2c67feb199deb5471772dbe38acb110b9
+DEAL_VERSION=v0.1.0-rc23
+DEAL_SHA256_AMD64=e71699f0f3bd98e9a00f8e276b6a449dbba3b2a2555786b14e0584fd4f594852
+DEAL_SHA256_ARM64=5fd5e9e620395e6d387afbfd400881dfcbfb6ead6cc17b00025de6f5049d3558
+DEAL_SKILL_SHA256=5205a745cbc069981e4c68a9364a0bc73e4734061573fec63a5e67b98761c8f8
+
+# goose
+GOOSE_VERSION=v1.57.0
+GOOSE_SHA256_AMD64=10eb96cb6a159b6e1d38eeedbef6ab64cd28168aad91948f1fa5c34eefdf98e3
+GOOSE_SHA256_ARM64=c32605acfd560aeb2adbf17ec359cc0217e28022a7e647b35a6af5dcfca91749
+
+# Go (the evidencebook SDK's go 1.27.0 directive)
+GO_VERSION=1.27.3
+GO_SHA256_AMD64=65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40
+GO_SHA256_ARM64=a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49
+
+# Node (mesh-llm's .nvmrc); the npm CLIs are pinned in package-lock.json
+NODE_VERSION=24.20.0
+NODE_SHA256_AMD64=2f2c0da162318f0de47665410c7c8c2ed3d36c8f3105de4bbc61176c70a7cbf2
+NODE_SHA256_ARM64=5f4ddab610c1ab2016b3c227cebdbf6d9495161487e4739c7b90090595f465f7
+
+# Models: Qwen/Qwen2.5-0.5B-Instruct-GGUF at a pinned revision (same as s08-liar env.sh)
+HF_REPO=Qwen/Qwen2.5-0.5B-Instruct-GGUF
+HF_REV=9217f5db79a29953eb74d5343926648285ec7e67
+Q8_FILE=qwen2.5-0.5b-instruct-q8_0.gguf
+Q8_SHA256=ca59ca7f13d0e15a8cfa77bd17e65d24f6844b554a7b6c12e07a5f89ff76844e
+Q4_FILE=qwen2.5-0.5b-instruct-q4_k_m.gguf
+Q4_SHA256=74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db

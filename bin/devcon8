@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# devcon8: the participant's one entry command in the workshop image. Each step is safe to rerun.
+# Run `devcon8 help` for the steps. Everything it writes lives under $HOME (the devcon8-home volume).
+set -euo pipefail
+D=/opt/devcon8
+ST=$HOME/.devcon8
+mkdir -p "$ST" && chmod 700 "$ST"
+. "$D/lib/common.sh"
+
+usage() {
+  cat <<'EOF'
+devcon8 doctor                  check this container: CPU, memory, disk, versions
+devcon8 join                    paste the invite you were handed; start your node on the demo mesh
+devcon8 node stop|status|log    your demo-mesh node
+devcon8 brain claude|codex|mesh pick the model goose thinks with (logs in by a link you open)
+devcon8 s02                     serve the S02 settlement record on http://127.0.0.1:8080
+devcon8 s08 setup|<step>        the S08 liar demo, four nodes inside this container (steps: start lie
+                                twins referee show omit count stop fresh)
+devcon8 nanda <email>           create your agent's Agent Box mailbox and list it in the NANDA Index
+devcon8 trade [--buy <address>] run your trading agent: sells your sticker; with --buy, buys one there
+devcon8 wallet                  open your own lexe wallet (optional, real Lightning, mainnet)
+devcon8 go-seal                 copy, build and run the evidencebook Go SDK example
+devcon8 versions                print the image's MANIFEST header
+EOF
+}
+
+doctor() {
+  local mem_kb disk_kb
+  echo "arch:     $(uname -m)   cpus: $(nproc)"
+  mem_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
+  echo "memory:   $(( mem_kb / 1024 / 1024 )) GiB"
+  [ "$mem_kb" -ge $(( 8 * 1024 * 1024 )) ] || warn "under 8 GiB: s08's three serving nodes may not fit (Docker Desktop > Settings > Resources)"
+  disk_kb=$(df -Pk "$HOME" | awk 'NR==2 {print $4}')
+  echo "free disk: $(( disk_kb / 1024 / 1024 )) GiB on $HOME"
+  [ "$disk_kb" -ge $(( 3 * 1024 * 1024 )) ] || warn "under 3 GiB free: s08 copies one 0.7 GB model for the liar"
+  echo "DO_NOT_TRACK=${DO_NOT_TRACK:-unset}"
+  sed -n '1,3p' "$D/MANIFEST"
+}
+
+join_mesh() {
+  if [ ! -s "$ST/join.txt" ]; then
+    printf 'Paste the invite you were handed (it is not shown back): '
+    local tok; IFS= read -rs tok; echo
+    [ -n "$tok" ] || die "no invite pasted"
+    (umask 077; printf '%s\n' "$tok" > "$ST/join.txt")
+  fi
+  node_start
+  echo "Asking the demo mesh one question (your node's wallet policy is free-only)..."
+  local model code
+  model=$(wait_model) || die "your node sees no model on the mesh yet; check 'devcon8 node log'"
+  code=$(curl -sS -o "$ST/join-reply.json" -w '%{http_code}' -m 180 http://127.0.0.1:9337/v1/chat/completions \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -nc --arg m "$model" '{model:$m,max_tokens:40,messages:[{role:"user",content:"Say hello to Devcon 8 in one short sentence."}]}')" || true)
+  case $code in
+    200)
+      echo "Answer from $model: $(jq -r '.choices[0].message.content' "$ST/join-reply.json")"
+      echo "The sealed record of that exchange: http://127.0.0.1:3131 , Evidence tab." ;;
+    402|403|503)
+      echo "Refused (HTTP $code): $(jq -r '.error.message // .error // .' "$ST/join-reply.json" 2>/dev/null | head -c 300)"
+      echo
+      echo "That is your free-only wallet policy doing its job: the serving node charges for this request,"
+      echo "and a free-only node never pays. Nothing was paid. The recording of a free join and its"
+      echo "Evidence tab is linked in the README (\"If your first prompt is refused\")." ;;
+    *) echo "Unexpected HTTP $code:"; head -c 400 "$ST/join-reply.json"; echo ;;
+  esac
+}
+
+case "${1:-help}" in
+  doctor) doctor ;;
+  join) join_mesh ;;
+  node)
+    case "${2:-status}" in
+      stop) node_stop ;; status) node_status ;; log) tail -n "${3:-40}" "$ST/node.log" ;; start) node_start ;;
+      *) die "devcon8 node stop|status|log|start" ;;
+    esac ;;
+  brain) shift; exec "$D/lib/brain.sh" "$@" ;;
+  s02)
+    echo "Open http://127.0.0.1:8080/settlement-record.html (Ctrl-C to stop)."
+    exec python3 -m http.server 8080 --bind 0.0.0.0 --directory "$D/demos/s02" ;;
+  s08) shift; exec "$D/lib/s08.sh" "$@" ;;
+  nanda|trade) [ -x "$D/lib/$1.sh" ] || die "'devcon8 $1' is not in this build yet"; c=$1; shift; exec "$D/lib/$c.sh" "$@" ;;
+  wallet) shift; exec "$D/lib/wallet.sh" "$@" ;;
+  go-seal)
+    rm -rf "$HOME/go-seal" && cp -R "$D/examples/go-seal" "$HOME/go-seal" && chmod -R u+w "$HOME/go-seal"
+    cd "$HOME/go-seal" && go build -mod=vendor -o go-seal . && ./go-seal
+    echo "Source: ~/go-seal/main.go. Change it, then: cd ~/go-seal && go build -mod=vendor -o go-seal . && ./go-seal" ;;
+  versions) sed -n '1,4p' "$D/MANIFEST" ;;
+  help|-h|--help) usage ;;
+  *) usage; exit 2 ;;
+esac

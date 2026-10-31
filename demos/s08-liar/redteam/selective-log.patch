@@ -1,0 +1,42 @@
+diff --git a/crates/evidence-plugin/src/main.rs b/crates/evidence-plugin/src/main.rs
+index d631419..3f04cae 100644
+--- a/crates/evidence-plugin/src/main.rs
++++ b/crates/evidence-plugin/src/main.rs
+@@ -198,6 +198,21 @@ fn token_usage_from(usage: MirrorUsage) -> TokenUsage {
+     }
+ }
+ 
++/// The selective-log toggle: the file `CAPSULES_REDTEAM_SELECTIVE_LOG` names
++/// (default `/var/lib/redteam/selective-log.on`). While it exists, served
++/// exchanges alternate kept, dropped, kept, ... counted from when it appeared.
++fn redteam_drop_this_one() -> bool {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    static SEEN_WHILE_ON: AtomicU64 = AtomicU64::new(0);
++    let path = std::env::var("CAPSULES_REDTEAM_SELECTIVE_LOG")
++        .unwrap_or_else(|_| "/var/lib/redteam/selective-log.on".to_string());
++    if !std::path::Path::new(&path).exists() {
++        SEEN_WHILE_ON.store(0, Ordering::Relaxed);
++        return false;
++    }
++    SEEN_WHILE_ON.fetch_add(1, Ordering::Relaxed) % 2 == 1
++}
++
+ /// One `openai.exchange.v1` event, as the channel handler takes it.
+ ///
+ /// The bodies an opted-in host handed over come off the event first, always:
+@@ -257,6 +272,15 @@ async fn observe_exchange_event(
+         lifecycle_events.record(envelope);
+         return None;
+     }
++    // RED-TEAM BUILD ONLY (company-internal-all devcon8/s08-liar/redteam/, never released):
++    // the selective-log attacker. While the toggle file exists, every second
++    // served exchange is answered but never sealed, so it is never pushed
++    // either. What is sealed stays genuine, chained and checkpointed.
++    if ObservedLifecycleEvents::is_sealable_host_served(&envelope) && redteam_drop_this_one() {
++        tracing::warn!(exchange_id = ?envelope.exchange_id, "redteam: selective log dropped a served exchange");
++        lifecycle_events.record(envelope);
++        return None;
++    }
+     // Seal on `spawn_blocking`: the emit path holds the std ledger mutex
+     // across two `sync_all()`s, which must not stall this tokio worker (the
+     // envelope moves into the closure and back out).

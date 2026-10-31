@@ -1,0 +1,132 @@
+name: image
+
+# Builds the participant image natively for each architecture from versions.lock, runs the secret
+# scan (with its negative test) and the smoke tests, and on main publishes an immutable tag per
+# architecture plus a multi-arch manifest list:
+#   ghcr.io/action-state-group/devcon-workshop:YYYYMMDD-ml<mesh>-cap<capsules>-b<build>.<run>
+# Pull requests build and test only.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE: ghcr.io/action-state-group/devcon-workshop
+  PUBLISH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh build/fetch.sh
+      - name: mbx unit tests
+        run: python3 -I tests/test_mbx.py
+
+  meta:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag (one value for both architectures)
+        id: tag
+        run: |
+          . ./versions.lock
+          tag="$(date -u +%Y%m%d)-ml${MESH_LLM_SHA:0:7}-cap${CAPSULES_SHA:0:7}-b${GITHUB_SHA:0:7}.${GITHUB_RUN_NUMBER}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "tag: $tag"
+
+  build:
+    needs: [unit, meta]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk (the Rust builds and a 2.5 GB image do not fit the default runner disk)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force >/dev/null
+          df -h /
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          tags: devcon-workshop:ci
+          build-args: BUILD_REVISION=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+      - name: Size
+        run: |
+          bytes=$(docker image inspect devcon-workshop:ci --format '{{.Size}}')
+          echo "uncompressed: $(( bytes / 1024 / 1024 )) MiB"
+          [ "$bytes" -le $(( 3 * 1024 * 1024 * 1024 )) ] || { echo "over 3 GiB: review before shipping"; exit 1; }
+
+      - name: Secret scan (negative test first, then the image)
+        run: |
+          docker build -q -t dw-scan-neg tests/secret-scan
+          docker save dw-scan-neg -o /tmp/neg.tar
+          if python3 -I build/secret-scan.py /tmp/neg.tar; then echo "the scanner missed a deleted secret"; exit 1; fi
+          docker save devcon-workshop:ci -o /tmp/image.tar
+          python3 -I build/secret-scan.py /tmp/image.tar
+          rm -f /tmp/image.tar /tmp/neg.tar
+
+      - name: Smoke tests
+        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/smoke.sh
+
+      - name: Simulated payment seals on a test network
+        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-payment.sh
+
+      - name: Push the per-architecture tag
+        if: env.PUBLISH == 'true'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          ref="$IMAGE:${{ needs.meta.outputs.tag }}-${{ matrix.arch }}"
+          if docker manifest inspect "$ref" >/dev/null 2>&1; then echo "$ref already exists"; exit 1; fi
+          docker tag devcon-workshop:ci "$ref"
+          docker push "$ref"
+
+  manifest:
+    needs: [meta, build]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    steps:
+      - name: Multi-arch manifest list
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          tag="${{ needs.meta.outputs.tag }}"
+          if docker manifest inspect "$IMAGE:$tag" >/dev/null 2>&1; then echo "$IMAGE:$tag already exists"; exit 1; fi
+          docker buildx imagetools create -t "$IMAGE:$tag" "$IMAGE:$tag-amd64" "$IMAGE:$tag-arm64"
+          docker buildx imagetools inspect "$IMAGE:$tag" | tee /tmp/inspect
+          echo "### $IMAGE:$tag" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"; cat /tmp/inspect >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,1 @@
+{"scheme":"exact","network":"eip155:84532","amount":"500000","asset":"0x036cbd53842c5426634e7929541ec2318f3dcf7e","payTo":"0x0000000000000000000000000000000000005111","maxTimeoutSeconds":60,"extra":{"name":"USDC","version":"2","note":"SIMULATED: Devcon 8 workshop, Base Sepolia test network, no payment is made"}}

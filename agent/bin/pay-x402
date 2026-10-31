@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# pay-x402 <conversation> <amount-cents> <content-digest>: the buyer's x402 payment, SIMULATED.
+# No money moves. It writes the buyer's signed terms leg (what you pay, which content you expect) and
+# a recorded settle response that names Base Sepolia, a test network, and says it is simulated, into
+# ~/deals/<conversation>/outgoing/. Attach both to your accept:
+#   mbx reply <conversation> accept "<text>" '<constraints>' --attach <terms> --attach <settle>
+# Run it only after your user said yes to the payment.
+set -euo pipefail
+[ $# = 3 ] || { echo "usage: pay-x402 <conversation> <amount-cents> <content-digest-sha256-hex>" >&2; exit 2; }
+conv=$1 cents=$2 digest=$3
+[[ $conv =~ ^[A-Za-z0-9_-]{1,128}$ ]] || { echo "pay-x402: bad conversation id" >&2; exit 2; }
+[[ $cents =~ ^[0-9]{1,6}$ ]] || { echo "pay-x402: amount is whole cents" >&2; exit 2; }
+out=$HOME/deals/$conv/outgoing
+mkdir -p "$out" && chmod 700 "$HOME/deals/$conv" "$out"
+[ -e "$out/buyer-terms.json" ] && { echo "pay-x402: already paid in this conversation: $out" >&2; exit 1; }
+terms-leg -out "$out/buyer-terms.json" -amount "$(( cents * 10000 ))" -content-digest "$digest"
+cp /opt/devcon8/agent/fixtures/x402/settle.json "$out/settle.json"
+echo "SIMULATED x402 payment of $cents cents (Base Sepolia test USDC, no money moved)."
+echo "terms leg:       $out/buyer-terms.json"
+echo "settle response: $out/settle.json"

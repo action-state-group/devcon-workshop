@@ -1,0 +1,11 @@
+{
+  "name": "devcon-workshop-cli",
+  "private": true,
+  "description": "The agent CLIs and ACP adapters goose drives in the workshop image",
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.99.1",
+    "@agentclientprotocol/codex-acp": "2.5.0",
+    "@anthropic-ai/claude-code": "2.1.314",
+    "@openai/codex": "0.166.0"
+  }
+}
