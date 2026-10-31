@@ -24,10 +24,7 @@ for n in honest referee liar; do
   f=$(q8_path "$n"); blob=$S/$n/home/.cache/huggingface/hub/$HF_REPO_DIR/blobs/$Q8_SHA
   [ -e "$f" ] && continue
   mkdir -p "$(dirname "$f")" "$(dirname "$blob")"
-  # The image's models are read-only: honest and referee link to them; the liar gets a real copy,
-  # because 02-lie writes a padded Q4 file at its Q8 path.
-  if [ "$n" = liar ]; then [ -e "$blob" ] || cp "$S/models/$Q8_FILE" "$blob" || exit 1
-  else ln -sfn "$(readlink -f "$S/models/$Q8_FILE")" "$blob"; fi
+  [ -e "$blob" ] || cp -l "$S/models/$Q8_FILE" "$blob" || exit 1
   ln -sfn "../../blobs/$Q8_SHA" "$f"
   mkdir -p "$S/$n/home/.cache/huggingface/hub/$HF_REPO_DIR/refs" && echo -n "$HF_REV" > "$S/$n/home/.cache/huggingface/hub/$HF_REPO_DIR/refs/main"
 done
