@@ -1,0 +1,36 @@
+name: e2e-export
+
+# Exports a published image as a workflow artifact so it can be run on a machine that cannot pull the
+# private ghcr package. Temporary, for the Devcon 8 end-to-end tests; delete once the package is public.
+# Runs on pull requests that touch this file only.
+
+on:
+  pull_request:
+    paths: ['.github/workflows/e2e-export.yml']
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  TAG: 20261031-mle877a45-cap0.1.7-b2ea1274.43
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Pull the arm64 image and save it
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          ref="ghcr.io/action-state-group/devcon-workshop:${TAG}-arm64"
+          docker pull "$ref"
+          docker image inspect "$ref" --format '{{.Id}} {{.Architecture}}'
+          docker save "$ref" | gzip -1 > /tmp/devcon-arm64.tar.gz
+          ls -l /tmp/devcon-arm64.tar.gz
+          sha256sum /tmp/devcon-arm64.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: devcon-arm64
+          path: /tmp/devcon-arm64.tar.gz
+          retention-days: 1
+          compression-level: 0
