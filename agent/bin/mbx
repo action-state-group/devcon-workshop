@@ -111,10 +111,11 @@ REASONS = {"name_not_allowed", "size", "sha256_mismatch", "not_a_png", "not_json
 
 
 def png_ok(raw, max_side=1024):
-    """A whole PNG: signature, an IHDR of sane size, every chunk's CRC, image data, and IEND last."""
+    """A whole, decodable PNG: signature, an IHDR of sane size (not interlaced), every chunk's CRC,
+    IEND last, and IDAT data that inflates to exactly the scanlines the IHDR implies."""
     if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
         return False
-    i, seen = 8, []
+    i, seen, idat, expect = 8, [], b"", 0
     while i + 12 <= len(raw):
         n = int.from_bytes(raw[i:i + 4], "big")
         kind, data = raw[i + 4:i + 8], raw[i + 8:i + 8 + n]
@@ -124,13 +125,27 @@ def png_ok(raw, max_side=1024):
             return False
         seen.append(kind)
         if kind == b"IHDR":
-            w, h = int.from_bytes(data[0:4], "big"), int.from_bytes(data[4:8], "big")
-            if n != 13 or not (0 < w <= max_side and 0 < h <= max_side):
+            if n != 13:
                 return False
+            w, h = int.from_bytes(data[0:4], "big"), int.from_bytes(data[4:8], "big")
+            depth, color, interlace = data[8], data[9], data[12]
+            channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}.get(color)
+            if not (0 < w <= max_side and 0 < h <= max_side) or channels is None or depth not in (1, 2, 4, 8, 16) or interlace:
+                return False
+            expect = h * (1 + (w * channels * depth + 7) // 8)
+        elif kind == b"IDAT":
+            idat += data
         i += 12 + n
         if kind == b"IEND":
             break
-    return bool(seen) and seen[0] == b"IHDR" and b"IDAT" in seen and seen[-1] == b"IEND" and i == len(raw)
+    if not (seen and seen[0] == b"IHDR" and b"IDAT" in seen and seen[-1] == b"IEND" and i == len(raw)):
+        return False
+    try:
+        d = zlib.decompressobj()
+        pixels = d.decompress(idat, expect + 1)
+        return len(pixels) == expect and d.eof and not d.unconsumed_tail
+    except zlib.error:
+        return False
 
 
 def save_files(conv, kind, files):
@@ -139,6 +154,8 @@ def save_files(conv, kind, files):
     allowed = ATTACH.get(kind, set())
     for f in files if isinstance(files, list) else []:
         name = f.get("name") if isinstance(f, dict) else None
+        if not isinstance(name, str):
+            name = None
         try:
             if name not in allowed:
                 raise ValueError("name_not_allowed")

@@ -71,11 +71,16 @@ TXT
   r=$(curl -fsS -X POST "$BASE/api/agent/mailboxes" -H 'Content-Type: application/json' -d "$body") || die "mailbox creation failed (try again in a minute)"
   (umask 077; jq -r .token <<<"$r" > "$A/key"; jq '{id: .mailbox.id, address: .mailbox.emailAddress, existing: (.existing // false)}' <<<"$r" > "$A/mailbox.json")
   if [ ! -s "$A/key" ] || [ "$(cat "$A/key")" = null ]; then rm -f "$A/key"; die "the gateway returned no key"; fi
-  [ "$(jq -r .existing "$A/mailbox.json")" = true ] && echo "This email already has a mailbox; you are joining it as another assistant."
+  existing=$(jq -r .existing "$A/mailbox.json")
   echo "Your agent's address: $(jq -r .address "$A/mailbox.json"). A six-digit code went to $(jq -r .codeSentTo <<<"$r")."
 fi
 id=$(jq -r .id "$A/mailbox.json")
 auth=(-H "Authorization: Bearer $(cat "$A/key")")
+# A rerun after 'rm -r ~/.devcon8/agentbox' joins the existing mailbox as another assistant, off duty
+# (SKILL.md rule 4); this agent is the one that answers, so it takes the duty once verified.
+if [ "${existing:-false}" = true ]; then
+  echo "This email already has a mailbox; this agent takes it over once you enter the code."
+fi
 verified() { [ "$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.mailbox.verified // .verified // false')" = true ]; }
 if ! verified; then
   for _ in 1 2 3 4 5; do
@@ -84,22 +89,25 @@ if ! verified; then
     [ "$(jq -r '.verified // false' <<<"$out")" = true ] && break
     echo "Not accepted: $(jq -r '.error.code // .error // .message // "unknown"' <<<"$out" | head -c 80)"
   done
-  verified || die "the mailbox is not verified; rerun 'devcon8 nanda $email' for a fresh code"
+  verified || die "the mailbox is not verified. For a new code: rm -r ~/.devcon8/agentbox, then 'devcon8 nanda $email' again"
+  if [ "${existing:-false}" = true ]; then
+    curl -fsS -X POST "${auth[@]}" "$BASE/api/agent/mailboxes/$id/duty" >/dev/null || warn "could not take the mailbox's duty; another assistant still answers"
+  fi
 fi
 addr=$(jq -r .address "$A/mailbox.json")
 if [ "$(listed "$addr")" != active ]; then
   curl -fsS -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{"mode":"auto"}' "$BASE/api/agent/mailboxes/$id/nanda" >/dev/null || true
-  since=$(inbox_seq)
   echo "Registering in the NANDA Index (up to 10 minutes)..."
   for i in $(seq 20); do
     [ "$(listed "$addr")" = active ] && break
     # The gateway should follow the Index's two verification emails itself. On 10-31 it did not, so
     # after two minutes this step completes them from the mailbox, as the gateway would.
     if [ "$i" -ge 4 ]; then
-      # The account mail may predate this run (an earlier, unfinished signup), so it is read from 0.
+      # Both mails may predate this run (an earlier, unfinished signup), so both are read from the
+      # start of the mailbox; nanda_mail takes the newest match.
       t=$(nanda_mail 'verify your nanda index account' 0)
       if [ -n "$t" ]; then curl -fsS -X POST "$INDEX/auth/verify-account" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$t" '{token:$t}')" >/dev/null 2>&1 || true; fi
-      t=$(nanda_mail 'verify your nanda index registration' "$since")
+      t=$(nanda_mail 'verify your nanda index registration' 0)
       if [ -n "$t" ]; then curl -fsS -X POST "$INDEX/api/v1/verify-email" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$t" '{token:$t}')" >/dev/null 2>&1 || true; fi
     fi
     sleep 30

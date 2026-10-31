@@ -46,6 +46,8 @@ join_mesh() {
     (umask 077; printf '%s\n' "$tok" > "$ST/join.txt")
   fi
   node_start
+  local model code
+  model=$(wait_model) || die "your node sees no model on the mesh yet; check 'devcon8 node log'"
   # The question is asked only under free-only: with another policy it could spend real sats.
   local policy; policy=$("$MESH" wallet policy 2>&1 || true)
   if [ "$(jq -r '.mode // empty' <<<"$policy" 2>/dev/null)" != free_only ]; then
@@ -55,8 +57,6 @@ join_mesh() {
     return 0
   fi
   echo "Asking the demo mesh one question (your node's wallet policy is free-only)..."
-  local model code
-  model=$(wait_model) || die "your node sees no model on the mesh yet; check 'devcon8 node log'"
   code=$(curl -sS -o "$ST/join-reply.json" -w '%{http_code}' -m 180 http://127.0.0.1:9337/v1/chat/completions \
     -H 'Content-Type: application/json' \
     -d "$(jq -nc --arg m "$model" '{model:$m,max_tokens:40,messages:[{role:"user",content:"Say hello to Devcon 8 in one short sentence."}]}')" || true)

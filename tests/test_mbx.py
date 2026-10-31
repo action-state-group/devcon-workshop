@@ -2,7 +2,7 @@
 
 Run: python3 -I tests/test_mbx.py   (no network; the gateway is never called)
 """
-import base64, hashlib, importlib.machinery, importlib.util, json, os, sys, tempfile, unittest
+import base64, hashlib, importlib.machinery, importlib.util, json, os, sys, tempfile, unittest, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 loader = importlib.machinery.SourceFileLoader("mbx", os.path.join(HERE, "..", "agent", "bin", "mbx"))
@@ -74,8 +74,16 @@ class Mbx(unittest.TestCase):
     def test_refused_files(self):
         svg = b'<svg onload="alert(1)"/>'
         bad_crc = bytearray(PNG); bad_crc[-5] ^= 1
+
+        def png(ihdr, idat):
+            ch = lambda k, d: len(d).to_bytes(4, "big") + k + d + zlib.crc32(k + d).to_bytes(4, "big")
+            return b"\x89PNG\r\n\x1a\n" + ch(b"IHDR", ihdr) + ch(b"IDAT", idat) + ch(b"IEND", b"")
+        ihdr = (2).to_bytes(4, "big") * 2 + bytes([8, 6, 0, 0, 0])
         cases = {
             "signature only": attach("sticker.png", PNG[:8]),
+            "empty IDAT": attach("sticker.png", png(ihdr, b"")),
+            "bad deflate": attach("sticker.png", png(ihdr, b"not deflate")),
+            "short pixels": attach("sticker.png", png(ihdr, zlib.compress(b"\x00" * 5))),
             "bad crc": attach("sticker.png", bytes(bad_crc)),
             "truncated": attach("sticker.png", PNG[:-12]),
             "svg name": attach("sticker.svg", svg),
@@ -92,6 +100,11 @@ class Mbx(unittest.TestCase):
             self.assertEqual(len(out["files_refused"]), 1, label)
             self.assertNotIn("<svg", json.dumps(out), label)
         self.assertFalse(os.path.exists(os.path.join(self.tmp.name, "sticker.png")))
+
+    def test_non_string_names_refused_without_crash(self):
+        for name in ([], {}, 7, None):
+            out = mbx.parse(self.msg("confirm", {"files": [{"name": name, "b64": "", "size": 0, "sha256": ""}]}))
+            self.assertEqual(out["files_refused"], [{"name": "(other)", "reason": "name_not_allowed"}], name)
 
     def test_accept_saves_terms_and_settle(self):
         out = mbx.parse(self.msg("accept", {"paid": True, "files": [attach("buyer-terms.json", b'{"a":1}'),

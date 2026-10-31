@@ -14,7 +14,7 @@ setup() {
   # hard-link (01-start.sh) must be a real file on this volume: one 0.7 GB copy.
   [ -L "$S/models" ] && rm "$S/models"
   mkdir -p "$S/models"
-  [ -f "$S/models/$Q8" ] || { echo "copying the Q8_0 model to the volume (0.7 GB, once)..."; cp "$D/models/$Q8" "$S/models/$Q8.part" && mv "$S/models/$Q8.part" "$S/models/$Q8"; }
+  [ -f "$S/models/$Q8" ] || { echo "copying the Q8_0 model to the volume (0.7 GB, once)..." >&2; cp "$D/models/$Q8" "$S/models/$Q8.part" && mv "$S/models/$Q8.part" "$S/models/$Q8"; }
   ln -sfn "$D/models/$Q4" "$S/models/$Q4"
   echo "S08 is set up in $S. Next: devcon8 s08 start (up to a few minutes per node on a laptop CPU)."
 }
