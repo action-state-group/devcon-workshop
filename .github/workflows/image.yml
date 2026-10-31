@@ -104,7 +104,7 @@ jobs:
 
       - name: Secret scan (negative test first, then the image)
         run: |
-          for neg in Dockerfile env.Dockerfile; do
+          for neg in Dockerfile env.Dockerfile key.Dockerfile; do
             docker build -q -t dw-scan-neg -f "tests/secret-scan/$neg" tests/secret-scan
             docker save dw-scan-neg -o /tmp/neg.tar
             if python3 -I build/secret-scan.py /tmp/neg.tar; then echo "the scanner missed the secret in $neg"; exit 1; fi

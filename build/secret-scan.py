@@ -37,7 +37,10 @@ def scan(path):
                     if base in NAMES:
                         bad.append(f"{layer}: {ti.name}")
                     if ti.isfile() and 0 < ti.size < (1 << 20) and not ti.name.startswith(VENDORED):
-                        if KEY.search(lt.extractfile(ti).read()):
+                        data = lt.extractfile(ti).read()
+                        # A key file is text; a binary that names the PEM header as a parser
+                        # constant (libssh does) holds no key.
+                        if b"\0" not in data and KEY.search(data):
                             bad.append(f"{layer}: {ti.name} holds a private key")
     return bad
 
