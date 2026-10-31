@@ -7,7 +7,7 @@ cd "$(dirname "$0")" || exit 1; . ./env.sh
 # Never start a second cast on top of a running one (two runs on the same box collide).
 # The lock is held for this run, and by the nodes it starts, which inherit it.
 exec 9>"$S/.01-start.lock"
-nodes=$(pgrep -u "$(id -u)" -f "$S/bin/mesh-llm serve")
+nodes=$(pgrep -u "$(id -u)" -f "$S/bin[^/ ]*/mesh-llm serve")
 if ! flock -n 9 || [ -n "$nodes" ] || ss -ltn | grep -qE ':96(0[1-4]|1[1-4]) '; then
   echo "refusing: another 01-start.sh or a demo node is already running on this box:"
   [ -n "$nodes" ] && ps -o pid,lstart,args -p "$(echo "$nodes" | paste -sd, -)" | cut -c1-120
@@ -40,13 +40,19 @@ for n in liar referee; do ./node.sh start "$n" || exit 1; done
 for n in liar referee; do wait_up "$n" || exit 1; done
 for n in honest liar referee; do ./node.sh ident "$n" || { echo "could not identify $n"; exit 1; }; done
 
-# Tell the referee and the asker which key each node signs with (mesh-llm 0.78 announces none).
+# Tell the referee and the asker which key each node signs with (CAPSULES_PEER_KEYS, beside what the host announces).
 keys=$(for n in honest liar referee; do read -r id key < "$S/$n/ident"; printf '"%s":"%s",' "$id" "$key"; done)
 printf "export CAPSULES_PEER_KEYS='{%s}'\n" "${keys%,}" > "$S/referee/env"
 cp "$S/referee/env" "$S/asker/env" 2>/dev/null || { mkdir -p "$S/asker"; cp "$S/referee/env" "$S/asker/env"; }
 echo "export CAPSULES_ADJUDICATE_DIFFERING_TWINS=on   # ask a referee when two twins disagree" >> "$S/asker/env"
 ./node.sh stop referee && ./node.sh start referee && wait_up referee || exit 1
 ./node.sh start asker && wait_up asker && ./node.sh ident asker || exit 1
+# The liar answers the asker's signed evidence requests (step 8). It needs the asker's key under the
+# id its records name the asker by, which is not the id the host announces that key under, so it
+# gets every key here and restarts once.
+keys=$(for n in honest liar referee asker; do read -r id key < "$S/$n/ident"; printf '"%s":"%s",' "$id" "$key"; done)
+printf "export CAPSULES_PEER_KEYS='{%s}'\n" "${keys%,}" > "$S/liar/env"
+./node.sh stop liar && ./node.sh start liar && wait_up liar || exit 1
 
 echo
 echo "The mesh, as the asker sees it:"

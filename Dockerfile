@@ -49,25 +49,25 @@ RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.carg
     && find dist/native-runtimes -mindepth 1 -maxdepth 1 -type d -exec cp -a {} /out/bin/native-runtimes/ \; \
     && /out/bin/mesh-llm --version | tee /out/version
 
-# --- s08's liar plugin: capsules 0.1.5 plus selective-log.patch -----------------------------------
+# --- s08's liar plugin: capsules 0.1.6 plus selective-log.patch -----------------------------------
 FROM toolchain AS redteam
 ARG TARGETARCH
 COPY demos/s08-liar/redteam/selective-log.patch /src/selective-log.patch
-COPY --from=fetch /fetch/opt/s08/dist/ /release/
+COPY --from=fetch /fetch/opt/mesh/plugins/ /release/
 RUN . /src/versions.lock && git clone --filter=blob:none "$CAPSULES_REPO" /build/capsules \
-    && git -C /build/capsules checkout --detach "$S08_CAPSULES_SHA" && git -C /build/capsules apply /src/selective-log.patch
+    && git -C /build/capsules checkout --detach "$CAPSULES_COMMIT" && git -C /build/capsules apply /src/selective-log.patch
 WORKDIR /build/capsules/crates/evidence-plugin
 RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry \
     . /src/versions.lock \
     && case "$TARGETARCH" in amd64) triple=x86_64-unknown-linux-gnu;; arm64) triple=aarch64-unknown-linux-gnu;; esac \
     && cargo build --locked --release --bin capsules \
-    && mkdir /pkg && tar -xzf "/release/capsules-$S08_CAPSULES_VERSION-$triple.tar.gz" -C /pkg \
+    && mkdir /pkg && tar -xzf "/release/capsules-$CAPSULES_VERSION-$triple.tar.gz" -C /pkg \
     && cp target/release/capsules /pkg/capsules/capsules && chmod 755 /pkg/capsules/capsules \
     && touch -r /pkg/capsules/plugin.toml /pkg/capsules/capsules \
     && [ "$(/pkg/capsules/capsules --print-package-manifest | jq -S .)" = "$(jq -S . /pkg/capsules/plugin-manifest.json)" ] \
     && mkdir -p /out \
     && (cd /pkg && tar --sort=name --format=ustar --owner=0 --group=0 --numeric-owner -cf - capsules) \
-       | gzip -n -9 > "/out/capsules-$S08_CAPSULES_VERSION-selective-log-$triple.tar.gz"
+       | gzip -n -9 > "/out/capsules-$CAPSULES_VERSION-selective-log-$triple.tar.gz"
 
 # --- npm CLIs (claude, codex and their ACP adapters) ----------------------------------------------
 FROM ${BASE} AS npm
@@ -84,6 +84,9 @@ COPY --from=fetch /fetch/opt/go /usr/local/go
 ENV PATH=/usr/local/go/bin:$PATH CGO_ENABLED=0 GOFLAGS=-trimpath GOTOOLCHAIN=local
 COPY examples/ /src/examples/
 RUN cd /src/examples/go-seal && go mod download && go mod vendor && go build -mod=vendor -o /out/go-seal .
+# s08 step 8's reconcile tool (demos/s08-liar/reconcile).
+COPY demos/s08-liar/reconcile/ /src/reconcile/
+RUN cd /src/reconcile && go build -o /out/reconcile-asked .
 # capsulectl and capsulectl-deal from source (versions.lock), stamped with one core version.
 COPY versions.lock /src/versions.lock
 RUN . /src/versions.lock && mkdir -p /out/skills \
@@ -112,11 +115,11 @@ COPY --from=fetch /fetch/opt/bin/ $D/bin/
 COPY --from=fetch /fetch/opt/node/ $D/node/
 COPY --from=fetch /fetch/opt/go/ $D/go/
 COPY --from=fetch /fetch/opt/mesh/plugins/ $D/mesh/plugins/
-COPY --from=fetch /fetch/opt/s08/ $D/s08/
 COPY --from=fetch /fetch/opt/models/ $D/models/
 COPY --from=mesh /out/bin/ $D/mesh/bin/
 COPY --from=fetch /fetch/opt/mesh/capsules.version $D/mesh/capsules.version
 COPY --from=redteam /out/ $D/s08/dist/
+COPY --from=gobuild /out/reconcile-asked $D/s08/bin-tools/reconcile-asked
 COPY --from=npm /opt/devcon8/npm/ $D/npm/
 COPY --from=gobuild /src/examples/go-seal/ $D/examples/go-seal/
 COPY --from=gobuild /out/go-seal $D/bin/go-seal
@@ -135,6 +138,8 @@ COPY tests/smoke.sh tests/sim-payment.sh $D/tests/
 # claude: the Claude Code CLI that claude-agent-acp's SDK bundles, so it ships once (package.json).
 RUN case "$TARGETARCH" in amd64) a=x64;; arm64) a=arm64;; esac \
     && ln -s "$D/npm/node_modules/@anthropic-ai/claude-agent-sdk-linux-$a/claude" $D/bin/claude
+# s08's dist/ holds the capsules release archive beside the liar's patched one.
+RUN ln -s "$(ls $D/mesh/plugins/capsules-*-unknown-linux-gnu.tar.gz)" $D/s08/dist/
 RUN chmod -R a+rX $D \
     && { echo "build_revision=$BUILD_REVISION"; echo "arch=$TARGETARCH"; \
          echo "mesh_llm=$($D/mesh/bin/mesh-llm --version)"; \

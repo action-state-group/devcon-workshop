@@ -17,14 +17,18 @@ start() {
   export CAPSULES_OPENAI_API_URL
   export CAPSULES_SHARE_RECORD_AT_COMPLETION=counterparty          # push each signed half to the other side
   [ -f "$N/env" ] && . "$N/env"                                     # peer keys, written by 01-start.sh
-  local archive=$CAPSULES_ARCHIVE
+  local archive=$CAPSULES_ARCHIVE bin=$MESH_LLM
   if [ "$NAME" = liar ]; then archive=$CAPSULES_RED_ARCHIVE; export CAPSULES_REDTEAM_SELECTIVE_LOG=$OMIT_TOGGLE; fi
   if mine "$(cat "$N/logs/node.pid" 2>/dev/null)"; then echo "$NAME already running"; return 0; fi
-  # .installed holds the sha256 of the plugin archive installed, so a node whose archive changed reinstalls.
-  local want; want=$(sha256sum < "$archive" | cut -d' ' -f1) || { echo "missing $archive"; return 1; }
+  # .installed holds the sha256 of the plugin archive and of the binary, so a node whose archive or
+  # binary changed reinstalls (each binary installs its own native runtime).
+  local want; want=$(cat "$archive" "$bin" | sha256sum | cut -d' ' -f1) || { echo "missing $archive or $bin"; return 1; }
   if [ "$(cat "$N/.installed" 2>/dev/null)" != "$want" ]; then
-    { "$MESH_LLM" runtime install --bundle-dir "$S/bin/native-runtimes" \
-      && "$MESH_LLM" plugins install --archive "$archive" --name capsules --version 0.1.5; } \
+    # A different build's runtime can carry the same version label with other bytes; mesh-llm then
+    # refuses the install ("runtime cache collision"). This node's own cache only, rebuilt below.
+    rm -rf "$N/home/.cache/mesh-llm/native-runtimes"
+    { "$bin" runtime install --bundle-dir "$(dirname "$bin")/native-runtimes" \
+      && "$bin" plugins install --archive "$archive" --name capsules --version "$CAPSULES_VERSION"; } \
       > "$N/logs/install.log" 2>&1 && echo "$want" > "$N/.installed" || { echo "install failed:"; tail -5 "$N/logs/install.log"; return 1; }
   fi
   [ -f "$N/config.toml" ] || printf 'version = 1\n\n[analytics]\nenabled = false\n\n[[plugin]]\nname = "capsules"\nenabled = true\n' > "$N/config.toml"
@@ -32,7 +36,7 @@ start() {
   [ -s "$S/join.txt" ] && [ "$NAME" != honest ] && args+=(--join-file "$S/join.txt")
   if [ "$NAME" = asker ]; then args+=(--client); else args+=(--model "$MODEL_REF"); fi
   cd "$N" || return 1
-  nohup "$MESH_LLM" serve "${args[@]}" > "$N/logs/node.log" 2>&1 < /dev/null &
+  nohup "$bin" serve "${args[@]}" > "$N/logs/node.log" 2>&1 < /dev/null &
   echo $! > "$N/logs/node.pid"
   echo "$NAME started (api $(api "$NAME"), console $(console "$NAME"))"
 }

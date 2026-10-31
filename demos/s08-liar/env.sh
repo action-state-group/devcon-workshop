@@ -8,13 +8,24 @@
 #   asker    serves nothing; asks both, then asks a referee         api 9604  console 9614
 # None of them is Shockley (the box's own node, with its wallet), and none has a wallet.
 
-S=${DEVCON8_S08:-$HOME/s08-liar}   # in the workshop image: on the participant volume (devcon8 s08 setup links bin, dist, models)
+S=${DEVCON8_S08:-$HOME/s08-liar}   # in the workshop image: on the participant volume (devcon8 s08 setup links bin-lab, bin-tools, dist, models)
 export DO_NOT_TRACK=1   # mesh-llm sends no usage reports from any demo node (installs included)
-MESH_LLM=$S/bin/mesh-llm                                   # mesh-llm v0.78.1, the release build
-CAPSULES_ARCHIVE=$S/dist/capsules-0.1.5-$(uname -m)-unknown-linux-gnu.tar.gz   # capsules 0.1.5, the release
-# The liar alone runs 0.1.5 plus redteam/selective-log.patch (built by the image's Dockerfile, never released).
+# All four run the same builds attendees install (#33), and so do Brattain and Shockley: the
+# unreleased mesh-llm lab build 3ffa5c4f1 (mesh-llm main 61e2acfb9 plus Mesh-LLM/mesh-llm#2620,
+# #2649, #2719 and #2721; its host announces each node's plugin key, plugin_keys.v1, #2299, which
+# step 8 needs), published as the pre-release action-state-group/devcon-workshop
+# mesh-llm-lab-3ffa5c4f1 (a lab build, not an official mesh-llm release), and
+# capsules 0.1.6, which accepts a signed request by the key that signed it
+# (Mesh-LLM/capsules-plugin#77).
+MESH_SOURCE=3ffa5c4f1d7d162c964fc7fb24937c7ed5a12301
+MESH_VERSION=mesh-llm-lab-3ffa5c4f1   # the devcon-workshop pre-release tag; the binary says 0.78.0
+MESH_LLM=$S/bin-lab/mesh-llm                              # the release tarball's mesh-bundle/, extracted
+CAPSULES_VERSION=0.1.6
+CAPSULES_ARCHIVE=$S/dist/capsules-0.1.6-$(uname -m)-unknown-linux-gnu.tar.gz   # capsules 0.1.6, the release
+# The liar alone runs capsules plus redteam/selective-log.patch (built by the image's Dockerfile, never released).
 # It behaves exactly like the release until OMIT_TOGGLE exists; then it seals every second exchange it serves.
-CAPSULES_RED_ARCHIVE=$S/dist/capsules-0.1.5-selective-log-$(uname -m)-unknown-linux-gnu.tar.gz
+CAPSULES_RED_ARCHIVE=$S/dist/capsules-0.1.6-selective-log-$(uname -m)-unknown-linux-gnu.tar.gz
+RECONCILE=$S/bin-tools/reconcile-asked   # reconcile/, built against evidencebook (step 8)
 OMIT_TOGGLE=$S/liar/selective-log.on
 
 MODEL_REF=Qwen/Qwen2.5-0.5B-Instruct-GGUF:Q8_0             # what every server says it serves

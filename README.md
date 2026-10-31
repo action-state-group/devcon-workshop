@@ -84,10 +84,12 @@ on the command line.
 ### 5. `devcon8 s08 <step>`: catch a lying node
 
 Four nodes on a private mesh inside your container (it never touches the demo mesh): an honest node, a
-referee, a liar and an asker. Steps, in order: `start` (a few minutes per node on a laptop CPU), `lie`,
-`twins`, `referee`, `show`, then the second hack, `omit` and `count`, and `stop` when done. The asker's
-Evidence page is http://127.0.0.1:9614/plugins/capsules/evidence. S08 runs on the release pair it was
-rehearsed on: mesh-llm v0.78.1 and capsules 0.1.5.
+referee, a liar and an asker, all on the same mesh-llm and capsules as the demo mesh. Steps, in order:
+`start` (a few minutes per node on a laptop CPU), `lie`, `twins`, `referee`, `show`, then the second hack,
+`omit` and `count`, then step 8, `ask`, the omission found by a signed evidence request; `stop` when done.
+The asker's Evidence page is http://127.0.0.1:9614/plugins/capsules/evidence. On an arm64 laptop the
+two models write the same ocean haiku, so `twins` asks "Name three colors." by default; pass another
+question as `devcon8 s08 twins "<question>"`.
 
 ### 6. `devcon8 nanda <email>`: your agent's mailbox
 
@@ -183,7 +185,7 @@ your laptop instead? The same lab commit is published as the release
 | mesh-llm | lab branch `lab/asg-2026-10-30` of `ethanyzhang/mesh-llm` at `3ffa5c4`: Mesh-LLM/mesh-llm main `61e2acf` plus open PRs [#2620](https://github.com/Mesh-LLM/mesh-llm/pull/2620), [#2649](https://github.com/Mesh-LLM/mesh-llm/pull/2649), [#2719](https://github.com/Mesh-LLM/mesh-llm/pull/2719) and [#2721](https://github.com/Mesh-LLM/mesh-llm/pull/2721). CPU runtime |
 | capsules plugin | `v0.1.6` |
 | lexe-wallet plugin | Mesh-LLM/lexe-wallet-plugin v0.1.0 |
-| S08 pair | mesh-llm v0.78.1, capsules 0.1.5 (the liar: 0.1.5 plus `demos/s08-liar/redteam/selective-log.patch`) |
+| S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.6 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook `d816461` |
 | capsulectl, capsulectl-deal | built from source: evidencebook-deal `5719e84` (with `capsulectl deal terms-leg`) and the capsule-cli commit its go.mod names |
 | goose, Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
 | evidencebook Go SDK | v0.10.0, Go 1.27 |

@@ -10,7 +10,12 @@ fail() { echo "FAIL $*" >&2; exit 1; }
 . "$D/versions.lock"
 # A release build prints the plain workspace version, no commit suffix (asg-lab-rebuild 2.4).
 v=$("$D/mesh/bin/mesh-llm" --version); [ "$v" = "mesh-llm $MESH_LLM_VERSION" ] || fail "mesh-llm version: $v"; ok "$v (lab ${MESH_LLM_SHA:0:9})"
-"$D/s08/bin/mesh-llm" --version | grep -q '0\.78\.1' || fail "s08 mesh-llm is not v0.78.1"; ok "s08 mesh-llm v0.78.1"
+# S08: the liar's patched plugin and the release one side by side, and step 8's reconcile tool.
+for a in "$D"/s08/dist/capsules-"$CAPSULES_VERSION"-*-unknown-linux-gnu.tar.gz "$D"/s08/dist/capsules-"$CAPSULES_VERSION"-selective-log-*-unknown-linux-gnu.tar.gz; do
+  tar -tzf "$a" >/dev/null 2>&1 || fail "s08 archive missing or broken: $a"
+done
+[ -x "$D/s08/bin-tools/reconcile-asked" ] || fail "s08 reconcile tool missing"
+ok "s08: capsules $CAPSULES_VERSION, its selective-log build, reconcile-asked"
 
 # 2. capsules and lexe-wallet load under the lab host, in a throwaway HOME with nothing shared.
 T=$(mktemp -d /tmp/dw-XXXXXX)

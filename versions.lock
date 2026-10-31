@@ -18,17 +18,10 @@ CAPSULES_SHA256_ARM64=b47526ad2ea54c23db78958f434feed27d8649fc82c0f7c7466b279708
 CAPSULES_REPO=https://github.com/Mesh-LLM/capsules-plugin
 RUST_TOOLCHAIN=1.97.1
 
-# s08-liar runs on the release pair it was dry-run on (company-internal-all devcon8/s08-liar/DRYRUN.md):
-# mesh-llm v0.78.1 and capsules 0.1.5, plus the liar's capsules 0.1.5 + selective-log.patch built
-# here from the 0.1.5 tag.
-S08_MESH_LLM_VERSION=v0.78.1
-S08_MESH_LLM_SHA256_AMD64=6d9a0854826d034837ca77de70902ebb3e8591a0d8506ad3a037d907a206c1ee
-S08_MESH_LLM_SHA256_ARM64=1875350856c2b22bf0d809dd0fdb7dda4222a0539617ab4bd59ca9ef991c2593
-S08_CAPSULES_VERSION=0.1.5
-S08_CAPSULES_SHA=5c53ea2441f54c60c87f300af678286a2e12c8fe
-S08_CAPSULES_SHA256_AMD64=ab6418ac15bff1bdf9de02c981fd0414694f6be7a27f4288032e560f2a636d1a
-S08_CAPSULES_SHA256_ARM64=991e4256e29e0bf72629b290333af9fec87a923c51dd8b3eba6f70bb255b34cf
-
+# s08-liar (company-internal-all 9c6bc847) runs all four nodes on the mesh-llm and capsules above.
+# The liar's plugin is capsules 0.1.6 plus demos/s08-liar/redteam/selective-log.patch, built here
+# from CAPSULES_COMMIT; step 8's reconcile tool is built from demos/s08-liar/reconcile (its go.mod
+# pins evidencebook d8164613).
 # lexe-wallet plugin
 LEXE_VERSION=v0.1.0
 LEXE_SHA256_AMD64=e565454cd5b8c8daf7e3091c1bffb9a30b205156c2a69cbe8c2c6f8f13589d64
