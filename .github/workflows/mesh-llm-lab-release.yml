@@ -22,13 +22,13 @@ on:
         default: ethanyzhang/mesh-llm
       mesh_commit:
         description: Full commit SHA of the lab build
-        default: 3ffa5c4f1d7d162c964fc7fb24937c7ed5a12301
+        default: e877a45df949721cdffa2dcb3c9885e649fdadf6
       version:
         description: Version the binary reports (release-bundle checks it)
         default: v0.78.0
       release_tag:
         description: Pre-release in this repository to upload to
-        default: mesh-llm-lab-3ffa5c4f1
+        default: mesh-llm-lab-e877a45df
 
 permissions:
   contents: read
@@ -60,7 +60,7 @@ jobs:
             target: aarch64-apple-darwin
     env:
       MESH_REPO: ${{ inputs.mesh_repo || 'ethanyzhang/mesh-llm' }}
-      MESH_COMMIT: ${{ inputs.mesh_commit || '3ffa5c4f1d7d162c964fc7fb24937c7ed5a12301' }}
+      MESH_COMMIT: ${{ inputs.mesh_commit || 'e877a45df949721cdffa2dcb3c9885e649fdadf6' }}
       VERSION: ${{ inputs.version || 'v0.78.0' }}
       RECIPE: ${{ matrix.recipe }}
       TARGET: ${{ matrix.target }}
@@ -75,7 +75,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           repository: ${{ inputs.mesh_repo || 'ethanyzhang/mesh-llm' }}
-          ref: ${{ inputs.mesh_commit || '3ffa5c4f1d7d162c964fc7fb24937c7ed5a12301' }}
+          ref: ${{ inputs.mesh_commit || 'e877a45df949721cdffa2dcb3c9885e649fdadf6' }}
           persist-credentials: false
           submodules: recursive
 
