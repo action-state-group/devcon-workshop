@@ -175,10 +175,23 @@ Every component is pinned in [`versions.lock`](versions.lock), by commit or by r
 for both architectures, from the lab commit the demo nodes run, so its bytes are not the demo nodes'
 own; the plugins are their published release files, checked by sha256. The image labels name both
 commits (`dev.actionstate.mesh-llm` = `e877a45df949721cdffa2dcb3c9885e649fdadf6`,
-`dev.actionstate.capsules` = `0.1.7 b482749abd2fea11d45c18e41c6466f657605dba`). Installing mesh-llm on
-your laptop instead? The same lab commit is published as the release
-[mesh-llm-lab-e877a45df](https://github.com/action-state-group/devcon-workshop/releases/tag/mesh-llm-lab-e877a45df)
-(not an official mesh-llm release); the image is built from that commit, not from those files.
+`dev.actionstate.capsules` = `0.1.7 b482749abd2fea11d45c18e41c6466f657605dba`), and
+`/opt/devcon8/MANIFEST` gives the sha256 of the image's own mesh-llm.
+
+This mesh-llm is a **pre-release lab build, not an official mesh-llm release**. Its
+`mesh-llm --version` prints `mesh-llm 0.78.0`, the same string as the official 0.78.0 release, so
+the version does not tell them apart; the commit and the sha256 do. Installing it on your laptop
+instead? The same commit is published, built by this repository's
+`.github/workflows/mesh-llm-lab-release.yml`, as the pre-release
+[mesh-llm-lab-e877a45df](https://github.com/action-state-group/devcon-workshop/releases/tag/mesh-llm-lab-e877a45df):
+
+| tarball | sha256 |
+|---|---|
+| `mesh-llm-x86_64-unknown-linux-gnu.tar.gz` | `dab66a3a42b1aa4ae0275871bbf9a8a8b27cdf9b1a945f5e7674535f9e48edab` |
+| `mesh-llm-aarch64-unknown-linux-gnu.tar.gz` | `dfddb45968d73e2f667a9d1daba4d5d8e7ee6d1a9be0b376c149da1d693727c2` |
+| `mesh-llm-aarch64-apple-darwin.tar.gz` | `39426c7ec054e09d5ffcf2bbf5be7c1519a8b42367c731619b96da2bbd9cf45d` |
+
+The image builds the same commit with the same recipes, but its bytes are its own.
 
 | | |
 |---|---|
