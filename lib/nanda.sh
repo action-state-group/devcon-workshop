@@ -7,9 +7,44 @@ set -euo pipefail
 BASE=${MBX_BASE:-https://connectors-production-9b5a.up.railway.app}
 A=$ST/agentbox
 DESC="Devcon 8 workshop demo agent, simulated payment, not a real shop"
-email=${1:-}
-[[ $email == *@* ]] || die "devcon8 nanda <your email>   (a second agent needs a second address)"
+INDEX=https://api.nandaindex.org
 mkdir -p "$A" && chmod 700 "$A"
+
+# nanda_mail SUBJECT_REGEX: the token in the newest Index email whose subject matches. Only mail from
+# noreply@nandaindex.org counts; the token is the only thing read from it.
+nanda_mail() {
+  curl -fsS "${auth[@]}" "$BASE/api/v1/inbox?after=0&limit=50" \
+    | jq -r --arg re "$1" '[.messages[] | select(.kind == "email" and .sender == "urn:ai:email:noreply@nandaindex.org"
+        and (.email.subject // "" | test($re; "i")))] | last | .text // empty' \
+    | grep -oE 'token=[0-9a-f]{32,128}' | head -1 | cut -d= -f2
+}
+listed() { curl -fsS "$INDEX/api/v1/resolve?locator=urn:air:host39.org:personal:$1" 2>/dev/null \
+  | jq -r '.entry.extensions["org.projectnanda"].status // empty'; }
+
+if [ "${1:-}" = leave ]; then
+  # Remove the public listing. The NANDA Index made an account for the mailbox address; its reset
+  # mail lands in this mailbox, so the listing's owner can sign in and delete it (tested 10-31).
+  [ -s "$A/key" ] || die "no mailbox here"
+  auth=(-H "Authorization: Bearer $(cat "$A/key")")
+  addr=$(jq -r .address "$A/mailbox.json"); id=$(jq -r .id "$A/mailbox.json")
+  org=$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.discovery.orgId // empty')
+  [ -n "$org" ] || die "the gateway names no NANDA record for $addr"
+  read -rp "Remove $addr from the NANDA Index for good? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing removed"
+  curl -fsS -X POST "$INDEX/auth/forgot-password" -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$addr" '{email:$e}')" >/dev/null
+  tok=""; for _ in $(seq 18); do sleep 10; tok=$(nanda_mail 'reset|password'); [ -n "$tok" ] && break; done
+  [ -n "$tok" ] || die "no reset email from the NANDA Index yet; run 'devcon8 nanda leave' again"
+  pw=$(openssl rand -hex 16)
+  curl -fsS -X POST "$INDEX/auth/reset-password" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$tok" --arg p "$pw" '{token:$t,password:$p}')" >/dev/null
+  jwt=$(curl -fsS -X POST "$INDEX/auth/login" -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$addr" --arg p "$pw" '{email:$e,password:$p}')" | jq -r .token)
+  code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE "$INDEX/api/v1/orgs/$org" -H "Authorization: Bearer $jwt")
+  [ "$code" = 204 ] || die "the NANDA Index refused the removal (HTTP $code)"
+  echo "Removed: $addr is no longer listed in the NANDA Index ($(listed "$addr" || true))."
+  echo "The Agent Box mailbox itself still exists; it is simply unlisted."
+  exit 0
+fi
+
+email=${1:-}
+[[ $email == *@* ]] || die "devcon8 nanda <your email> | devcon8 nanda leave   (a second agent needs a second address)"
 
 if [ ! -s "$A/key" ]; then
   cat <<TXT
@@ -37,14 +72,21 @@ if [ "$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.mailbox
     echo "Not accepted: $(jq -r '.error // .message // .' <<<"$out" | head -c 120)"
   done
 fi
-st=$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id")
-if [ "$(jq -r '.discovery.status // .mailbox.discovery.status // empty' <<<"$st")" != indexed ]; then
+addr=$(jq -r .address "$A/mailbox.json")
+if [ "$(listed "$addr")" != active ]; then
   curl -fsS -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{"mode":"auto"}' "$BASE/api/agent/mailboxes/$id/nanda" >/dev/null || true
-  echo "Registering in the NANDA Index (checks every 30 s, up to 10 minutes)..."
-  for _ in $(seq 20); do
-    s=$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.discovery.status // .mailbox.discovery.status // empty')
-    [ "$s" = indexed ] && break; sleep 30
+  echo "Registering in the NANDA Index (up to 10 minutes)..."
+  for i in $(seq 20); do
+    [ "$(listed "$addr")" = active ] && break
+    # The gateway should follow the Index's two verification emails itself. On 10-31 it did not, so
+    # after two minutes this step completes them from the mailbox, as the gateway would.
+    if [ "$i" -ge 4 ]; then
+      t=$(nanda_mail 'verify your nanda index account'); [ -n "$t" ] && curl -fsS -X POST "$INDEX/auth/verify-account" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$t" '{token:$t}')" >/dev/null 2>&1 || true
+      t=$(nanda_mail 'verify your nanda index registration'); [ -n "$t" ] && curl -fsS -X POST "$INDEX/api/v1/verify-email" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$t" '{token:$t}')" >/dev/null 2>&1 || true
+    fi
+    sleep 30
   done
-  [ "$s" = indexed ] || die "not indexed yet (status: ${s:-unknown}); rerun 'devcon8 nanda $email' later"
+  [ "$(listed "$addr")" = active ] || die "not listed yet; rerun 'devcon8 nanda $email' later"
 fi
-echo "Listed in the NANDA Index as $(jq -r .address "$A/mailbox.json"). Give this address to whoever buys from you."
+echo "Listed in the NANDA Index as $addr. Give this address to whoever buys from you."
+echo "To remove the listing later: devcon8 nanda leave"

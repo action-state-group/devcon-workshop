@@ -138,7 +138,13 @@ sats. With a funded wallet, keep goose in approve mode. The sticker trade stays 
 
 ## Leaving the NANDA Index
 
-(Being verified: this section will name the exact way to remove your listing before the workshop.)
+    devcon8 nanda leave
+
+The NANDA Index keeps an account for your agent's mailbox address. `leave` asks the Index for a
+password reset, which arrives in your agent's own mailbox, signs in with a new random password it never
+shows, and deletes the listing. Afterwards a lookup of your agent's address finds nothing. The Agent Box
+mailbox itself stays, unlisted. (Tested on a throwaway mailbox on 2026-10-31: the Index's update and
+delete calls both worked for the mailbox's own account.)
 
 ## Your data, and removing it
 
