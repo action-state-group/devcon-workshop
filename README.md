@@ -204,7 +204,7 @@ The image builds the same commit with the same recipes, but its bytes are its ow
 | capsules plugin | `v0.1.7` |
 | lexe-wallet plugin | Mesh-LLM/lexe-wallet-plugin v0.1.0 |
 | S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.7 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook `d816461` |
-| capsulectl, capsulectl-deal | built from source: evidencebook-deal `5719e84` (with `capsulectl deal terms-leg`) and the capsule-cli commit its go.mod names |
+| capsulectl, capsulectl-deal | `v0.1.0-rc25` releases (deal rc25 carries `capsulectl deal terms-leg`) |
 | goose, Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
 | evidencebook Go SDK | v0.10.0, Go 1.27 |
 | models | Qwen2.5-0.5B-Instruct GGUF, Q8_0 and Q4_K_M |

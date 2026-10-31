@@ -30,14 +30,16 @@ LEXE_VERSION=v0.1.0
 LEXE_SHA256_AMD64=e565454cd5b8c8daf7e3091c1bffb9a30b205156c2a69cbe8c2c6f8f13589d64
 LEXE_SHA256_ARM64=c2a612e1cf6c7823a2c5fcfcfe1af363a3a66e548a79f92a2a5aa3de25e97baf
 
-# capsulectl-deal (with `deal terms-leg`, evidencebook-deal#72) and the capsulectl core it builds
-# against, both built here from source until a release carries the command. Both are stamped with
-# the core version from the deal module's go.mod, as evidencebook-deal's scripts/release-build.sh does,
-# so the plugin installs under this capsulectl without a version mismatch.
-DEAL_REPO=https://github.com/action-state-group/evidencebook-deal
-DEAL_SHA=5719e848d3a55f90b5939dbdb400596d1278b006
-CAPSULE_CLI_REPO=https://github.com/action-state-group/capsule-cli
-CAPSULE_CLI_SHA=93dff5dddeae33b724d673c1bc7613d573815c86
+# capsulectl and the deal plugin: the batched rc25 releases (deal's go.mod names capsule-cli
+# v0.1.0-rc25, so the pair installs without a version mismatch). rc25's deal carries
+# `capsulectl deal terms-leg` (evidencebook-deal#70).
+CAPSULECTL_VERSION=v0.1.0-rc25
+CAPSULECTL_SHA256_AMD64=0e2c7edf3de559ba1da19dcf5163a55a5d39a7e4dc04555168c358f03512e31e
+CAPSULECTL_SHA256_ARM64=592351eb3862e738e01b7541147409eb3708ea30c48bb3ba03d418be6885b77b
+DEAL_VERSION=v0.1.0-rc25
+DEAL_SHA256_AMD64=cd6d69465bd03e2d88ebf08d215e717f436a6ae32fb92fe7e258d34e557f870e
+DEAL_SHA256_ARM64=6ef02752a4936e45a18724d4d29d7f46c41656454a89267cb0485ef13f57baf6
+DEAL_SKILL_SHA256=da1b4f6508ace7dcc30eb33f8bd0eb261e1fe8697f8aa9d81751a4677ad69cc2
 
 # goose
 GOOSE_VERSION=v1.57.0

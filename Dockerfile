@@ -2,7 +2,8 @@
 # Devcon 8 workshop participant image. Build one architecture natively per runner:
 #   docker buildx build --platform linux/arm64 -t devcon-workshop:dev .
 # Every input is pinned in versions.lock; see README.md "What is in the image". mesh-llm is the lab
-# build, compiled here from its commit for each architecture; the plugins are release assets.
+# build, compiled here from its commit for each architecture; the plugins and the capsulectl CLIs are
+# release assets.
 
 # Ubuntu 24.04 (glibc 2.39): the base every stage builds and the smoke tests run on. The release
 # binaries downloaded into it (capsules, lexe-wallet, goose) are checked by those tests, not by glibc
@@ -94,19 +95,6 @@ RUN cd /src/examples/go-seal && go mod download && go mod vendor && go build -mo
 # s08 step 8's reconcile tool (demos/s08-liar/reconcile).
 COPY demos/s08-liar/reconcile/ /src/reconcile/
 RUN cd /src/reconcile && go build -o /out/reconcile-asked .
-# capsulectl and capsulectl-deal from source (versions.lock), stamped with one core version.
-COPY versions.lock /src/versions.lock
-RUN . /src/versions.lock && mkdir -p /out/skills \
-    && git clone --filter=blob:none "$DEAL_REPO" /build/deal && git -C /build/deal checkout --detach "$DEAL_SHA" \
-    && git clone --filter=blob:none "$CAPSULE_CLI_REPO" /build/cli && git -C /build/cli checkout --detach "$CAPSULE_CLI_SHA" \
-    && cd /build/deal && core=$(go list -m -f '{{.Version}}' github.com/action-state-group/capsule-cli) \
-    && [ "$(go mod download -json "github.com/action-state-group/capsule-cli@$core" | sed -n 's/.*"Hash": "\([0-9a-f]*\)".*/\1/p')" = "$CAPSULE_CLI_SHA" ] \
-    && pkg=github.com/action-state-group/capsule-cli/cli \
-    && go build -buildvcs=false -ldflags "-s -w -buildid= -X $pkg.CLIVersion=$core -X $pkg.CLICommit=$CAPSULE_CLI_SHA -X $pkg.PluginVersion=$DEAL_SHA -X $pkg.PluginCommit=$DEAL_SHA" \
-         -o /out/capsulectl-deal ./cmd/capsulectl-deal \
-    && cp -R skills/deal /out/skills/deal \
-    && cd /build/cli && go build -buildvcs=false -ldflags "-s -w -buildid= -X $pkg.CLIVersion=$core -X $pkg.CLICommit=$CAPSULE_CLI_SHA" \
-         -o /out/capsulectl ./cmd/capsulectl
 
 # --- the participant image ------------------------------------------------------------------------
 FROM ${BASE}
@@ -130,8 +118,7 @@ COPY --from=gobuild /out/reconcile-asked $D/s08/bin-tools/reconcile-asked
 COPY --from=npm /opt/devcon8/npm/ $D/npm/
 COPY --from=gobuild /src/examples/go-seal/ $D/examples/go-seal/
 COPY --from=gobuild /out/go-seal $D/bin/go-seal
-COPY --from=gobuild /out/capsulectl /out/capsulectl-deal $D/bin/
-COPY --from=gobuild /out/skills/ $D/agent/skills/
+COPY --from=fetch /fetch/opt/agent/ $D/agent/
 COPY versions.lock $D/versions.lock
 COPY bin/ $D/bin/
 COPY lib/ $D/lib/
