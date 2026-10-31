@@ -164,7 +164,7 @@ not byte-identical to the demo nodes' own binaries.
 | capsules plugin | Mesh-LLM/capsules-plugin `f494845` |
 | lexe-wallet plugin | Mesh-LLM/lexe-wallet-plugin v0.1.0 |
 | S08 pair | mesh-llm v0.78.1, capsules 0.1.5 (the liar: 0.1.5 plus `demos/s08-liar/redteam/selective-log.patch`) |
-| capsulectl, capsulectl-deal | v0.1.0-rc24, v0.1.0-rc23 |
+| capsulectl, capsulectl-deal | v0.1.0-rc23 (the pair must match) |
 | goose, Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` |
 | evidencebook Go SDK | v0.10.0, Go 1.27 |
 | models | Qwen2.5-0.5B-Instruct GGUF, Q8_0 and Q4_K_M |

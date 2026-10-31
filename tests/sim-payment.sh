@@ -15,7 +15,7 @@ deal init --dir "$T/.local/share/capsule-deal" --materiality builtin:neutral --n
 CH=agentboxnanda.org.agent_box
 STICKER=$D/agent/fixtures/sticker.png
 DIGEST=$(sha256sum "$STICKER" | cut -d' ' -f1)
-terms=$(jq -nc --arg d "$DIGEST" '{item: "digital fox sticker", quantity: 1, price_minor: 50, currency: "USD", content_digest: $d}')
+terms=$(jq -nc '{item: "digital fox sticker", quantity: 1, price_minor: 50, currency: "USD"}')
 jq -n --argjson t "$terms" '{type: "purchase", intent: {verbatim: "Sell my digital fox sticker for 50 cents to any workshop participant who asks. Not under 50 cents.",
   party_role: "seller", min_total_minor: 50, asked: {item: "digital fox sticker", quantity: 1}, allowed: ["offer", "commit"]},
   terms: $t, recourse: {rail: "x402", refundable: false}}' > sale.json
@@ -48,8 +48,8 @@ jq -r .say paid.json | grep -q 'Payment received: 0.50 USDC' || { jq . paid.json
 deal note --deal "$id" --kind delivered --terms buyer-terms.json --content "$STICKER" > delivered.json
 [ "$(jq -r .kind delivered.json)" = evidence ] || { jq . delivered.json; fail "delivered did not seal"; }
 
-deal export --deal "$id" --output export.json >/dev/null
-grep -q 'eip155:84532' export.json || fail "the sealed records do not name the test network"
-if grep -Eq 'eip155:8453([^0-9]|$)' export.json; then fail "a sealed record names Base mainnet (eip155:8453)"; fi
-grep -q SIMULATED export.json || echo "note: the settle response's 'note' field is not in the export (wrapped by digest)"
+# The settlement legs live in the deal store (the export carries step bodies, not the legs).
+db=$T/.local/share/capsule-deal/deal.db
+grep -aq 'eip155:84532' "$db" || fail "the sealed records do not name the test network"
+if grep -aEq 'eip155:8453([^0-9]|$)' "$db"; then fail "a sealed record names Base mainnet (eip155:8453)"; fi
 echo "ok   simulated payment sealed on eip155:84532, no mainnet named"
