@@ -81,6 +81,14 @@ auth=(-H "Authorization: Bearer $(cat "$A/key")")
 # /verify answer counts, so it is recorded here when it says verified.
 verified() { [ -f "$A/verified" ]; }
 if ! verified; then
+  # A key an older image verified has no marker. Ask the gateway about this key itself: it grants a
+  # verified key the duty and refuses an unverified one with 409 not_verified (seen 10-31). Taking the
+  # duty is what this step does anyway.
+  case $(curl -sS -o /dev/null -w '%{http_code}' -X POST "${auth[@]}" "$BASE/api/agent/mailboxes/$id/duty") in
+    2??) touch "$A/verified" ;;
+  esac
+fi
+if ! verified; then
   for _ in 1 2 3 4 5; do
     read -rp "Six-digit code from that email: " code
     out=$(curl -sS -X POST "${auth[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg c "$code" '{code:$c}')" "$BASE/api/agent/mailboxes/$id/verify")

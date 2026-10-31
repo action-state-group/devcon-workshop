@@ -1,11 +1,14 @@
-"""fake_agentbox.py PORT LOG: a stand-in for the Agent Box gateway and the NANDA Index resolve call,
+"""fake_agentbox.py PORT LOG [verified]: a stand-in for the Agent Box gateway and the NANDA Index resolve call,
 for tests/test_nanda.sh. It answers as the real gateway did for a key that REJOINED a mailbox
 someone already verified: GET /mailboxes/<id> says mailbox.verified true, but this key is off duty
-until it is verified itself. Every request is appended to LOG."""
+until it is verified itself. With "verified", the key is already verified and on duty (a volume an
+older image set up). Every request is appended to LOG."""
 import json, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 state = {"key_verified": False, "on_duty": False}
+if sys.argv[3:] == ["verified"]:
+    state.update(key_verified=True, on_duty=True)
 
 
 class H(BaseHTTPRequestHandler):

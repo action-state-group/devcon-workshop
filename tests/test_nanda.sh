@@ -13,7 +13,21 @@ out=$(printf 'y\n123456\n' | HOME=$T/home MBX_BASE="http://127.0.0.1:$port" NAND
 # The prompt text shows only on a terminal (read -p); the request log shows the code was asked for.
 grep -q '/verify {"code": "123456"}' "$T/requests.log" || { cat "$T/requests.log"; echo "FAIL the code was not asked for"; exit 1; }
 v=$(grep -n "/verify" "$T/requests.log" | head -1 | cut -d: -f1)
-d=$(grep -n "/duty" "$T/requests.log" | head -1 | cut -d: -f1)
+d=$(grep -n "/duty" "$T/requests.log" | tail -1 | cut -d: -f1)   # the duty taken; an earlier probe is refused
 if [ -z "$v" ] || [ -z "$d" ] || [ "$v" -ge "$d" ]; then cat "$T/requests.log"; echo "FAIL verify must come before duty"; exit 1; fi
 [ -f "$T/home/.devcon8/agentbox/verified" ] || { echo "FAIL no verified marker"; exit 1; }
 echo "ok   nanda: an unverified key that rejoined a verified mailbox is asked for the code, then takes the duty"
+kill "$srv"; wait "$srv" 2>/dev/null || true
+
+# A volume an older image set up: key and mailbox present, the key verified and on duty, no marker.
+# It must not be asked for a code that will never come.
+U=$T/old; mkdir -p "$U/home/.devcon8/agentbox"; : > "$U/requests.log"
+printf 'test-token\n' > "$U/home/.devcon8/agentbox/key"
+echo '{"id":"m1","address":"m1@agentboxnanda.org","existing":false}' > "$U/home/.devcon8/agentbox/mailbox.json"
+python3 -I "$here/fake_agentbox.py" "$port" "$U/requests.log" verified & srv=$!
+for _ in $(seq 50); do curl -fs "http://127.0.0.1:$port/api/v1/me" >/dev/null 2>&1 && break; sleep 0.1; done
+out=$(HOME=$U/home MBX_BASE="http://127.0.0.1:$port" NANDA_INDEX="http://127.0.0.1:$port" \
+  bash "$here/../lib/nanda.sh" p@example.com < /dev/null 2>&1) || { echo "$out"; echo "FAIL the old volume's run failed"; exit 1; }
+if grep -q "/verify" "$U/requests.log"; then cat "$U/requests.log"; echo "FAIL a verified key was asked for a code"; exit 1; fi
+[ -f "$U/home/.devcon8/agentbox/verified" ] || { echo "FAIL no marker after the duty check"; exit 1; }
+echo "ok   nanda: a key an older image verified (no marker) is not asked for a code"
