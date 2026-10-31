@@ -59,7 +59,7 @@ WA=$(claimed "$HONEST"); WB=$(claimed "$LIAR")
 echo "  $HONEST  weights sha256 ${WA:0:16}…" | names
 echo "  $LIAR  weights sha256 ${WB:0:16}…" | names
 
-# The capsules plugin's rule (capsules 0.1.6, referee/request.rs before_asking): a referee is asked
+# The capsules plugin's rule (capsules 0.1.7, referee/request.rs before_asking): a referee is asked
 # only when ALL of these hold. There is no "different enough": one differing word is enough.
 # (The asker's records carry these values; step 04 hands the plugin both texts to compare.)
 words='[splits("\\s+") | select(length > 0)]'

@@ -56,7 +56,7 @@ RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.carg
     && cp -a /x/mesh-bundle/mesh-llm /x/mesh-bundle/native-runtimes /out/bin/ \
     && /out/bin/mesh-llm --version | tee /out/version
 
-# --- s08's liar plugin: capsules 0.1.6 plus selective-log.patch -----------------------------------
+# --- s08's liar plugin: capsules 0.1.7 plus selective-log.patch -----------------------------------
 FROM toolchain AS redteam
 ARG TARGETARCH
 COPY demos/s08-liar/redteam/selective-log.patch /src/selective-log.patch
