@@ -9,6 +9,7 @@ Q8=qwen2.5-0.5b-instruct-q8_0.gguf Q4=qwen2.5-0.5b-instruct-q4_k_m.gguf
 setup() {
   mkdir -p "$S"
   cp "$D"/demos/s08-liar/*.sh "$S"/ && chmod u+w "$S"/*.sh
+  mkdir -p "$S/redteam" && cp "$D/demos/s08-liar/redteam/selective-log.patch" "$S/redteam/"   # step 6 quotes it
   ln -sfn "$D/mesh/bin" "$S/bin-lab"      # the lab mesh-llm the image ships, with its native runtimes
   ln -sfn "$D/s08/bin-tools" "$S/bin-tools"
   ln -sfn "$D/s08/dist" "$S/dist"
