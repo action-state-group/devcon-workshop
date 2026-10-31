@@ -14,6 +14,6 @@ out=$(printf 'y\n123456\n' | HOME=$T/home MBX_BASE="http://127.0.0.1:$port" NAND
 grep -q '/verify {"code": "123456"}' "$T/requests.log" || { cat "$T/requests.log"; echo "FAIL the code was not asked for"; exit 1; }
 v=$(grep -n "/verify" "$T/requests.log" | head -1 | cut -d: -f1)
 d=$(grep -n "/duty" "$T/requests.log" | head -1 | cut -d: -f1)
-[ -n "$v" ] && [ -n "$d" ] && [ "$v" -lt "$d" ] || { cat "$T/requests.log"; echo "FAIL verify must come before duty"; exit 1; }
+if [ -z "$v" ] || [ -z "$d" ] || [ "$v" -ge "$d" ]; then cat "$T/requests.log"; echo "FAIL verify must come before duty"; exit 1; fi
 [ -f "$T/home/.devcon8/agentbox/verified" ] || { echo "FAIL no verified marker"; exit 1; }
 echo "ok   nanda: an unverified key that rejoined a verified mailbox is asked for the code, then takes the duty"
