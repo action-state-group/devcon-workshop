@@ -4,7 +4,9 @@
 # Every input is pinned in versions.lock; see README.md "What is in the image". mesh-llm is the lab
 # build, compiled here from its commit for each architecture; the plugins are release assets.
 
-# Ubuntu 24.04 (glibc 2.39): the S08 release pair is built on it and needs that glibc.
+# Ubuntu 24.04 (glibc 2.39): the base every stage builds and the smoke tests run on. The release
+# binaries downloaded into it (capsules, lexe-wallet, goose) are checked by those tests, not by glibc
+# version; moving to an older base needs that check again.
 ARG BASE=ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
 
 # --- release assets, models, Go and Node: downloaded and sha256-checked ---------------------------
