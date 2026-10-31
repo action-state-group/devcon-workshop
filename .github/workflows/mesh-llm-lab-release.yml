@@ -2,8 +2,9 @@ name: mesh-llm lab release
 
 # Builds the mesh-llm lab build's native tarballs for the Devcon 8 workshop on native runners, with
 # mesh-llm's own release recipes and nothing else: `just release-build` (`release-build-aarch64` on
-# Linux arm64), then `just release-bundle <version>`. It uploads each tarball and its .sha256 to
-# this repository's pre-release, replacing assets of the same name. The bytes are not reproducible
+# Linux arm64), then `just release-bundle <version>`. It uploads what release-bundle writes (the
+# stable and the versioned tarball, each with its .sha256) to this repository's pre-release,
+# replacing assets of the same name. The bytes are not reproducible
 # across builds, so a tarball's sha256 comes from the run that built it; the recipe and the commit
 # are what reproduce the build.
 #
@@ -96,13 +97,14 @@ jobs:
       - uses: taiki-e/install-action@3d23c1bbdafe696dfccad2664945a04f47d03dc3 # just
         with:
           tool: just
+      # mesh-llm's .cargo/config.toml runs rustc through sccache; its release workflow installs it so.
+      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake ninja-build pkg-config libssl-dev libdbus-1-dev curl mold lld patchelf
-          scripts/install-sccache.sh
       - name: macOS dependencies
         if: runner.os == 'macOS'
         run: brew install cmake ninja
@@ -116,13 +118,14 @@ jobs:
       - name: just release-bundle
         run: just release-bundle "$VERSION" "$RUNNER_TEMP/out"
 
-      - name: Check the tarball
+      - name: Check the tarballs
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/out"
-          f=mesh-llm-$TARGET.tar.gz
-          [ -f "$f" ] && [ -f "$f.sha256" ] || { ls -la; exit 1; }
-          if command -v sha256sum >/dev/null; then sha256sum -c "$f.sha256"; else shasum -a 256 -c "$f.sha256"; fi
+          # release-bundle writes the stable and the versioned archive, each with its .sha256.
+          f=mesh-llm-$TARGET.tar.gz v=mesh-llm-$VERSION-$TARGET.tar.gz
+          [ "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" = 4 ] && [ -f "$f" ] && [ -f "$f.sha256" ] && [ -f "$v" ] && [ -f "$v.sha256" ] || { ls -la; exit 1; }
+          for c in "$f.sha256" "$v.sha256"; do if command -v sha256sum >/dev/null; then sha256sum -c "$c"; else shasum -a 256 -c "$c"; fi; done
           mkdir -p x && tar -xzf "$f" -C x
           for m in product-manifest.json host-imports.json mesh-llm native-runtimes; do [ -e "x/mesh-bundle/$m" ] || { echo "missing mesh-bundle/$m"; exit 1; }; done
           got=$(HOME="$RUNNER_TEMP/h" x/mesh-bundle/mesh-llm --version 2>/dev/null | tail -1)
@@ -135,8 +138,8 @@ jobs:
         with:
           name: mesh-llm-${{ matrix.target }}
           path: |
-            ${{ runner.temp }}/out/mesh-llm-${{ matrix.target }}.tar.gz
-            ${{ runner.temp }}/out/mesh-llm-${{ matrix.target }}.tar.gz.sha256
+            ${{ runner.temp }}/out/mesh-llm-*.tar.gz
+            ${{ runner.temp }}/out/mesh-llm-*.tar.gz.sha256
           if-no-files-found: error
 
   publish:
