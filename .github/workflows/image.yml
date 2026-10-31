@@ -29,9 +29,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/sim-payment.sh tests/s08-ci.sh build/fetch.sh build/usb.sh
+        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/sim-payment.sh tests/s08-ci.sh tests/mbx-net.sh tests/test_nanda.sh tests/test_trade_protocol.sh tests/sim-buyer.sh build/fetch.sh build/usb.sh
       - name: mbx unit tests
         run: python3 -I tests/test_mbx.py
+      - name: nanda against a fake gateway
+        run: bash tests/test_nanda.sh
+      - name: trade messages against a fake gateway with the real conversation rule
+        run: bash tests/test_trade_protocol.sh
 
   meta:
     runs-on: ubuntu-24.04
@@ -116,8 +120,14 @@ jobs:
       - name: Smoke tests
         run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/smoke.sh
 
+      - name: The trader reaches the NANDA Index (no Cloudflare 403)
+        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/mbx-net.sh
+
       - name: Simulated payment seals on a test network
         run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-payment.sh
+
+      - name: The buyer's pay is checked with the shop as payee
+        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-buyer.sh
 
       - name: S08 in the container (start, lie, twins, referee, stop)
         timeout-minutes: 45

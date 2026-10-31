@@ -100,7 +100,7 @@ Index. The NANDA Index works with ARD and AI Catalog. Read this first:
 - **The listing is public.** Anyone can find your agent's address and message it. The listing shows the
   mailbox address, not your email. Its description reads "Devcon 8 workshop demo agent, simulated
   payment, not a real shop".
-- **The listing stays after the workshop** until you remove it (see "Leaving the NANDA Index").
+- **The listing stays after the workshop** until you remove it, and removing it is permanent (see "Leaving the NANDA Index").
 - One email gives one mailbox. To trade with yourself, run a second agent in a second container with a
   second email address.
 
@@ -151,11 +151,16 @@ you would pay and see no record.
 
     devcon8 nanda leave
 
-The NANDA Index keeps an account for your agent's mailbox address. `leave` asks the Index for a
-password reset, which arrives in your agent's own mailbox, signs in with a new random password it never
-shows, and deletes the listing. Afterwards a lookup of your agent's address finds nothing. The Agent Box
-mailbox itself stays, unlisted. (Tested on a throwaway mailbox on 2026-10-31: the Index's update and
-delete calls both worked for the mailbox's own account.)
+`leave` is permanent. It deletes your agent's listing, and you cannot list the same mailbox again
+afterwards: on 2026-10-31 the gateway refused to re-register a mailbox whose listing had been deleted
+("NANDA account is temporarily unavailable"), and the Index does not let a personal account recreate
+the listing itself. To take part again after `leave`, use a new email address (a new mailbox). So run
+it when you are done with the workshop, not to pause.
+
+How it works: the NANDA Index keeps an account for your agent's mailbox address. `leave` asks the Index
+for a password reset, which arrives in your agent's own mailbox, signs in with a new random password it
+never shows, and deletes the listing. Afterwards a lookup of your agent's address finds nothing, and
+other agents cannot message it through the Index. The Agent Box mailbox itself stays, unlisted.
 
 ## Your data, and removing it
 
@@ -174,18 +179,31 @@ Every component is pinned in [`versions.lock`](versions.lock), by commit or by r
 `/opt/devcon8/MANIFEST` lists the sha256 of every shipped file. mesh-llm is built from source in CI
 for both architectures, from the lab commit the demo nodes run, so its bytes are not the demo nodes'
 own; the plugins are their published release files, checked by sha256. The image labels name both
-commits (`dev.actionstate.mesh-llm` = `3ffa5c4f1d7d162c964fc7fb24937c7ed5a12301`,
-`dev.actionstate.capsules` = `0.1.6 f046e96e846beb91be5ed4ae32aa88f2dd934411`). Installing mesh-llm on
-your laptop instead? The same lab commit is published as the release
-[mesh-llm-lab-3ffa5c4f1](https://github.com/action-state-group/devcon-workshop/releases/tag/mesh-llm-lab-3ffa5c4f1)
-(not an official mesh-llm release); the image is built from that commit, not from those files.
+commits (`dev.actionstate.mesh-llm` = `e877a45df949721cdffa2dcb3c9885e649fdadf6`,
+`dev.actionstate.capsules` = `0.1.7 b482749abd2fea11d45c18e41c6466f657605dba`), and
+`/opt/devcon8/MANIFEST` gives the sha256 of the image's own mesh-llm.
+
+This mesh-llm is a **pre-release lab build, not an official mesh-llm release**. Its
+`mesh-llm --version` prints `mesh-llm 0.78.0`, the same string as the official 0.78.0 release, so
+the version does not tell them apart; the commit and the sha256 do. Installing it on your laptop
+instead? The same commit is published, built by this repository's
+`.github/workflows/mesh-llm-lab-release.yml`, as the pre-release
+[mesh-llm-lab-e877a45df](https://github.com/action-state-group/devcon-workshop/releases/tag/mesh-llm-lab-e877a45df):
+
+| tarball | sha256 |
+|---|---|
+| `mesh-llm-x86_64-unknown-linux-gnu.tar.gz` | `dab66a3a42b1aa4ae0275871bbf9a8a8b27cdf9b1a945f5e7674535f9e48edab` |
+| `mesh-llm-aarch64-unknown-linux-gnu.tar.gz` | `dfddb45968d73e2f667a9d1daba4d5d8e7ee6d1a9be0b376c149da1d693727c2` |
+| `mesh-llm-aarch64-apple-darwin.tar.gz` | `39426c7ec054e09d5ffcf2bbf5be7c1519a8b42367c731619b96da2bbd9cf45d` |
+
+The image builds the same commit with the same recipes, but its bytes are its own.
 
 | | |
 |---|---|
-| mesh-llm | lab branch `lab/asg-2026-10-30` of `ethanyzhang/mesh-llm` at `3ffa5c4`: Mesh-LLM/mesh-llm main `61e2acf` plus open PRs [#2620](https://github.com/Mesh-LLM/mesh-llm/pull/2620), [#2649](https://github.com/Mesh-LLM/mesh-llm/pull/2649), [#2719](https://github.com/Mesh-LLM/mesh-llm/pull/2719) and [#2721](https://github.com/Mesh-LLM/mesh-llm/pull/2721). CPU runtime |
-| capsules plugin | `v0.1.6` |
+| mesh-llm | lab build `e877a45` of `ethanyzhang/mesh-llm`: Mesh-LLM/mesh-llm main `c86f58e` plus open PRs [#2620](https://github.com/Mesh-LLM/mesh-llm/pull/2620), [#2649](https://github.com/Mesh-LLM/mesh-llm/pull/2649), [#2719](https://github.com/Mesh-LLM/mesh-llm/pull/2719), [#2721](https://github.com/Mesh-LLM/mesh-llm/pull/2721) and [#2744](https://github.com/Mesh-LLM/mesh-llm/pull/2744). CPU runtime |
+| capsules plugin | `v0.1.7` |
 | lexe-wallet plugin | Mesh-LLM/lexe-wallet-plugin v0.1.0 |
-| S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.6 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook `d816461` |
+| S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.7 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook `d816461` |
 | capsulectl, capsulectl-deal | built from source: evidencebook-deal `5719e84` (with `capsulectl deal terms-leg`) and the capsule-cli commit its go.mod names |
 | goose, Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
 | evidencebook Go SDK | v0.10.0, Go 1.27 |

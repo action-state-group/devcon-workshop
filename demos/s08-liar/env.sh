@@ -20,21 +20,23 @@ esac
 # native runtimes): the platform cache directory, ~/.cache on Linux and ~/Library/Caches on macOS.
 case "$(uname -s)" in Darwin) CACHE_REL=Library/Caches ;; *) CACHE_REL=.cache ;; esac
 export DO_NOT_TRACK=1   # mesh-llm sends no usage reports from any demo node (installs included)
-# All four run the same builds attendees install (#33), and so do Brattain and Shockley: the
-# unreleased mesh-llm lab build 3ffa5c4f1 (mesh-llm main 61e2acfb9 plus Mesh-LLM/mesh-llm#2620,
-# #2649, #2719 and #2721; its host announces each node's plugin key, plugin_keys.v1, #2299, which
-# step 8 needs), published as the pre-release action-state-group/devcon-workshop
-# mesh-llm-lab-3ffa5c4f1 (a lab build, not an official mesh-llm release), and
-# capsules 0.1.6, which accepts a signed request by the key that signed it
-# (Mesh-LLM/capsules-plugin#77).
-MESH_SOURCE=3ffa5c4f1d7d162c964fc7fb24937c7ed5a12301
-MESH_VERSION=mesh-llm-lab-3ffa5c4f1   # the devcon-workshop pre-release tag; the binary says 0.78.0
+# All four run the builds #33's join README diff v5 proposes for attendees (not yet applied to its
+# source; the open devcon-workshop#4 moves the attendee image to them), and so do Brattain and
+# Shockley: the
+# unreleased mesh-llm lab build e877a45df (mesh-llm main c86f58e plus Mesh-LLM/mesh-llm#2620,
+# #2649, #2719, #2721 and #2744; its host announces each node's plugin key, plugin_keys.v1, #2299,
+# which step 8 needs), published as the pre-release action-state-group/devcon-workshop
+# mesh-llm-lab-e877a45df (a lab build, not an official mesh-llm release), and
+# capsules 0.1.7 (it accepts a signed request by the key that signed it, Mesh-LLM/capsules-plugin#77,
+# since 0.1.6).
+MESH_SOURCE=e877a45df949721cdffa2dcb3c9885e649fdadf6
+MESH_VERSION=mesh-llm-lab-e877a45df   # the devcon-workshop pre-release tag; the binary says 0.78.0
 MESH_LLM=$S/bin-lab/mesh-llm                              # the release tarball's mesh-bundle/, extracted
-CAPSULES_VERSION=0.1.6
-CAPSULES_ARCHIVE=$S/dist/capsules-0.1.6-$TARGET.tar.gz   # capsules 0.1.6, the release
+CAPSULES_VERSION=0.1.7
+CAPSULES_ARCHIVE=$S/dist/capsules-0.1.7-$TARGET.tar.gz   # capsules 0.1.7, the release
 # The liar alone runs capsules plus redteam/selective-log.patch (built by the image's Dockerfile, never released).
 # It behaves exactly like the release until OMIT_TOGGLE exists; then it seals every second exchange it serves.
-CAPSULES_RED_ARCHIVE=$S/dist/capsules-0.1.6-selective-log-$TARGET.tar.gz
+CAPSULES_RED_ARCHIVE=$S/dist/capsules-0.1.7-selective-log-$TARGET.tar.gz
 RECONCILE=$S/bin-tools/reconcile-asked   # reconcile/, built against evidencebook (step 8)
 OMIT_TOGGLE=$S/liar/selective-log.on
 

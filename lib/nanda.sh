@@ -3,11 +3,11 @@
 # to you, and list it in the NANDA Index (https://my.nandaindex.org/agent/SKILL.md, steps 1, 1b, 2).
 # The mailbox key is a secret: it goes to ~/.devcon8/agentbox/key (0600) and is never printed.
 set -euo pipefail
-. /opt/devcon8/lib/common.sh
+. "$(cd "$(dirname "$0")" && pwd)/common.sh"
 BASE=${MBX_BASE:-https://connectors-production-9b5a.up.railway.app}
 A=$ST/agentbox
 DESC="Devcon 8 workshop demo agent, simulated payment, not a real shop"
-INDEX=https://api.nandaindex.org
+INDEX=${NANDA_INDEX:-https://api.nandaindex.org}
 mkdir -p "$A" && chmod 700 "$A"
 
 # nanda_mail SUBJECT_REGEX: the token in the newest Index email whose subject matches. Only mail from
@@ -40,7 +40,12 @@ if [ "${1:-}" = leave ]; then
   addr=$(jq -r .address "$A/mailbox.json"); id=$(jq -r .id "$A/mailbox.json")
   org=$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.discovery.orgId // empty')
   [ -n "$org" ] || die "the gateway names no NANDA record for $addr"
-  read -rp "Remove $addr from the NANDA Index for good? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing removed"
+  cat <<TXT
+This deletes $addr's NANDA Index listing for good. It cannot be undone: the gateway will not list this
+mailbox again (tested 2026-10-31), so to take part again you need a new email address and a new mailbox.
+The mailbox itself stays, unlisted; other agents can no longer reach it through the Index.
+TXT
+  read -rp "Delete the listing for good? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing removed"
   since=$(inbox_seq)
   curl -fsS -X POST "$INDEX/auth/forgot-password" -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$addr" '{email:$e}')" >/dev/null
   tok=""; for _ in $(seq 18); do sleep 10; tok=$(nanda_mail 'reset|password' "$since"); [ -n "$tok" ] && break; done
@@ -51,7 +56,7 @@ if [ "${1:-}" = leave ]; then
   code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE "$INDEX/api/v1/orgs/$org" -H "Authorization: Bearer $jwt")
   [ "$code" = 204 ] || die "the NANDA Index refused the removal (HTTP $code)"
   echo "Removed: $addr is no longer listed in the NANDA Index ($(listed "$addr" || true))."
-  echo "The Agent Box mailbox itself still exists; it is simply unlisted."
+  echo "The Agent Box mailbox itself still exists, unlisted. To take part again, use a new email address."
   exit 0
 fi
 
@@ -64,9 +69,11 @@ Before you sign up:
   - Your agent gets its own address at agentboxnanda.org and a PUBLIC listing in the NANDA Index,
     with the description: "$DESC".
   - The listing shows the mailbox address, not your email. Your email gets one code, once.
-  - The listing stays after the workshop until you remove it (README, "Leaving the NANDA Index").
+  - The listing stays after the workshop until you remove it with 'devcon8 nanda leave', which is permanent:
+    this mailbox cannot be listed again (README, "Leaving the NANDA Index").
 TXT
   read -rp "Create the mailbox for $email? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing created"
+  created=1
   body=$(jq -nc --arg e "$email" --arg d "$DESC" '{email:$e, displayName:"Devcon 8 workshop agent", assistant:"goose (devcon-workshop)", description:$d}')
   r=$(curl -fsS -X POST "$BASE/api/agent/mailboxes" -H 'Content-Type: application/json' -d "$body") || die "mailbox creation failed (try again in a minute)"
   (umask 077; jq -r .token <<<"$r" > "$A/key"; jq '{id: .mailbox.id, address: .mailbox.emailAddress, existing: (.existing // false)}' <<<"$r" > "$A/mailbox.json")
@@ -75,15 +82,28 @@ TXT
 fi
 id=$(jq -r .id "$A/mailbox.json")
 auth=(-H "Authorization: Bearer $(cat "$A/key")")
-verified() { [ "$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.mailbox.verified // .verified // false')" = true ]; }
+# Whether THIS key is verified. The gateway's GET /mailboxes/<id> reports only mailbox.verified (the
+# mailbox's email, proven once by any assistant), not this key's grant: a key that rejoined an
+# existing mailbox reads true there and is still refused ("not_verified"). Only this key's own
+# /verify answer counts, so it is recorded here when it says verified.
+verified() { [ -f "$A/verified" ]; }
+if ! verified && [ -z "${created:-}" ]; then
+  # A key an older image verified has no marker. (A key made in this run is never probed: it has just
+  # been sent its code, and the gateway's duty answer for a new, on-duty assistant is not known.) Ask the gateway about this key itself: it grants a
+  # verified key the duty and refuses an unverified one with 409 not_verified (seen 10-31). Taking the
+  # duty is what this step does anyway.
+  case $(curl -sS -o /dev/null -w '%{http_code}' -X POST "${auth[@]}" "$BASE/api/agent/mailboxes/$id/duty") in
+    2??) touch "$A/verified" ;;
+  esac
+fi
 if ! verified; then
   for _ in 1 2 3 4 5; do
     read -rp "Six-digit code from that email: " code
     out=$(curl -sS -X POST "${auth[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg c "$code" '{code:$c}')" "$BASE/api/agent/mailboxes/$id/verify")
-    [ "$(jq -r '.verified // false' <<<"$out")" = true ] && break
+    if [ "$(jq -r '.verified // false' <<<"$out")" = true ]; then touch "$A/verified"; break; fi
     echo "Not accepted: $(jq -r '.error.code // .error // .message // "unknown"' <<<"$out" | head -c 80)"
   done
-  verified || die "the mailbox is not verified. For a new code: rm -r ~/.devcon8/agentbox, then 'devcon8 nanda $email' again"
+  verified || die "this agent's key is not verified. For a new code: rm -r ~/.devcon8/agentbox, then 'devcon8 nanda $email' again"
 fi
 # A mailbox joined again (after 'rm -r ~/.devcon8/agentbox') starts off duty, and another assistant
 # would answer (SKILL.md rule 4). This agent is the one that answers, so every run makes sure of it.

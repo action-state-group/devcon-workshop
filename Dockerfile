@@ -43,15 +43,20 @@ WORKDIR /build/mesh-llm
 RUN TARGETARCH="$TARGETARCH" SCCACHE_VERSION=0.16.0 scripts/install-sccache.sh \
     && npm install -g "$(node -p 'require("./mesh/crates/mesh-llm-ui/package.json").packageManager')"
 # No MESH_LLM_POSTHOG_KEY: the build carries no analytics key (design section 6).
+# The same recipes as .github/workflows/mesh-llm-lab-release.yml, which publishes the native tarballs:
+# `just release-build` (`release-build-aarch64` on arm64), then `just release-bundle`. The image takes
+# mesh-bundle/'s host and native runtimes from that tarball.
 RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry \
-    scripts/package-native-runtime.sh --build --backend cpu \
-    && scripts/build-release.sh \
-    && mkdir -p /out/bin/native-runtimes \
-    && cp target/release/mesh-llm /out/bin/mesh-llm \
-    && find dist/native-runtimes -mindepth 1 -maxdepth 1 -type d -exec cp -a {} /out/bin/native-runtimes/ \; \
+    . /src/versions.lock \
+    && case "$TARGETARCH" in amd64) recipe=release-build triple=x86_64-unknown-linux-gnu;; arm64) recipe=release-build-aarch64 triple=aarch64-unknown-linux-gnu;; esac \
+    && just "$recipe" \
+    && just release-bundle "v$MESH_LLM_VERSION" /bundle \
+    && (cd /bundle && sha256sum -c "mesh-llm-$triple.tar.gz.sha256") \
+    && mkdir -p /x /out/bin && tar -xzf "/bundle/mesh-llm-$triple.tar.gz" -C /x \
+    && cp -a /x/mesh-bundle/mesh-llm /x/mesh-bundle/native-runtimes /out/bin/ \
     && /out/bin/mesh-llm --version | tee /out/version
 
-# --- s08's liar plugin: capsules 0.1.6 plus selective-log.patch -----------------------------------
+# --- s08's liar plugin: capsules 0.1.7 plus selective-log.patch -----------------------------------
 FROM toolchain AS redteam
 ARG TARGETARCH
 COPY demos/s08-liar/redteam/selective-log.patch /src/selective-log.patch
@@ -136,7 +141,7 @@ COPY agent/recipes/ $D/agent/recipes/
 COPY agent/fixtures/sticker.png $D/agent/fixtures/sticker.png
 COPY agent/fixtures/x402/ $D/agent/fixtures/x402/
 COPY README.md $D/README.md
-COPY tests/smoke.sh tests/sim-payment.sh tests/s08-ci.sh $D/tests/
+COPY tests/smoke.sh tests/sim-payment.sh tests/sim-buyer.sh tests/s08-ci.sh tests/mbx-net.sh $D/tests/
 # claude: the Claude Code CLI that claude-agent-acp's SDK bundles, so it ships once (package.json).
 RUN case "$TARGETARCH" in amd64) a=x64;; arm64) a=arm64;; esac \
     && ln -s "$D/npm/node_modules/@anthropic-ai/claude-agent-sdk-linux-$a/claude" $D/bin/claude
