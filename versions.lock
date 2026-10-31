@@ -19,7 +19,9 @@ CAPSULES_SHA256_ARM64=8b055f533612d13d61c04b794153ffb6517f1eccf90d52ea29af1d02b0
 CAPSULES_REPO=https://github.com/Mesh-LLM/capsules-plugin
 RUST_TOOLCHAIN=1.97.1
 
-# s08-liar (company-internal-all 9c6bc847) runs all four nodes on the mesh-llm and capsules above.
+# s08-liar is company-internal-all devcon8/s08-liar at e80b9fa55832311482c4219bd06e62c74060c8f8 (#50:
+# S08 on lab e877a45df + capsules 0.1.7), with three container edits (S08_LISTEN_ALL, the build
+# note, the Evidence-page hint). It runs all four nodes on the mesh-llm and capsules above.
 # The liar's plugin is capsules 0.1.6 plus demos/s08-liar/redteam/selective-log.patch, built here
 # from CAPSULES_COMMIT; step 8's reconcile tool is built from demos/s08-liar/reconcile (its go.mod
 # pins evidencebook d8164613).
