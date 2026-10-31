@@ -114,6 +114,12 @@ class Mbx(unittest.TestCase):
         self.assertEqual(sorted(os.path.basename(p) for p in out["files"]), ["buyer-terms.json", "settle.json"])
         self.assertIs(out["constraints"]["paid"], True)
 
+    def test_requests_name_a_user_agent(self):
+        # Cloudflare in front of the NANDA Index refuses urllib's default "Python-urllib/3.x" (403, 1010).
+        req = mbx.request("GET", "https://api.nandaindex.org/api/v1/resolve?locator=x", auth=False)
+        ua = req.get_header("User-agent")
+        self.assertTrue(ua and not ua.startswith("Python-urllib"), ua)
+
     def test_address(self):
         self.assertEqual(mbx.address("urn:air:host39.org:personal:Shop@AgentBoxNanda.org"), "shop@agentboxnanda.org")
         with self.assertRaises(SystemExit):

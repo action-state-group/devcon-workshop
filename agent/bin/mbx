@@ -24,6 +24,9 @@ STATE = os.path.join(HOME, ".devcon8", "agentbox")
 DEALS = os.path.join(HOME, "deals")
 URN = "urn:air:host39.org:personal:"
 MAX_FILE = 64 * 1024
+# The NANDA Index sits behind Cloudflare, which refuses urllib's default "Python-urllib/3.x" with 403
+# (error 1010, checked 2026-10-31); a named User-Agent is answered.
+USER_AGENT = "devcon-workshop-mbx/1 (+https://github.com/action-state-group/devcon-workshop)"
 # The only files a reply may carry, by kind: the buyer's terms leg and the simulated settle response
 # with its accept, the sticker with the seller's confirm.
 ATTACH = {"accept": {"buyer-terms.json", "settle.json"}, "confirm": {"sticker.png"}}
@@ -74,18 +77,26 @@ def key():
         die("no mailbox yet: run 'devcon8 nanda <email>' first")
 
 
-def call(method, url, body=None, auth=True):
-    data = json.dumps(body).encode() if body is not None else None
+def request(method, url, data=None, auth=True):
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Accept", "application/json")
+    req.add_header("User-Agent", USER_AGENT)
     if data is not None:
         req.add_header("Content-Type", "application/json")
     if auth:
         req.add_header("Authorization", "Bearer " + key())
+    return req
+
+
+def call(method, url, body=None, auth=True, missing_ok=False):
+    data = json.dumps(body).encode() if body is not None else None
+    req = request(method, url, data, auth)
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             return json.loads(r.read() or b"{}")
     except urllib.error.HTTPError as e:
+        if missing_ok and e.code == 404:
+            return {}
         detail = e.read()[:300].decode("utf-8", "replace")
         die(f"{method} {urllib.parse.urlsplit(url).path}: HTTP {e.code} {SAFE.sub('', detail)}")
 
@@ -213,7 +224,7 @@ def main(argv):
         print(json.dumps({"address": (me.get("mailbox") or me).get("emailAddress")}))
     elif cmd == "resolve" and len(argv) == 3:
         a = address(argv[2])
-        r = call("GET", INDEX + "/resolve?locator=" + urllib.parse.quote(URN + a), auth=False)
+        r = call("GET", INDEX + "/resolve?locator=" + urllib.parse.quote(URN + a), auth=False, missing_ok=True)
         e = r.get("entry") or {}
         status = ((e.get("extensions") or {}).get("org.projectnanda") or {}).get("status")
         print(json.dumps({"address": a, "listed": status == "active"}))
