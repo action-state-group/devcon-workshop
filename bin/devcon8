@@ -32,7 +32,7 @@ doctor() {
   [ "$mem_kb" -ge $(( 8 * 1024 * 1024 )) ] || warn "under 8 GiB: s08's three serving nodes may not fit (Docker Desktop > Settings > Resources)"
   disk_kb=$(df -Pk "$HOME" | awk 'NR==2 {print $4}')
   echo "free disk: $(( disk_kb / 1024 / 1024 )) GiB on $HOME"
-  [ "$disk_kb" -ge $(( 3 * 1024 * 1024 )) ] || warn "under 3 GiB free: s08 copies one 0.7 GB model for the liar"
+  [ "$disk_kb" -ge $(( 3 * 1024 * 1024 )) ] || warn "under 3 GiB free: s08 copies about 1.2 GB of model files to the volume"
   echo "DO_NOT_TRACK=${DO_NOT_TRACK:-unset}"
   sed -n '1,3p' "$D/MANIFEST"
 }
