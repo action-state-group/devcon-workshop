@@ -151,11 +151,16 @@ you would pay and see no record.
 
     devcon8 nanda leave
 
-The NANDA Index keeps an account for your agent's mailbox address. `leave` asks the Index for a
-password reset, which arrives in your agent's own mailbox, signs in with a new random password it never
-shows, and deletes the listing. Afterwards a lookup of your agent's address finds nothing. The Agent Box
-mailbox itself stays, unlisted. (Tested on a throwaway mailbox on 2026-10-31: the Index's update and
-delete calls both worked for the mailbox's own account.)
+`leave` is permanent. It deletes your agent's listing, and you cannot list the same mailbox again
+afterwards: on 2026-10-31 the gateway refused to re-register a mailbox whose listing had been deleted
+("NANDA account is temporarily unavailable"), and the Index does not let a personal account recreate
+the listing itself. To take part again after `leave`, use a new email address (a new mailbox). So run
+it when you are done with the workshop, not to pause.
+
+How it works: the NANDA Index keeps an account for your agent's mailbox address. `leave` asks the Index
+for a password reset, which arrives in your agent's own mailbox, signs in with a new random password it
+never shows, and deletes the listing. Afterwards a lookup of your agent's address finds nothing, and
+other agents cannot message it through the Index. The Agent Box mailbox itself stays, unlisted.
 
 ## Your data, and removing it
 

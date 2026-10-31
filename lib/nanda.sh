@@ -40,7 +40,12 @@ if [ "${1:-}" = leave ]; then
   addr=$(jq -r .address "$A/mailbox.json"); id=$(jq -r .id "$A/mailbox.json")
   org=$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.discovery.orgId // empty')
   [ -n "$org" ] || die "the gateway names no NANDA record for $addr"
-  read -rp "Remove $addr from the NANDA Index for good? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing removed"
+  cat <<TXT
+This deletes $addr's NANDA Index listing for good. It cannot be undone: the gateway will not list this
+mailbox again (tested 2026-10-31), so to take part again you need a new email address and a new mailbox.
+The mailbox itself stays, unlisted; other agents can no longer reach it through the Index.
+TXT
+  read -rp "Delete the listing for good? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing removed"
   since=$(inbox_seq)
   curl -fsS -X POST "$INDEX/auth/forgot-password" -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$addr" '{email:$e}')" >/dev/null
   tok=""; for _ in $(seq 18); do sleep 10; tok=$(nanda_mail 'reset|password' "$since"); [ -n "$tok" ] && break; done
@@ -51,7 +56,7 @@ if [ "${1:-}" = leave ]; then
   code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE "$INDEX/api/v1/orgs/$org" -H "Authorization: Bearer $jwt")
   [ "$code" = 204 ] || die "the NANDA Index refused the removal (HTTP $code)"
   echo "Removed: $addr is no longer listed in the NANDA Index ($(listed "$addr" || true))."
-  echo "The Agent Box mailbox itself still exists; it is simply unlisted."
+  echo "The Agent Box mailbox itself still exists, unlisted. To take part again, use a new email address."
   exit 0
 fi
 
@@ -64,7 +69,8 @@ Before you sign up:
   - Your agent gets its own address at agentboxnanda.org and a PUBLIC listing in the NANDA Index,
     with the description: "$DESC".
   - The listing shows the mailbox address, not your email. Your email gets one code, once.
-  - The listing stays after the workshop until you remove it (README, "Leaving the NANDA Index").
+  - The listing stays after the workshop until you remove it with 'devcon8 nanda leave', which is permanent:
+    this mailbox cannot be listed again (README, "Leaving the NANDA Index").
 TXT
   read -rp "Create the mailbox for $email? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing created"
   created=1
