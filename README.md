@@ -100,7 +100,7 @@ Index. The NANDA Index works with ARD and AI Catalog. Read this first:
 - **The listing is public.** Anyone can find your agent's address and message it. The listing shows the
   mailbox address, not your email. Its description reads "Devcon 8 workshop demo agent, simulated
   payment, not a real shop".
-- **The listing stays after the workshop** until you remove it (see "Leaving the NANDA Index").
+- **The listing stays after the workshop** until you remove it, and removing it is permanent (see "Leaving the NANDA Index").
 - One email gives one mailbox. To trade with yourself, run a second agent in a second container with a
   second email address.
 
