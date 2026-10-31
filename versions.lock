@@ -2,15 +2,17 @@
 # Sourced by build/fetch.sh and the Dockerfile's build stages; the build fails when a checksum differs.
 # Per-architecture values end in _AMD64 or _ARM64.
 
-# mesh-llm lab build: the commits the demo mesh (Brattain, Shockley) runs, built here from source for
-# both architectures. Lab branch lab/asg-2026-10-30 = Mesh-LLM/mesh-llm main 61e2acfb9 plus #2620,
-# #2649, #2719 and #2721. CI-built bytes are not the demo VM's staged bytes.
-MESH_LLM_REPO=https://github.com/ethanyzhang/mesh-llm
-MESH_LLM_SHA=3ffa5c4f1d7d162c964fc7fb24937c7ed5a12301
+# mesh-llm and capsules: the versions the S08 demo mesh runs (Ethan, 2026-10-31: everyone on the
+# latest). The rolling preview is the only published mesh-llm whose host announces plugin keys
+# (plugin_keys.v1, mesh-llm#2299), built from Mesh-LLM/mesh-llm main 2809443345ea. Release assets.
+MESH_LLM_VERSION=v0.78.0-preview.40959817943.1
+MESH_LLM_SHA256_AMD64=8c202333fe1135c8704318fd1bd3e976beb4463c7be483e5a8b5ba222f2a49f2
+MESH_LLM_SHA256_ARM64=4f772c637701a379281f79f95450327fe586491701993e297e7db62f73a3b0be
+CAPSULES_VERSION=0.1.6
+CAPSULES_SHA256_AMD64=a85ff20517e7b1dfff58bc24a5febcc03994eaa5d3cde2b619fd91bbe4bc3c92
+CAPSULES_SHA256_ARM64=b47526ad2ea54c23db78958f434feed27d8649fc82c0f7c7466b279708e01ef3
 CAPSULES_REPO=https://github.com/Mesh-LLM/capsules-plugin
-CAPSULES_SHA=f494845bb9e003d100429fc4c081fc11322551cc
 RUST_TOOLCHAIN=1.97.1
-JUST_VERSION=1.59.0
 
 # s08-liar runs on the release pair it was dry-run on (company-internal-all devcon8/s08-liar/DRYRUN.md):
 # mesh-llm v0.78.1 and capsules 0.1.5, plus the liar's capsules 0.1.5 + selective-log.patch built

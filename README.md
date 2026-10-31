@@ -3,7 +3,7 @@
 One container you run on your own laptop for the Devcon 8 S08 workshop (Tue Nov 3, 09:30 UTC). It
 lets you:
 
-- run a node on the workshop's demo mesh, on a lab build of [mesh-llm](https://github.com/Mesh-LLM/mesh-llm)
+- run a node on the workshop's demo mesh, on the same [mesh-llm](https://github.com/Mesh-LLM/mesh-llm) release the demo nodes run
   with the capsules (evidence) and lexe-wallet plugins;
 - replay two demos: the S02 two-sided settlement record (offline), and S08, where a node lies about
   its model and is caught by its twin and a referee (four nodes, all inside your container);
@@ -169,14 +169,13 @@ mesh-llm config it creates, and its mesh-llm build carries no analytics key.
 ## What is in the image
 
 Every component is pinned in [`versions.lock`](versions.lock), by commit or by release checksum, and
-`/opt/devcon8/MANIFEST` lists the sha256 of every shipped file. The mesh-llm host and the capsules
-plugin are built from source in CI for both architectures, from the commits the demo mesh runs. They are
-not byte-identical to the demo nodes' own binaries.
+`/opt/devcon8/MANIFEST` lists the sha256 of every shipped file. mesh-llm and the plugins are the
+published release files the demo nodes run, checked by sha256.
 
 | | |
 |---|---|
-| mesh-llm | lab branch `lab/asg-2026-10-30` of `ethanyzhang/mesh-llm` (Mesh-LLM/mesh-llm main plus open PRs [#2620](https://github.com/Mesh-LLM/mesh-llm/pull/2620), [#2649](https://github.com/Mesh-LLM/mesh-llm/pull/2649), [#2719](https://github.com/Mesh-LLM/mesh-llm/pull/2719) and [#2721](https://github.com/Mesh-LLM/mesh-llm/pull/2721)), CPU runtime |
-| capsules plugin | Mesh-LLM/capsules-plugin `f494845` |
+| mesh-llm | `v0.78.0-preview.40959817943.1`, the published rolling preview built from Mesh-LLM/mesh-llm main `2809443`: the one release whose host announces plugin keys, which S08 step 08 needs. CPU runtime |
+| capsules plugin | `v0.1.6` |
 | lexe-wallet plugin | Mesh-LLM/lexe-wallet-plugin v0.1.0 |
 | S08 pair | mesh-llm v0.78.1, capsules 0.1.5 (the liar: 0.1.5 plus `demos/s08-liar/redteam/selective-log.patch`) |
 | capsulectl, capsulectl-deal | built from source: evidencebook-deal `5719e84` (with `capsulectl deal terms-leg`) and the capsule-cli commit its go.mod names |

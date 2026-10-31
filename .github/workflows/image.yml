@@ -3,7 +3,7 @@ name: image
 # Builds the participant image natively for each architecture from versions.lock, runs the secret
 # scan (with its negative test) and the smoke tests, and on main publishes an immutable tag per
 # architecture plus a multi-arch manifest list:
-#   ghcr.io/action-state-group/devcon-workshop:YYYYMMDD-ml<mesh>-cap<capsules>-b<build>.<run>
+#   ghcr.io/action-state-group/devcon-workshop:YYYYMMDD-ml<mesh-llm version>-cap<capsules version>-b<build>.<run>
 # Pull requests build and test only.
 
 on:
@@ -43,7 +43,7 @@ jobs:
         id: tag
         run: |
           . ./versions.lock
-          tag="$(date -u +%Y%m%d)-ml${MESH_LLM_SHA:0:7}-cap${CAPSULES_SHA:0:7}-b${GITHUB_SHA:0:7}.${GITHUB_RUN_NUMBER}"
+          tag="$(date -u +%Y%m%d)-ml${MESH_LLM_VERSION#v}-cap${CAPSULES_VERSION}-b${GITHUB_SHA:0:7}.${GITHUB_RUN_NUMBER}"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "tag: $tag"
 

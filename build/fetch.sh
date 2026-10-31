@@ -25,6 +25,8 @@ get "$gh/Mesh-LLM/lexe-wallet-plugin/releases/download/$LEXE_VERSION/lexe-wallet
 get "$gh/aaif-goose/goose/releases/download/$GOOSE_VERSION/goose-$TRIPLE.tar.gz" "$(pin GOOSE)" goose.tar.gz
 get "https://go.dev/dl/go$GO_VERSION.linux-$GOARCH.tar.gz" "$(pin GO)" go.tar.gz
 get "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$NODEARCH.tar.xz" "$(pin NODE)" node.tar.xz
+get "$gh/Mesh-LLM/mesh-llm/releases/download/$MESH_LLM_VERSION/mesh-llm-$MESH_LLM_VERSION-$TRIPLE.tar.gz" "$(pin MESH_LLM)" mesh-llm.tar.gz
+get "$gh/Mesh-LLM/capsules-plugin/releases/download/v$CAPSULES_VERSION/capsules-$CAPSULES_VERSION-$TRIPLE.tar.gz" "$(pin CAPSULES)" "capsules-$CAPSULES_VERSION-$TRIPLE.tar.gz"
 get "$gh/Mesh-LLM/mesh-llm/releases/download/$S08_MESH_LLM_VERSION/mesh-llm-$S08_MESH_LLM_VERSION-$TRIPLE.tar.gz" "$(pin S08_MESH_LLM)" s08-mesh-llm.tar.gz
 get "$gh/Mesh-LLM/capsules-plugin/releases/download/v$S08_CAPSULES_VERSION/capsules-$S08_CAPSULES_VERSION-$TRIPLE.tar.gz" "$(pin S08_CAPSULES)" "capsules-$S08_CAPSULES_VERSION-$TRIPLE.tar.gz"
 hf="https://huggingface.co/$HF_REPO/resolve/$HF_REV"
@@ -32,11 +34,13 @@ get "$hf/$Q8_FILE" "$Q8_SHA256" "$Q8_FILE"
 get "$hf/$Q4_FILE" "$Q4_SHA256" "$Q4_FILE"
 
 # Unpack into /opt/devcon8 layout fragments.
-rm -rf opt && mkdir -p opt/bin opt/mesh/plugins opt/s08/bin opt/s08/dist opt/models
+rm -rf opt && mkdir -p opt/bin opt/mesh/bin opt/mesh/plugins opt/s08/bin opt/s08/dist opt/models
 tar -xzf dl/goose.tar.gz -C opt/bin ./goose && chmod 0755 opt/bin/goose
 mkdir -p opt/go && tar -xzf dl/go.tar.gz -C opt/go --strip-components=1
 mkdir -p opt/node && tar -xJf dl/node.tar.xz -C opt/node --strip-components=1
 cp "dl/lexe-wallet-$LEXE_VERSION-$TRIPLE.tar.gz" opt/mesh/plugins/
+tar -xzf dl/mesh-llm.tar.gz -C opt/mesh/bin --strip-components=1 mesh-bundle/mesh-llm mesh-bundle/native-runtimes
+cp "dl/capsules-$CAPSULES_VERSION-$TRIPLE.tar.gz" opt/mesh/plugins/ && echo "$CAPSULES_VERSION" > opt/mesh/capsules.version
 tar -xzf dl/s08-mesh-llm.tar.gz -C opt/s08/bin --strip-components=1 mesh-bundle/mesh-llm mesh-bundle/native-runtimes
 cp "dl/capsules-$S08_CAPSULES_VERSION-$TRIPLE.tar.gz" opt/s08/dist/
 cp "dl/$Q8_FILE" "dl/$Q4_FILE" opt/models/

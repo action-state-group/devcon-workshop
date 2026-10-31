@@ -6,8 +6,9 @@ D=/opt/devcon8
 ok() { echo "ok   $*"; }
 fail() { echo "FAIL $*" >&2; exit 1; }
 
-# 2. A release build prints the plain workspace version (no commit suffix).
-v=$("$D/mesh/bin/mesh-llm" --version); echo "$v" | grep -Eq '^mesh-llm [0-9]+\.[0-9]+\.[0-9]+$' || fail "mesh-llm version: $v"; ok "$v"
+# 2. The host is the pinned release.
+. "$D/versions.lock"
+v=$("$D/mesh/bin/mesh-llm" --version); [ "$v" = "mesh-llm ${MESH_LLM_VERSION#v}" ] || fail "mesh-llm version: $v"; ok "$v"
 "$D/s08/bin/mesh-llm" --version | grep -q '0\.78\.1' || fail "s08 mesh-llm is not v0.78.1"; ok "s08 mesh-llm v0.78.1"
 
 # 2. capsules and lexe-wallet load under the lab host, in a throwaway HOME with nothing shared.
@@ -25,7 +26,7 @@ for _ in $(seq 90); do
 done
 kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
 [ -n "$up" ] || { tail -30 "$T/run.log"; echo "$st"; fail "capsules and lexe-wallet did not both reach running"; }
-ok "capsules $(cat $D/mesh/capsules.version) and lexe-wallet running under the lab host"
+ok "capsules $(cat $D/mesh/capsules.version) and lexe-wallet running under the host"
 
 # 3. The S02 legs verify as settled.
 cd "$D/demos/s02/legs"
