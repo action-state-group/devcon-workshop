@@ -6,9 +6,10 @@ D=/opt/devcon8
 ok() { echo "ok   $*"; }
 fail() { echo "FAIL $*" >&2; exit 1; }
 
-# 2. The host is the pinned release.
+# 2. The host is the pinned lab build.
 . "$D/versions.lock"
-v=$("$D/mesh/bin/mesh-llm" --version); [ "$v" = "mesh-llm ${MESH_LLM_VERSION#v}" ] || fail "mesh-llm version: $v"; ok "$v"
+# A release build prints the plain workspace version, no commit suffix (asg-lab-rebuild 2.4).
+v=$("$D/mesh/bin/mesh-llm" --version); [ "$v" = "mesh-llm $MESH_LLM_VERSION" ] || fail "mesh-llm version: $v"; ok "$v (lab ${MESH_LLM_SHA:0:9})"
 "$D/s08/bin/mesh-llm" --version | grep -q '0\.78\.1' || fail "s08 mesh-llm is not v0.78.1"; ok "s08 mesh-llm v0.78.1"
 
 # 2. capsules and lexe-wallet load under the lab host, in a throwaway HOME with nothing shared.

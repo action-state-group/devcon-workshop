@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1.7
 # Devcon 8 workshop participant image. Build one architecture natively per runner:
 #   docker buildx build --platform linux/arm64 -t devcon-workshop:dev .
-# Every input is pinned in versions.lock; see README.md "What is in the image". mesh-llm and the
-# plugins are release assets; only s08's patched liar plugin and the deal CLIs are built here.
+# Every input is pinned in versions.lock; see README.md "What is in the image". mesh-llm is the lab
+# build, compiled here from its commit for each architecture; the plugins are release assets.
 
 # Ubuntu 24.04 (glibc 2.39): the S08 release pair is built on it and needs that glibc.
 ARG BASE=ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
@@ -16,15 +16,38 @@ COPY versions.lock /src/versions.lock
 COPY build/fetch.sh /src/build/fetch.sh
 RUN /src/build/fetch.sh "$TARGETARCH" /fetch && rm -rf /fetch/dl
 
-# --- Rust toolchain for the one source build left: s08's liar plugin -------------------------------
+# --- shared Rust and Node toolchain for the source builds -----------------------------------------
 FROM ${BASE} AS toolchain
+ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates curl git pkg-config build-essential jq \
+      ca-certificates curl git cmake ninja-build pkg-config libssl-dev libdbus-1-dev python3 \
+      build-essential jq patchelf xz-utils mold lld \
     && rm -rf /var/lib/apt/lists/*
 COPY versions.lock /src/versions.lock
-ENV PATH=/root/.cargo/bin:$PATH CARGO_NET_GIT_FETCH_WITH_CLI=true
+COPY --from=fetch /fetch/opt/node /usr/local/node
+ENV PATH=/root/.cargo/bin:/usr/local/node/bin:$PATH CARGO_NET_GIT_FETCH_WITH_CLI=true
 RUN . /src/versions.lock \
-    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$RUST_TOOLCHAIN"
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$RUST_TOOLCHAIN" \
+    && cargo install --locked just --version "$JUST_VERSION"
+
+# --- mesh-llm lab build: host, CPU native runtimes ------------------------------------------------
+FROM toolchain AS mesh
+ARG TARGETARCH
+RUN . /src/versions.lock && git clone --filter=blob:none "$MESH_LLM_REPO" /build/mesh-llm \
+    && git -C /build/mesh-llm checkout --detach "$MESH_LLM_SHA"
+WORKDIR /build/mesh-llm
+# mesh-llm's build requires sccache (.cargo/config.toml, the with-lld recipe); its own installer checks the archive
+# against the release's published .sha256. Version as in mesh-llm's mesh/deploy/fly/Dockerfile.
+RUN TARGETARCH="$TARGETARCH" SCCACHE_VERSION=0.16.0 scripts/install-sccache.sh \
+    && npm install -g "$(node -p 'require("./mesh/crates/mesh-llm-ui/package.json").packageManager')"
+# No MESH_LLM_POSTHOG_KEY: the build carries no analytics key (design section 6).
+RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry \
+    scripts/package-native-runtime.sh --build --backend cpu \
+    && scripts/build-release.sh \
+    && mkdir -p /out/bin/native-runtimes \
+    && cp target/release/mesh-llm /out/bin/mesh-llm \
+    && find dist/native-runtimes -mindepth 1 -maxdepth 1 -type d -exec cp -a {} /out/bin/native-runtimes/ \; \
+    && /out/bin/mesh-llm --version | tee /out/version
 
 # --- s08's liar plugin: capsules 0.1.5 plus selective-log.patch -----------------------------------
 FROM toolchain AS redteam
@@ -91,7 +114,7 @@ COPY --from=fetch /fetch/opt/go/ $D/go/
 COPY --from=fetch /fetch/opt/mesh/plugins/ $D/mesh/plugins/
 COPY --from=fetch /fetch/opt/s08/ $D/s08/
 COPY --from=fetch /fetch/opt/models/ $D/models/
-COPY --from=fetch /fetch/opt/mesh/bin/ $D/mesh/bin/
+COPY --from=mesh /out/bin/ $D/mesh/bin/
 COPY --from=fetch /fetch/opt/mesh/capsules.version $D/mesh/capsules.version
 COPY --from=redteam /out/ $D/s08/dist/
 COPY --from=npm /opt/devcon8/npm/ $D/npm/
