@@ -48,6 +48,6 @@ capsulectl --version >/dev/null 2>&1 || capsulectl version >/dev/null || fail "c
 ok "goose $(goose --version | head -1), claude, codex, both ACP adapters, capsulectl"
 
 # Nothing tracks: DO_NOT_TRACK is set and MESH_LLM_ANALYTICS is not.
-[ "${DO_NOT_TRACK:-}" = 1 ] && [ -z "${MESH_LLM_ANALYTICS+x}" ] || fail "analytics environment"
+if [ "${DO_NOT_TRACK:-}" != 1 ] || [ -n "${MESH_LLM_ANALYTICS+x}" ]; then fail "analytics environment"; fi
 ok "DO_NOT_TRACK=1"
 echo "smoke: all passed"

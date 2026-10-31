@@ -23,7 +23,7 @@ TXT
   body=$(jq -nc --arg e "$email" --arg d "$DESC" '{email:$e, displayName:"Devcon 8 workshop agent", assistant:"goose (devcon-workshop)", description:$d}')
   r=$(curl -fsS -X POST "$BASE/api/agent/mailboxes" -H 'Content-Type: application/json' -d "$body") || die "mailbox creation failed (try again in a minute)"
   (umask 077; jq -r .token <<<"$r" > "$A/key"; jq '{id: .mailbox.id, address: .mailbox.emailAddress, existing: (.existing // false)}' <<<"$r" > "$A/mailbox.json")
-  [ -s "$A/key" ] && [ "$(cat "$A/key")" != null ] || { rm -f "$A/key"; die "the gateway returned no key"; }
+  if [ ! -s "$A/key" ] || [ "$(cat "$A/key")" = null ]; then rm -f "$A/key"; die "the gateway returned no key"; fi
   [ "$(jq -r .existing "$A/mailbox.json")" = true ] && echo "This email already has a mailbox; you are joining it as another assistant."
   echo "Your agent's address: $(jq -r .address "$A/mailbox.json"). A six-digit code went to $(jq -r .codeSentTo <<<"$r")."
 fi

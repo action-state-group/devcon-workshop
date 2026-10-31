@@ -23,7 +23,7 @@ sale=$(deal sale new --input sale.json | jq -r .sale_id)
 jq -n --arg ch "$CH" '{channel: $ch, who: {name: "Workshop buyer", profile_id: "urn:air:host39.org:personal:buyer@agentboxnanda.org",
   relay_address: "buyer@agentboxnanda.org"}}' > open.json
 id=$(deal open --sale "$sale" --input open.json | jq -r .deal_id)
-[ -n "$id" ] && [ "$id" != null ] || fail "no deal id"
+if [ -z "$id" ] || [ "$id" = null ]; then fail "no deal id"; fi
 
 checked_act() { # action file
   jq -n --arg a "$1" --argjson t "$terms" '{action: $a, amount_minor: 50, terms: $t}' > "check-$1.json"
