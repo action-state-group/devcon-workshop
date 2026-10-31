@@ -2,12 +2,12 @@
 # Sourced by build/fetch.sh and the Dockerfile's build stages; the build fails when a checksum differs.
 # Per-architecture values end in _AMD64 or _ARM64.
 
-# mesh-llm: the newest lab build, what the demo mesh runs (Ethan, 2026-10-31: "所有全部都用最新 lab").
-# Branch ethanyzhang/mesh-llm lab/asg-2026-10-30 = Mesh-LLM/mesh-llm main 61e2acfb9 plus #2620, #2649,
-# #2719 and #2721. Built here from that commit for both architectures; the bytes are not the demo
-# VMs' or the fork release's (compare by commit, not sha256).
+# mesh-llm: the newest lab build (Ethan, 2026-10-31: "所有全部都用最新 lab"): e877a45df =
+# Mesh-LLM/mesh-llm main c86f58e plus #2620, #2649, #2719, #2721 and #2744, published as the
+# pre-release mesh-llm-lab-e877a45df by .github/workflows/mesh-llm-lab-release.yml. Built here with
+# the same just recipes, per architecture; compare by commit, not sha256.
 MESH_LLM_REPO=https://github.com/ethanyzhang/mesh-llm
-MESH_LLM_SHA=3ffa5c4f1d7d162c964fc7fb24937c7ed5a12301
+MESH_LLM_SHA=e877a45df949721cdffa2dcb3c9885e649fdadf6
 MESH_LLM_VERSION=0.78.0
 JUST_VERSION=1.59.0
 # capsules: release v0.1.6.
