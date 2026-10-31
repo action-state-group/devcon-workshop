@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/sim-payment.sh build/fetch.sh build/usb.sh
+        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/sim-payment.sh tests/s08-ci.sh build/fetch.sh build/usb.sh
       - name: mbx unit tests
         run: python3 -I tests/test_mbx.py
 
@@ -118,6 +118,10 @@ jobs:
 
       - name: Simulated payment seals on a test network
         run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-payment.sh
+
+      - name: S08 in the container (start, lie, twins, referee, stop)
+        timeout-minutes: 45
+        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/s08-ci.sh
 
       - name: Push the per-architecture tag
         if: env.PUBLISH == 'true'
