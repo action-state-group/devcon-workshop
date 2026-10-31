@@ -66,10 +66,37 @@ class Mbx(unittest.TestCase):
         self.assertEqual(mbx.parse(self.msg("proposal", {}))["you_are"], "buyer")
         self.assertEqual(mbx.parse(self.msg("request", {}, conv="conv_2"))["you_are"], "seller")
 
-    def test_confirm_saves_checked_png(self):
-        out = mbx.parse(self.msg("confirm", {"files": [attach("sticker.png", PNG)]}))
+    def bought(self, conv="conv_1"):
+        with open(os.path.join(mbx.STATE, "buying.json"), "w") as f:
+            json.dump({conv: "shop@agentboxnanda.org"}, f)
+
+    def delivery(self, files, conv="conv_1"):
+        return self.msg("request", {"delivery_for": conv, "deal_id": "d1", "files": files}, conv="delivery_conv")
+
+    def test_delivery_saves_checked_png_under_the_purchase(self):
+        self.bought()
+        out = mbx.parse(self.delivery([attach("sticker.png", PNG)]))
+        self.assertEqual((out["kind"], out["conversation"], out["you_are"]), ("delivery", "conv_1", "buyer"))
         self.assertEqual(out["files"], [os.path.join(mbx.DEALS, "conv_1", "sticker.png")])
         self.assertEqual(open(out["files"][0], "rb").read(), PNG)
+
+    def test_sticker_only_through_a_delivery_for_our_purchase(self):
+        # not ours: a stranger's request naming a conversation we never opened stays a request
+        out = mbx.parse(self.delivery([attach("sticker.png", PNG)], conv="not_ours"))
+        self.assertEqual(out["kind"], "request")
+        self.assertNotIn("files", out)
+        self.bought()
+        for kind in ("confirm", "proposal", "accept"):
+            out = mbx.parse(self.msg(kind, {"files": [attach("sticker.png", PNG)]}))
+            self.assertNotIn("files", out, kind)
+
+    def test_seller_learns_where_to_deliver(self):
+        m = self.msg("request", {}, conv="conv_9")
+        m["sender"] = "urn:air:host39.org:personal:buyer@agentboxnanda.org"
+        mbx.parse(m)
+        self.assertEqual(mbx.reply_to(mbx.state("peers.json")["conv_9"]), "urn:air:host39.org:personal:buyer@agentboxnanda.org")
+        self.assertEqual(mbx.reply_to("https://gw.example/agents/shop1"), "shop1")
+        self.assertIsNone(mbx.reply_to("javascript:alert(1)"))
 
     def test_refused_files(self):
         svg = b'<svg onload="alert(1)"/>'
@@ -94,18 +121,20 @@ class Mbx(unittest.TestCase):
             "wrong sha": attach("sticker.png", PNG, sha256="00" * 32),
             "wrong size": attach("sticker.png", PNG, size=1),
             "too big": attach("sticker.png", b"\x89PNG\r\n\x1a\n" + b"0" * (mbx.MAX_FILE + 1)),
-            "terms on a confirm": attach("buyer-terms.json", b"{}"),
+            "terms in a delivery": attach("buyer-terms.json", b"{}"),
         }
+        self.bought()
         for label, f in cases.items():
-            out = mbx.parse(self.msg("confirm", {"files": [f]}))
+            out = mbx.parse(self.delivery([f]))
             self.assertNotIn("files", out, label)
             self.assertEqual(len(out["files_refused"]), 1, label)
             self.assertNotIn("<svg", json.dumps(out), label)
         self.assertFalse(os.path.exists(os.path.join(self.tmp.name, "sticker.png")))
 
     def test_non_string_names_refused_without_crash(self):
+        self.bought()
         for name in ([], {}, 7, None):
-            out = mbx.parse(self.msg("confirm", {"files": [{"name": name, "b64": "", "size": 0, "sha256": ""}]}))
+            out = mbx.parse(self.delivery([{"name": name, "b64": "", "size": 0, "sha256": ""}]))
             self.assertEqual(out["files_refused"], [{"name": "(other)", "reason": "name_not_allowed"}], name)
 
     def test_accept_saves_terms_and_settle(self):

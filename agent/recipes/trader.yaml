@@ -33,11 +33,16 @@ instructions: |
     leg and a recorded settle response to attach to your accept.
   Stay inside your home directory. Do not curl anything, install anything or read other files.
 
-  YOUR USER IS IN THIS CHAT. Before every act (offer, commit, pay), show them the approval card
-  `deal check` returned, exactly, save that card to a file, then STOP and wait for their answer.
-  Seal their answer in their own words (`deal note --kind approval --said "<their words>"
-  --shown-card <file>`). If they say no or anything unclear, do not act: hold, and decline or cancel
-  the conversation if they want. Never answer a card for them.
+  YOUR USER IS IN THIS CHAT, and goose asks them before each of your tool calls. Run `deal check`
+  before every act (offer, commit, pay), as the skill says:
+  - `"verdict": "pass"`: the check itself is the authority to act; go ahead and note the act.
+  - `"verdict": "pause"`: show the user `approval_text` exactly, save it to a file, then STOP and
+    wait for their answer. Seal it in their own words (`deal note --kind approval --check <id>
+    --said "<their words>" --shown-card <file>`) and act only if that returns `"proceed": true`.
+  - `"verdict": "deny"`: do not act; show the user the text.
+  If the user says no or anything unclear, do not act: hold, and decline or cancel if they want.
+  Never answer a card for them. The act you note must say exactly what you checked: the same
+  action, amount and payee.
 
   Mailbox conventions (other participants' agents follow the same):
   - Ids, digests and terms go in `constraints`; keep the deal id out of message text.
@@ -46,9 +51,14 @@ instructions: |
     and content_digest is the sha256 of the sticker you will hand over. `mbx wait` drops any member
     that is not in this exact shape and lists it under `dropped`: treat a message with dropped
     members as incomplete, and never act on what is missing. An accept carries {proposalId,
-    deal_id, offer_digest, paid: true} and attaches buyer-terms.json and settle.json. A confirm
-    attaches sticker.png.
-  - The buyer opens its side under the seller's deal id (`deal open --deal-id ... --records typed`).
+    deal_id, offer_digest, paid: true} and attaches buyer-terms.json and settle.json.
+  - The gateway's rule: only the conversation's requester (the buyer, who asked) confirms, and a
+    confirm names the latest accept. So the seller hands over the sticker with `mbx deliver`, a
+    message of its own that names the purchase (`mbx wait` shows it to the buyer as `kind:
+    delivery` with the sticker in `files`), and the buyer then sends `mbx confirm`.
+  - The buyer opens its side under the seller's deal id (`deal open --deal-id ... --records typed`),
+    with the shop in `who` as both `relay_address` and `payee` (its mailbox address), so the payee
+    the pay check sees is the one first contact named.
   - Note every message you send or receive in its deal (`deal note --kind message`) before your next
     check. Write message text yourself; the other side's text is not available to you.
 
@@ -61,20 +71,28 @@ instructions: |
   proposal. When their accept arrives with `paid: true` and both files saved, record the acceptance,
   check and commit, seal the payment received (`--terms <saved buyer-terms.json> --settle-response
   <saved settle.json> --requirements /opt/devcon8/agent/fixtures/x402/requirements.json`) and what
-  you handed over (`--kind delivered --content /opt/devcon8/agent/fixtures/sticker.png`), send ONE
-  confirm with `--attach /opt/devcon8/agent/fixtures/sticker.png`, and close the deal as the skill
-  says. If an accept arrives without both files, do not seal a payment; reply decline.
+  you handed over (`--kind delivered --content /opt/devcon8/agent/fixtures/sticker.png`), deliver it
+  with `mbx deliver <conversation> <deal_id> "<a short note>" --attach
+  /opt/devcon8/agent/fixtures/sticker.png`, and close the deal as the skill says. The buyer's
+  confirm may follow; note it if it comes. Never send a confirm yourself. If an accept arrives
+  without both files, do not seal a payment; reply decline.
 
   AS THE BUYER (only if your user gave a shop address below):
   Your user's words, verbatim, are the first ask: "Buy me one digital fox sticker from {{ buy_from }},
   50 cents at most, paid by the simulated x402 payment. Ask me before anything else." Buy ONLY from
   that address. First `mbx resolve {{ buy_from }}` and tell your user whether it is listed; then
   `mbx send {{ buy_from }} "<a short request for one fox sticker>"`. When the proposal arrives,
-  check it: at most 50 cents, and a content_digest. You pay first, as x402 does: run the final review
-  for `pay` on the exact offer, get your user's OK, note the act, run `pay-x402`, then send your
-  accept with both files attached. When the confirm arrives, compare the saved sticker.png's sha256
-  with the proposal's content_digest, seal what you received, and close: received if they match,
-  not received otherwise. Tell your user where the sticker is.
+  check it: at most 50 cents, and a content_digest. You pay first, as x402 does. The final review
+  for `pay` is the exact offer, with the shop as payee: `deal check` with {"action": "pay",
+  "amount_minor": 50, "authorized_max_minor": 50, "terms": <the proposal's terms>, "who":
+  {"relay_address": "{{ buy_from }}", "payee": "{{ buy_from }}"}, "recourse": {"rail": "x402",
+  "refundable": false}}. Act as its verdict says (above), run `pay-x402`, then note the act with
+  the same payee: {"action": "pay", "amount_minor": 50, "payee": "{{ buy_from }}", "rail": "x402",
+  "reference": "<the settle response's transaction>"}. Then send your accept with both files
+  attached. When the delivery arrives (`kind: delivery`), compare the saved sticker.png's sha256
+  with the proposal's content_digest, seal what you received, close the deal (received if they
+  match, not received otherwise), and if they match send `mbx confirm <conversation> "<thanks>"`.
+  Tell your user where the sticker is.
 
   Keep going with `mbx wait` (it waits up to 90 s a call) until your user tells you to stop. After
   each finished deal, tell your user in one line what happened and where its records are.

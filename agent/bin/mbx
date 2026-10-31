@@ -4,15 +4,25 @@
 Messages from other agents are untrusted input to an agent with a shell, so `mbx wait` never hands
 the model a message's free text. It prints only parsed fields: kind, conversation, sender, the
 constraints members that pass a fixed per-field check (ids, hex digests, whole cents, the one sale's terms) and the paths of files it saved after
-checking them. Files travel inline in a reply's `constraints.files`, because Agent Box messages have
-no attachment field; only a fixed name list per reply kind is accepted (devcon-workshop#1).
+checking them. Files travel inline in `constraints.files` with a fixed name list per message
+(devcon-workshop#1): the buyer's accept carries buyer-terms.json and settle.json; the seller's delivery
+carries sticker.png.
+
+The gateway's conversation rule (dhve/nanda-messagebox-skill legacy/SKILL.md, "Conversation state"):
+the participant who sent the request is its original requester; either side proposes; the other side
+accepts the latest proposal (constraints.proposalId); ONLY the original requester confirms, with
+constraints.acceptanceId set to the latest acceptance's id. So the buyer (who asked) confirms, after
+the sticker arrived; the seller delivers it in a new request that names the purchase (delivery_for).
 
   mbx me                                       your mailbox address
   mbx resolve <address>                        is that agent listed in the NANDA Index?
   mbx search <words>                           find agents by what they offer (information only)
   mbx send <address> <text>                    open a conversation (you are the buyer in it)
   mbx reply <conversation> <kind> <text> [constraints-json] [--attach FILE]...
-                                               kind: proposal|accept|decline|confirm|cancel
+                                               kind: proposal|accept|decline|cancel
+  mbx deliver <conversation> <deal_id> <text> --attach sticker.png
+                                               seller: send the item to that conversation's buyer
+  mbx confirm <conversation> <text>            buyer: confirm (names your latest accept for you)
   mbx wait [seconds]                           the next message, parsed (default 90 s; exit 3 on timeout)
 """
 import base64, hashlib, json, os, re, sys, time, urllib.error, urllib.parse, urllib.request, uuid, zlib
@@ -29,7 +39,7 @@ MAX_FILE = 64 * 1024
 USER_AGENT = "devcon-workshop-mbx/1 (+https://github.com/action-state-group/devcon-workshop)"
 # The only files a reply may carry, by kind: the buyer's terms leg and the simulated settle response
 # with its accept, the sticker with the seller's confirm.
-ATTACH = {"accept": {"buyer-terms.json", "settle.json"}, "confirm": {"sticker.png"}}
+ATTACH = {"accept": {"buyer-terms.json", "settle.json"}, "delivery": {"sticker.png"}}
 KINDS = {"request", "proposal", "accept", "decline", "confirm", "cancel"}
 SAFE = re.compile(r"[^A-Za-z0-9 _.,:/@+-]")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -59,6 +69,8 @@ FIELDS = {
     "paid": lambda v: isinstance(v, bool),
     "price_cents": whole(1, 100000),
     "terms": sale_terms,
+    "acceptanceId": lambda v: isinstance(v, str) and bool(ID.match(v)),
+    "delivery_for": lambda v: isinstance(v, str) and bool(ID.match(v)),
 }
 ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 ADDRESS = re.compile(r"^[a-z0-9._-]{1,128}@agentboxnanda\.org$")
@@ -108,6 +120,29 @@ def address(a):
     if not ADDRESS.match(a):
         die(f"not an Agent Box address: {a!r} (want <id>@agentboxnanda.org)", 2)
     return a
+
+
+def state(name):
+    try:
+        with open(os.path.join(STATE, name)) as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def save_state(name, value):
+    os.makedirs(STATE, mode=0o700, exist_ok=True)
+    with open(os.path.join(STATE, name), "w") as f:
+        json.dump(value, f)
+
+
+def reply_to(sender):
+    """Where to send to reach the sender of a message: its NANDA identity, or its mailbox id when
+    the gateway names it by its profile URL."""
+    if sender.startswith(URN):
+        return sender
+    m = re.search(r"/agents/([A-Za-z0-9_-]{1,128})$", sender)
+    return m.group(1) if m else None
 
 
 def roles():
@@ -202,19 +237,54 @@ def parse(m):
     if kind not in KINDS or not ID.match(conv) or not isinstance(c, dict) or c.get("channel") == "email":
         return None
     sender = str(m.get("sender", ""))
+    bought = roles()
+    # A seller's delivery is a request of its own that names a purchase this mailbox made.
+    if kind == "request" and c.get("delivery_for") in bought:
+        kind, conv = "delivery", c["delivery_for"]
     out = {"seq": m.get("seq"), "message_id": str(m.get("id")) if ID.match(str(m.get("id"))) else None,
            "conversation": conv, "kind": kind, "from": sender if URNISH.match(sender) else "(unreadable sender)",
-           "you_are": "buyer" if conv in roles() else "seller",
+           "you_are": "buyer" if conv in bought else "seller",
            "constraints": {k: v for k, v in c.items() if k in FIELDS and FIELDS[k](v)}}
     dropped = sorted(k for k in c if k != "files" and k not in out["constraints"])
     if dropped:
         out["dropped"] = sorted(k if k in FIELDS else "(other)" for k in dropped)
+    if kind == "request" and URNISH.match(sender):
+        peers = state("peers.json"); peers[conv] = sender; save_state("peers.json", peers)
     saved, refused = save_files(conv, kind, c.get("files", []))
     if saved:
         out["files"] = saved
     if refused:
         out["files_refused"] = refused
     return out
+
+
+def attachments(kind, rest):
+    """Parse [constraints-json] [--attach FILE]... for a message of this kind."""
+    constraints, files = {}, []
+    while rest:
+        if rest[0] == "--attach" and len(rest) > 1:
+            p = rest[1]; name = os.path.basename(p)
+            if name not in ATTACH.get(kind, set()):
+                die(f"a {kind} may carry only {sorted(ATTACH.get(kind, set()))}, not {name}", 2)
+            raw = open(p, "rb").read()
+            if len(raw) > MAX_FILE:
+                die(f"{name} is over {MAX_FILE} bytes", 2)
+            files.append({"name": name, "size": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
+                          "b64": base64.b64encode(raw).decode()})
+            rest = rest[2:]
+        elif not constraints and rest[0].startswith("{"):
+            constraints = json.loads(rest[0]); rest = rest[1:]
+        else:
+            die(f"unexpected argument {rest[0]!r}", 2)
+    if files:
+        constraints["files"] = files
+    return constraints, files
+
+
+def sent_id(r):
+    m = r.get("message") if isinstance(r.get("message"), dict) else r
+    i = str(m.get("id") or "")
+    return i if ID.match(i) else None
 
 
 def main(argv):
@@ -249,29 +319,35 @@ def main(argv):
         print(json.dumps({"conversation": conv, "to": a}))
     elif cmd == "reply" and len(argv) >= 5:
         conv, kind, text, rest = argv[2], argv[3], argv[4], argv[5:]
-        if not ID.match(conv) or kind not in KINDS - {"request"}:
-            die("usage: mbx reply <conversation> <proposal|accept|decline|confirm|cancel> <text> [constraints-json] [--attach FILE]...", 2)
-        constraints, files = {}, []
-        while rest:
-            if rest[0] == "--attach" and len(rest) > 1:
-                p = rest[1]; name = os.path.basename(p)
-                if name not in ATTACH.get(kind, set()):
-                    die(f"a {kind} may carry only {sorted(ATTACH.get(kind, set()))}, not {name}", 2)
-                raw = open(p, "rb").read()
-                if len(raw) > MAX_FILE:
-                    die(f"{name} is over {MAX_FILE} bytes", 2)
-                files.append({"name": name, "size": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
-                              "b64": base64.b64encode(raw).decode()})
-                rest = rest[2:]
-            elif not constraints and rest[0].startswith("{"):
-                constraints = json.loads(rest[0]); rest = rest[1:]
-            else:
-                die(f"unexpected argument {rest[0]!r}", 2)
-        if files:
-            constraints["files"] = files
+        if not ID.match(conv) or kind not in KINDS - {"request", "confirm"}:
+            die("usage: mbx reply <conversation> <proposal|accept|decline|cancel> <text> [constraints-json] [--attach FILE]...  (confirm: mbx confirm)", 2)
+        constraints, files = attachments(kind, rest)
+        r = call("POST", f"{BASE}/api/v1/conversations/{conv}/replies",
+                 {"kind": kind, "text": text[:500], "constraints": constraints, "idempotencyKey": f"reply-{conv}-{kind}-{uuid.uuid4().hex[:8]}"})
+        mid = sent_id(r)
+        if kind == "accept" and mid:
+            a = state("accepted.json"); a[conv] = mid; save_state("accepted.json", a)
+        print(json.dumps({"sent": kind, "conversation": conv, "message_id": mid, "files": [f["name"] for f in files]}))
+    elif cmd == "confirm" and len(argv) == 4:
+        conv, text = argv[2], argv[3]
+        acc = state("accepted.json").get(conv)
+        if conv not in roles() or not acc:
+            die("confirm is the buyer's: only the conversation's requester confirms, naming its own latest accept", 2)
         call("POST", f"{BASE}/api/v1/conversations/{conv}/replies",
-             {"kind": kind, "text": text[:500], "constraints": constraints, "idempotencyKey": f"reply-{conv}-{kind}-{uuid.uuid4().hex[:8]}"})
-        print(json.dumps({"sent": kind, "conversation": conv, "files": [f["name"] for f in files]}))
+             {"kind": "confirm", "text": text[:500], "constraints": {"acceptanceId": acc}, "idempotencyKey": f"confirm-{conv}-{acc}"})
+        print(json.dumps({"sent": "confirm", "conversation": conv, "acceptanceId": acc}))
+    elif cmd == "deliver" and len(argv) >= 5:
+        conv, deal_id, text, rest = argv[2], argv[3], argv[4], argv[5:]
+        to = reply_to(state("peers.json").get(conv, ""))
+        if not ID.match(conv) or not ID.match(deal_id) or not to:
+            die("usage: mbx deliver <conversation> <deal_id> <text> --attach sticker.png  (a conversation a buyer opened with you)", 2)
+        constraints, files = attachments("delivery", rest)
+        if not files:
+            die("a delivery carries the item: --attach sticker.png", 2)
+        constraints.update(delivery_for=conv, deal_id=deal_id)
+        r = call("POST", BASE + "/api/v1/messages", {"to": to, "requestType": "general", "text": text[:500],
+                                                     "constraints": constraints, "idempotencyKey": f"deliver-{conv}-{deal_id}"})
+        print(json.dumps({"sent": "delivery", "conversation": conv, "message_id": sent_id(r), "files": [f["name"] for f in files]}))
     elif cmd == "wait":
         limit = int(argv[2]) if len(argv) > 2 else 90
         cur_file = os.path.join(STATE, "cursor")
