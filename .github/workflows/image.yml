@@ -92,9 +92,11 @@ jobs:
 
       - name: Secret scan (negative test first, then the image)
         run: |
-          docker build -q -t dw-scan-neg tests/secret-scan
-          docker save dw-scan-neg -o /tmp/neg.tar
-          if python3 -I build/secret-scan.py /tmp/neg.tar; then echo "the scanner missed a deleted secret"; exit 1; fi
+          for neg in Dockerfile env.Dockerfile; do
+            docker build -q -t dw-scan-neg -f "tests/secret-scan/$neg" tests/secret-scan
+            docker save dw-scan-neg -o /tmp/neg.tar
+            if python3 -I build/secret-scan.py /tmp/neg.tar; then echo "the scanner missed the secret in $neg"; exit 1; fi
+          done
           docker save devcon-workshop:ci -o /tmp/image.tar
           python3 -I build/secret-scan.py /tmp/image.tar
           rm -f /tmp/image.tar /tmp/neg.tar

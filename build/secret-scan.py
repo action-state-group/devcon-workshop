@@ -13,8 +13,6 @@ CFG = re.compile(r"(?i)(join[_-]?token|seed ?phrase|api[_-]?key|secret|password|
 # Third-party toolchains fetched by sha256 (versions.lock) carry public test keys (Go's crypto/tls
 # testdata, for one). Their key blocks are not ours; their file names are still checked.
 VENDORED = ("opt/devcon8/go/", "opt/devcon8/node/", "opt/devcon8/npm/node_modules/")
-# Known public files that merely mention these words.
-ALLOW_CFG = re.compile(r"(?i)DO_NOT_TRACK")
 
 def scan(path):
     bad = []
@@ -22,12 +20,14 @@ def scan(path):
         names = outer.getnames()
         manifest = json.load(outer.extractfile("manifest.json"))[0]
         cfg = json.load(outer.extractfile(manifest["Config"]))
-        text = json.dumps({"env": cfg.get("config", {}).get("Env"), "labels": cfg.get("config", {}).get("Labels"),
-                           "history": cfg.get("history")})
-        for m in CFG.finditer(text):
-            ctx = text[max(0, m.start() - 40): m.end() + 40]
-            if not ALLOW_CFG.search(ctx):
-                bad.append(f"config: {ctx!r}")
+        c = cfg.get("config", {})
+        items = [("env", e) for e in c.get("Env") or []]
+        items += [("label", f"{k}={v}") for k, v in (c.get("Labels") or {}).items()]
+        items += [("history", h.get("created_by", "")) for h in cfg.get("history") or []]
+        for where, item in items:
+            # Each entry on its own, with no exemptions: a harmless neighbour never hides a secret.
+            if CFG.search(item):
+                bad.append(f"config {where}: {item[:160]!r}")
         for layer in manifest["Layers"]:
             with tarfile.open(fileobj=outer.extractfile(layer)) as lt:
                 for ti in lt:

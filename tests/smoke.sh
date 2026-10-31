@@ -47,6 +47,9 @@ command -v claude-agent-acp >/dev/null || fail "claude-agent-acp"; command -v co
 capsulectl --version >/dev/null 2>&1 || capsulectl version >/dev/null || fail "capsulectl"
 ok "goose $(goose --version | head -1), claude, codex, both ACP adapters, capsulectl"
 
+# The trader recipe reads the deal skill from here.
+[ -f "$D/agent/skills/deal/SKILL.md" ] || fail "deal skill missing"; ok "deal skill present"
+
 # Nothing tracks: DO_NOT_TRACK is set and MESH_LLM_ANALYTICS is not.
 if [ "${DO_NOT_TRACK:-}" != 1 ] || [ -n "${MESH_LLM_ANALYTICS+x}" ]; then fail "analytics environment"; fi
 ok "DO_NOT_TRACK=1"

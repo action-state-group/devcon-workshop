@@ -41,8 +41,14 @@ checked_act offer
 deal note --deal "$id" --kind acceptance --check "$(jq -r .check_id offer.check.json)" --words "Accepted, paid." --channel "$CH" >/dev/null
 checked_act commit
 
-terms-leg -out buyer-terms.json -amount 500000 -content-digest "$DIGEST"
-deal note --deal "$id" --kind payment_received --terms buyer-terms.json --settle-response "$D/agent/fixtures/x402/settle.json" \
+# The buyer's side, as the agent runs it: pay-x402 writes the two files its accept attaches.
+pay-x402 conv-test 50 "$DIGEST" >/dev/null
+out=$T/deals/conv-test/outgoing
+[ "$(jq -r .settlement.amount.value "$out/buyer-terms.json")" = 500000 ] || fail "pay-x402 wrote the wrong amount"
+if pay-x402 conv-test 50 "$DIGEST" 2>/dev/null; then fail "pay-x402 paid twice in one conversation"; fi
+if pay-x402 conv-2 050 "$DIGEST" 2>/dev/null; then fail "pay-x402 took a leading zero"; fi
+cp "$out/buyer-terms.json" buyer-terms.json
+deal note --deal "$id" --kind payment_received --terms buyer-terms.json --settle-response "$out/settle.json" \
   --requirements "$D/agent/fixtures/x402/requirements.json" > paid.json
 jq -r .say paid.json | grep -q 'Payment received: 0.50 USDC' || { jq . paid.json; fail "payment_received did not seal"; }
 deal note --deal "$id" --kind delivered --terms buyer-terms.json --content "$STICKER" > delivered.json

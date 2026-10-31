@@ -18,7 +18,8 @@ setup() {
   ln -sfn "$D/models/$Q4" "$S/models/$Q4"
   echo "S08 is set up in $S. Next: devcon8 s08 start (up to a few minutes per node on a laptop CPU)."
 }
-step() { [ -x "$S/$1" ] || setup; cd "$S" && exec "./$1" "${@:2}"; }
+# Every step refreshes the scripts from this image first, so an upgraded image never runs old copies.
+step() { setup >/dev/null; cd "$S" && exec "./$1" "${@:2}"; }
 case "${1:-help}" in
   setup) setup ;;
   fresh) step 00-fresh.sh ;; start) step 01-start.sh ;; lie) step 02-lie.sh ;;

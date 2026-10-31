@@ -58,7 +58,8 @@ pays. Then it asks the mesh one question. One of two things happens:
 - The serving node charges: your request is refused. That is the free-only policy doing its job.
   Nothing was paid. See "If your first prompt is refused" below.
 
-`devcon8 node status|log|stop` manage your node.
+`devcon8 node status|log|stop` manage your node. `devcon8 join --new` asks for a new invite. If you
+change your wallet policy away from free-only, `join` no longer sends its question.
 
 ### 3. `devcon8 brain claude|codex|mesh`: what goose thinks with
 
@@ -67,8 +68,10 @@ The trading agent runs in [goose](https://github.com/aaif-goose/goose). Pick its
 - `claude`: your Claude subscription. Claude Code prints a link; open it on your laptop, sign in, paste
   the code back.
 - `codex`: your ChatGPT subscription, by device login. Turn on device code login in ChatGPT's security
-  settings first. **Codex login**: if that is not possible, copy your laptop's `~/.codex/auth.json` in:
-  `docker cp ~/.codex/auth.json devcon8:/home/participant/.codex/auth.json`.
+  settings first. **Codex login**: if that is not possible, copy your laptop's `~/.codex/auth.json` in,
+  from a laptop terminal (this keeps it readable only by the container's user), then run
+  `devcon8 brain codex` again:
+  `docker exec -i devcon8 sh -c 'mkdir -p ~/.codex && umask 077 && cat > ~/.codex/auth.json' < ~/.codex/auth.json`
 - `mesh`: chat with the mesh's own models through your node. A 0.5B model cannot run the trading
   agent; use `claude` or `codex` for that.
 
@@ -118,15 +121,15 @@ they give you. It buys only from that address, never from search results.
 
 ### 8. `devcon8 go-seal`: the Go SDK example
 
-Copies `examples/go-seal` to `~/go-seal`, builds it offline and runs it: it opens a book on disk, seals
-one Evidence Result and cuts a checkpoint. Change `~/go-seal/main.go` and rebuild with
-`go build -mod=vendor -o go-seal .`.
+Copies `examples/go-seal` to `~/go-seal` (once), builds it offline and runs it: it opens a book on disk,
+seals one Evidence Result and cuts a checkpoint. Change `~/go-seal/main.go` and run `devcon8 go-seal`
+again; your edits are kept. `devcon8 go-seal --reset` starts over from the image's copy.
 
 ## If your first prompt is refused
 
 Your node is free-only and the serving node charges, so the mesh refused the request and nothing was
-paid. The workshop's recording of a free join and its Evidence tab shows what you would have seen. You
-can also pay with your own Lightning wallet (next section). That is optional and real money.
+paid. The presenter shows a free join and its Evidence tab on screen. You can also pay with your own
+Lightning wallet (next section). That is optional and real money.
 
 ## Your own wallet (optional, real Lightning, mainnet)
 

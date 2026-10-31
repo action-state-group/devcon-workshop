@@ -12,11 +12,22 @@ mkdir -p "$A" && chmod 700 "$A"
 
 # nanda_mail SUBJECT_REGEX: the token in the newest Index email whose subject matches. Only mail from
 # noreply@nandaindex.org counts; the token is the only thing read from it.
-nanda_mail() {
-  curl -fsS "${auth[@]}" "$BASE/api/v1/inbox?after=0&limit=50" \
-    | jq -r --arg re "$1" '[.messages[] | select(.kind == "email" and .sender == "urn:ai:email:noreply@nandaindex.org"
-        and (.email.subject // "" | test($re; "i")))] | last | .text // empty' \
-    | grep -oE 'token=[0-9a-f]{32,128}' | head -1 | cut -d= -f2
+nanda_mail() { # SUBJECT_REGEX AFTER_SEQ: only mail after that seq, every page; empty when none yet
+  local after=$2 page found=""
+  while page=$(curl -fsS "${auth[@]}" "$BASE/api/v1/inbox?after=$after&limit=50") && [ "$(jq '.messages | length' <<<"$page")" -gt 0 ]; do
+    found=$(jq -r --arg re "$1" --arg prev "$found" '[.messages[] | select(.kind == "email" and .sender == "urn:ai:email:noreply@nandaindex.org"
+        and (.email.subject // "" | test($re; "i"))) | .text] | last // $prev' <<<"$page")
+    after=$(jq '.messages[-1].seq' <<<"$page")
+  done
+  grep -oE 'token=[0-9a-f]{32,128}' <<<"$found" | head -1 | cut -d= -f2 || true
+}
+# inbox_seq: the newest seq now, so a later nanda_mail reads only mail sent after this point.
+inbox_seq() {
+  local after=0 page
+  while page=$(curl -fsS "${auth[@]}" "$BASE/api/v1/inbox?after=$after&limit=50") && [ "$(jq '.messages | length' <<<"$page")" -gt 0 ]; do
+    after=$(jq '.messages[-1].seq' <<<"$page")
+  done
+  echo "$after"
 }
 listed() { curl -fsS "$INDEX/api/v1/resolve?locator=urn:air:host39.org:personal:$1" 2>/dev/null \
   | jq -r '.entry.extensions["org.projectnanda"].status // empty'; }
@@ -30,8 +41,9 @@ if [ "${1:-}" = leave ]; then
   org=$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.discovery.orgId // empty')
   [ -n "$org" ] || die "the gateway names no NANDA record for $addr"
   read -rp "Remove $addr from the NANDA Index for good? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing removed"
+  since=$(inbox_seq)
   curl -fsS -X POST "$INDEX/auth/forgot-password" -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$addr" '{email:$e}')" >/dev/null
-  tok=""; for _ in $(seq 18); do sleep 10; tok=$(nanda_mail 'reset|password'); [ -n "$tok" ] && break; done
+  tok=""; for _ in $(seq 18); do sleep 10; tok=$(nanda_mail 'reset|password' "$since"); [ -n "$tok" ] && break; done
   [ -n "$tok" ] || die "no reset email from the NANDA Index yet; run 'devcon8 nanda leave' again"
   pw=$(openssl rand -hex 16)
   curl -fsS -X POST "$INDEX/auth/reset-password" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$tok" --arg p "$pw" '{token:$t,password:$p}')" >/dev/null
@@ -64,25 +76,31 @@ TXT
 fi
 id=$(jq -r .id "$A/mailbox.json")
 auth=(-H "Authorization: Bearer $(cat "$A/key")")
-if [ "$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.mailbox.verified // .verified // false')" != true ]; then
+verified() { [ "$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.mailbox.verified // .verified // false')" = true ]; }
+if ! verified; then
   for _ in 1 2 3 4 5; do
     read -rp "Six-digit code from that email: " code
     out=$(curl -sS -X POST "${auth[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg c "$code" '{code:$c}')" "$BASE/api/agent/mailboxes/$id/verify")
     [ "$(jq -r '.verified // false' <<<"$out")" = true ] && break
-    echo "Not accepted: $(jq -r '.error // .message // .' <<<"$out" | head -c 120)"
+    echo "Not accepted: $(jq -r '.error.code // .error // .message // "unknown"' <<<"$out" | head -c 80)"
   done
+  verified || die "the mailbox is not verified; rerun 'devcon8 nanda $email' for a fresh code"
 fi
 addr=$(jq -r .address "$A/mailbox.json")
 if [ "$(listed "$addr")" != active ]; then
   curl -fsS -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{"mode":"auto"}' "$BASE/api/agent/mailboxes/$id/nanda" >/dev/null || true
+  since=$(inbox_seq)
   echo "Registering in the NANDA Index (up to 10 minutes)..."
   for i in $(seq 20); do
     [ "$(listed "$addr")" = active ] && break
     # The gateway should follow the Index's two verification emails itself. On 10-31 it did not, so
     # after two minutes this step completes them from the mailbox, as the gateway would.
     if [ "$i" -ge 4 ]; then
-      t=$(nanda_mail 'verify your nanda index account'); [ -n "$t" ] && curl -fsS -X POST "$INDEX/auth/verify-account" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$t" '{token:$t}')" >/dev/null 2>&1 || true
-      t=$(nanda_mail 'verify your nanda index registration'); [ -n "$t" ] && curl -fsS -X POST "$INDEX/api/v1/verify-email" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$t" '{token:$t}')" >/dev/null 2>&1 || true
+      # The account mail may predate this run (an earlier, unfinished signup), so it is read from 0.
+      t=$(nanda_mail 'verify your nanda index account' 0)
+      if [ -n "$t" ]; then curl -fsS -X POST "$INDEX/auth/verify-account" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$t" '{token:$t}')" >/dev/null 2>&1 || true; fi
+      t=$(nanda_mail 'verify your nanda index registration' "$since")
+      if [ -n "$t" ]; then curl -fsS -X POST "$INDEX/api/v1/verify-email" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$t" '{token:$t}')" >/dev/null 2>&1 || true; fi
     fi
     sleep 30
   done

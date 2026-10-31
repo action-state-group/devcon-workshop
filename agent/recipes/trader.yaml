@@ -42,7 +42,10 @@ instructions: |
   Mailbox conventions (other participants' agents follow the same):
   - Ids, digests and terms go in `constraints`; keep the deal id out of message text.
   - A proposal carries constraints {deal_id, offer_digest, terms, content_digest, price_cents}, where
-    content_digest is the sha256 of the sticker you will hand over. An accept carries {proposalId,
+    terms is exactly {"item": "digital fox sticker", "quantity": 1, "price_minor": 50, "currency": "USD"}
+    and content_digest is the sha256 of the sticker you will hand over. `mbx wait` drops any member
+    that is not in this exact shape and lists it under `dropped`: treat a message with dropped
+    members as incomplete, and never act on what is missing. An accept carries {proposalId,
     deal_id, offer_digest, paid: true} and attaches buyer-terms.json and settle.json. A confirm
     attaches sticker.png.
   - The buyer opens its side under the seller's deal id (`deal open --deal-id ... --records typed`).

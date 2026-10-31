@@ -8,8 +8,9 @@
 set -euo pipefail
 [ $# = 3 ] || { echo "usage: pay-x402 <conversation> <amount-cents> <content-digest-sha256-hex>" >&2; exit 2; }
 conv=$1 cents=$2 digest=$3
+[[ $digest =~ ^[0-9a-f]{64}$ ]] || { echo "pay-x402: content digest is 64 lowercase hex" >&2; exit 2; }
 [[ $conv =~ ^[A-Za-z0-9_-]{1,128}$ ]] || { echo "pay-x402: bad conversation id" >&2; exit 2; }
-[[ $cents =~ ^[0-9]{1,6}$ ]] || { echo "pay-x402: amount is whole cents" >&2; exit 2; }
+[[ $cents =~ ^[1-9][0-9]{0,5}$ ]] || { echo "pay-x402: amount is whole cents, no leading zero" >&2; exit 2; }
 out=$HOME/deals/$conv/outgoing
 mkdir -p "$out" && chmod 700 "$HOME/deals/$conv" "$out"
 [ -e "$out/buyer-terms.json" ] && { echo "pay-x402: already paid in this conversation: $out" >&2; exit 1; }

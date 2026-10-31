@@ -10,7 +10,7 @@ mkdir -p "$ST" && chmod 700 "$ST"
 usage() {
   cat <<'EOF'
 devcon8 doctor                  check this container: CPU, memory, disk, versions
-devcon8 join                    paste the invite you were handed; start your node on the demo mesh
+devcon8 join [--new]            paste the invite you were handed; start your node on the demo mesh
 devcon8 node stop|status|log    your demo-mesh node
 devcon8 brain claude|codex|mesh pick the model goose thinks with (logs in by a link you open)
 devcon8 s02                     serve the S02 settlement record on http://127.0.0.1:8080
@@ -19,7 +19,7 @@ devcon8 s08 setup|<step>        the S08 liar demo, four nodes inside this contai
 devcon8 nanda <email> | leave   list your agent's Agent Box mailbox in the NANDA Index, or unlist it
 devcon8 trade [--buy <address>] run your trading agent: sells your sticker; with --buy, buys one there
 devcon8 wallet                  open your own lexe wallet (optional, real Lightning, mainnet)
-devcon8 go-seal                 copy, build and run the evidencebook Go SDK example
+devcon8 go-seal [--reset]       build and run the evidencebook Go SDK example in ~/go-seal
 devcon8 versions                print the image's MANIFEST header
 EOF
 }
@@ -38,6 +38,7 @@ doctor() {
 }
 
 join_mesh() {
+  if [ "${1:-}" = --new ]; then node_stop >/dev/null; rm -f "$ST/join.txt"; fi
   if [ ! -s "$ST/join.txt" ]; then
     printf 'Paste the invite you were handed (it is not shown back): '
     local tok; IFS= read -rs tok; echo
@@ -45,6 +46,14 @@ join_mesh() {
     (umask 077; printf '%s\n' "$tok" > "$ST/join.txt")
   fi
   node_start
+  # The question is asked only under free-only: with another policy it could spend real sats.
+  local policy; policy=$("$MESH" wallet policy 2>&1 || true)
+  if [ "$(jq -r '.mode // empty' <<<"$policy" 2>/dev/null)" != free_only ]; then
+    echo "Your node's wallet policy is not free-only, so this step asks nothing (it could spend sats):"
+    echo "$policy" | head -5
+    echo "Set it back with: mesh-llm wallet policy --mode free-only"
+    return 0
+  fi
   echo "Asking the demo mesh one question (your node's wallet policy is free-only)..."
   local model code
   model=$(wait_model) || die "your node sees no model on the mesh yet; check 'devcon8 node log'"
@@ -59,15 +68,15 @@ join_mesh() {
       echo "Refused (HTTP $code): $(jq -r '.error.message // .error // .' "$ST/join-reply.json" 2>/dev/null | head -c 300)"
       echo
       echo "That is your free-only wallet policy doing its job: the serving node charges for this request,"
-      echo "and a free-only node never pays. Nothing was paid. The recording of a free join and its"
-      echo "Evidence tab is linked in the README (\"If your first prompt is refused\")." ;;
+      echo "and a free-only node never pays. Nothing was paid. The presenter shows a free join and its"
+      echo "Evidence tab on screen (README, \"If your first prompt is refused\")." ;;
     *) echo "Unexpected HTTP $code:"; head -c 400 "$ST/join-reply.json"; echo ;;
   esac
 }
 
 case "${1:-help}" in
   doctor) doctor ;;
-  join) join_mesh ;;
+  join) join_mesh "${2:-}" ;;
   node)
     case "${2:-status}" in
       stop) node_stop ;; status) node_status ;; log) tail -n "${3:-40}" "$ST/node.log" ;; start) node_start ;;
@@ -81,9 +90,11 @@ case "${1:-help}" in
   nanda|trade) [ -x "$D/lib/$1.sh" ] || die "'devcon8 $1' is not in this build yet"; c=$1; shift; exec "$D/lib/$c.sh" "$@" ;;
   wallet) shift; exec "$D/lib/wallet.sh" "$@" ;;
   go-seal)
-    rm -rf "$HOME/go-seal" && cp -R "$D/examples/go-seal" "$HOME/go-seal" && chmod -R u+w "$HOME/go-seal"
+    # Copied once; your edits survive a rerun. 'devcon8 go-seal --reset' starts over from the image's copy.
+    if [ "${2:-}" = --reset ]; then rm -rf "$HOME/go-seal"; fi
+    [ -d "$HOME/go-seal" ] || { cp -R "$D/examples/go-seal" "$HOME/go-seal" && chmod -R u+w "$HOME/go-seal"; }
     cd "$HOME/go-seal" && go build -mod=vendor -o go-seal . && ./go-seal
-    echo "Source: ~/go-seal/main.go. Change it, then: cd ~/go-seal && go build -mod=vendor -o go-seal . && ./go-seal" ;;
+    echo "Source: ~/go-seal/main.go. Change it and run 'devcon8 go-seal' again (--reset for a fresh copy)." ;;
   versions) sed -n '1,4p' "$D/MANIFEST" ;;
   help|-h|--help) usage ;;
   *) usage; exit 2 ;;

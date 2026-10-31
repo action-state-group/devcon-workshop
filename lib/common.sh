@@ -36,7 +36,14 @@ plugin_ensure() { # name version archive
   echo "installed plugin $1 $2"
 }
 
-node_pid() { local p; p=$(cat "$ST/node.pid" 2>/dev/null) || return 1; kill -0 "$p" 2>/dev/null && echo "$p"; }
+# The recorded pid, only while it is still this node: a mesh-llm serve reading this join file. After a
+# container restart the pid may belong to another process, which is never reported or signalled.
+node_pid() {
+  local p; p=$(cat "$ST/node.pid" 2>/dev/null) || return 1
+  kill -0 "$p" 2>/dev/null || return 1
+  tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -qF -- "serve --client --join-file $ST/join.txt" || return 1
+  echo "$p"
+}
 node_start() {
   [ -s "$ST/join.txt" ] || die "no invite yet: run 'devcon8 join'"
   if node_pid >/dev/null; then echo "your node is already running (pid $(node_pid))"; return 0; fi
@@ -48,6 +55,7 @@ node_start() {
 }
 node_stop() {
   local p; p=$(node_pid) || { echo "your node is not running"; rm -f "$ST/node.pid"; return 0; }
+  # p is verified to be this node (node_pid)
   kill -TERM "$p"; for _ in $(seq 40); do kill -0 "$p" 2>/dev/null || break; sleep 0.5; done
   kill -0 "$p" 2>/dev/null && kill -KILL "$p"
   rm -f "$ST/node.pid"; echo "your node stopped"
