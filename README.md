@@ -179,12 +179,13 @@ not byte-identical to the demo nodes' own binaries.
 | capsules plugin | Mesh-LLM/capsules-plugin `f494845` |
 | lexe-wallet plugin | Mesh-LLM/lexe-wallet-plugin v0.1.0 |
 | S08 pair | mesh-llm v0.78.1, capsules 0.1.5 (the liar: 0.1.5 plus `demos/s08-liar/redteam/selective-log.patch`) |
-| capsulectl, capsulectl-deal | v0.1.0-rc23 (the pair must match) |
-| goose, Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` |
+| capsulectl, capsulectl-deal | built from source: evidencebook-deal `5719e84` (with `capsulectl deal terms-leg`) and the capsule-cli commit its go.mod names |
+| goose, Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
 | evidencebook Go SDK | v0.10.0, Go 1.27 |
 | models | Qwen2.5-0.5B-Instruct GGUF, Q8_0 and Q4_K_M |
 
-The buyer's signed terms leg is written by `tools/terms-leg` until a capsulectl-deal release carries
-`capsulectl deal terms-leg` ([evidencebook-deal#70](https://github.com/action-state-group/evidencebook-deal/issues/70)).
+The buyer's signed terms leg is written by `capsulectl deal terms-leg`
+([evidencebook-deal#70](https://github.com/action-state-group/evidencebook-deal/issues/70)), signed with
+the buyer's own deal key.
 
 Build it yourself: `docker buildx build --platform linux/arm64 -t devcon-workshop .` (about an hour).

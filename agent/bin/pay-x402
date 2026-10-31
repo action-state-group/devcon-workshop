@@ -14,7 +14,10 @@ conv=$1 cents=$2 digest=$3
 out=$HOME/deals/$conv/outgoing
 mkdir -p "$out" && chmod 700 "$HOME/deals/$conv" "$out"
 [ -e "$out/buyer-terms.json" ] && { echo "pay-x402: already paid in this conversation: $out" >&2; exit 1; }
-terms-leg -out "$out/buyer-terms.json" -amount "$(( cents * 10000 ))" -content-digest "$digest"
+# Signed with your deal profile's key. Base Sepolia test USDC: the workshop's payment is simulated.
+capsulectl --profile deal deal terms-leg --amount "$(( cents * 10000 ))" \
+  --asset eip155:84532/erc20:0x036cbd53842c5426634e7929541ec2318f3dcf7e --asset-scale 6 \
+  --content-digest "$digest" --out "$out/buyer-terms.json" >/dev/null
 cp /opt/devcon8/agent/fixtures/x402/settle.json "$out/settle.json"
 echo "SIMULATED x402 payment of $cents cents (Base Sepolia test USDC, no money moved)."
 echo "terms leg:       $out/buyer-terms.json"

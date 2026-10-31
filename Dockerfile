@@ -98,9 +98,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=fetch /fetch/opt/go /usr/local/go
 ENV PATH=/usr/local/go/bin:$PATH CGO_ENABLED=0 GOFLAGS=-trimpath GOTOOLCHAIN=local
 COPY examples/ /src/examples/
-COPY tools/ /src/tools/
-RUN cd /src/examples/go-seal && go mod download && go mod vendor && go build -mod=vendor -o /out/go-seal . \
-    && cd /src/tools/terms-leg && go test ./... && go build -o /out/terms-leg .
+RUN cd /src/examples/go-seal && go mod download && go mod vendor && go build -mod=vendor -o /out/go-seal .
+# capsulectl and capsulectl-deal from source (versions.lock), stamped with one core version.
+COPY versions.lock /src/versions.lock
+RUN . /src/versions.lock && mkdir -p /out/skills \
+    && git clone --filter=blob:none "$DEAL_REPO" /build/deal && git -C /build/deal checkout --detach "$DEAL_SHA" \
+    && git clone --filter=blob:none "$CAPSULE_CLI_REPO" /build/cli && git -C /build/cli checkout --detach "$CAPSULE_CLI_SHA" \
+    && cd /build/deal && core=$(go list -m -f '{{.Version}}' github.com/action-state-group/capsule-cli) \
+    && [ "$(go mod download -json "github.com/action-state-group/capsule-cli@$core" | sed -n 's/.*"Hash": "\([0-9a-f]*\)".*/\1/p')" = "$CAPSULE_CLI_SHA" ] \
+    && pkg=github.com/action-state-group/capsule-cli/cli \
+    && go build -buildvcs=false -ldflags "-s -w -buildid= -X $pkg.CLIVersion=$core -X $pkg.CLICommit=$CAPSULE_CLI_SHA -X $pkg.PluginVersion=$DEAL_SHA -X $pkg.PluginCommit=$DEAL_SHA" \
+         -o /out/capsulectl-deal ./cmd/capsulectl-deal \
+    && cp -R skills/deal /out/skills/deal \
+    && cd /build/cli && go build -buildvcs=false -ldflags "-s -w -buildid= -X $pkg.CLIVersion=$core -X $pkg.CLICommit=$CAPSULE_CLI_SHA" \
+         -o /out/capsulectl ./cmd/capsulectl
 
 # --- the participant image ------------------------------------------------------------------------
 FROM ${BASE}
@@ -117,7 +128,6 @@ COPY --from=fetch /fetch/opt/node/ $D/node/
 COPY --from=fetch /fetch/opt/go/ $D/go/
 COPY --from=fetch /fetch/opt/mesh/plugins/ $D/mesh/plugins/
 COPY --from=fetch /fetch/opt/s08/ $D/s08/
-COPY --from=fetch /fetch/opt/agent/ $D/agent/
 COPY --from=fetch /fetch/opt/models/ $D/models/
 COPY --from=mesh /out/bin/ $D/mesh/bin/
 COPY --from=capsules /out/pkg/ $D/mesh/plugins/
@@ -126,7 +136,8 @@ COPY --from=redteam /out/ $D/s08/dist/
 COPY --from=npm /opt/devcon8/npm/ $D/npm/
 COPY --from=gobuild /src/examples/go-seal/ $D/examples/go-seal/
 COPY --from=gobuild /out/go-seal $D/bin/go-seal
-COPY --from=gobuild /out/terms-leg $D/agent/bin/terms-leg
+COPY --from=gobuild /out/capsulectl /out/capsulectl-deal $D/bin/
+COPY --from=gobuild /out/skills/ $D/agent/skills/
 COPY versions.lock $D/versions.lock
 COPY bin/ $D/bin/
 COPY lib/ $D/lib/
@@ -137,6 +148,9 @@ COPY agent/fixtures/sticker.png $D/agent/fixtures/sticker.png
 COPY agent/fixtures/x402/ $D/agent/fixtures/x402/
 COPY README.md $D/README.md
 COPY tests/smoke.sh tests/sim-payment.sh $D/tests/
+# claude: the Claude Code CLI that claude-agent-acp's SDK bundles, so it ships once (package.json).
+RUN case "$TARGETARCH" in amd64) a=x64;; arm64) a=arm64;; esac \
+    && ln -s "$D/npm/node_modules/@anthropic-ai/claude-agent-sdk-linux-$a/claude" $D/bin/claude
 RUN chmod -R a+rX $D \
     && { echo "build_revision=$BUILD_REVISION"; echo "arch=$TARGETARCH"; \
          echo "mesh_llm=$($D/mesh/bin/mesh-llm --version)"; \

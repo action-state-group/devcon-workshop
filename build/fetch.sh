@@ -22,9 +22,6 @@ get() { # URL SHA256 FILE
 
 gh=https://github.com
 get "$gh/Mesh-LLM/lexe-wallet-plugin/releases/download/$LEXE_VERSION/lexe-wallet-$LEXE_VERSION-$TRIPLE.tar.gz" "$(pin LEXE)" "lexe-wallet-$LEXE_VERSION-$TRIPLE.tar.gz"
-get "$gh/action-state-group/capsule-cli/releases/download/$CAPSULECTL_VERSION/capsulectl-$CAPSULECTL_VERSION-linux-$ARCH" "$(pin CAPSULECTL)" capsulectl
-get "$gh/action-state-group/evidencebook-deal/releases/download/$DEAL_VERSION/capsulectl-deal-$DEAL_VERSION-linux-$ARCH" "$(pin DEAL)" capsulectl-deal
-get "$gh/action-state-group/evidencebook-deal/releases/download/$DEAL_VERSION/deal-skill-$DEAL_VERSION.tar.gz" "$DEAL_SKILL_SHA256" deal-skill.tar.gz
 get "$gh/aaif-goose/goose/releases/download/$GOOSE_VERSION/goose-$TRIPLE.tar.gz" "$(pin GOOSE)" goose.tar.gz
 get "https://go.dev/dl/go$GO_VERSION.linux-$GOARCH.tar.gz" "$(pin GO)" go.tar.gz
 get "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$NODEARCH.tar.xz" "$(pin NODE)" node.tar.xz
@@ -35,10 +32,7 @@ get "$hf/$Q8_FILE" "$Q8_SHA256" "$Q8_FILE"
 get "$hf/$Q4_FILE" "$Q4_SHA256" "$Q4_FILE"
 
 # Unpack into /opt/devcon8 layout fragments.
-rm -rf opt && mkdir -p opt/bin opt/mesh/plugins opt/s08/bin opt/s08/dist opt/models opt/agent
-install -m 0755 dl/capsulectl opt/bin/capsulectl
-install -m 0755 dl/capsulectl-deal opt/bin/capsulectl-deal
-tar -xzf dl/deal-skill.tar.gz -C opt/agent
+rm -rf opt && mkdir -p opt/bin opt/mesh/plugins opt/s08/bin opt/s08/dist opt/models
 tar -xzf dl/goose.tar.gz -C opt/bin ./goose && chmod 0755 opt/bin/goose
 mkdir -p opt/go && tar -xzf dl/go.tar.gz -C opt/go --strip-components=1
 mkdir -p opt/node && tar -xJf dl/node.tar.xz -C opt/node --strip-components=1
