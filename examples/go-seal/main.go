@@ -6,7 +6,7 @@
 //	go-seal -result FILE         seal your own {"contract_ref": ..., "result": {...}} file
 //	go-seal -book DIR            keep the book somewhere else (default ~/.devcon8/go-seal)
 //
-// It follows ExampleBook_SealResult in evidencebook v0.10.0 (example_guide_test.go). The keys are
+// It follows ExampleBook_SealResult in evidencebook v0.12.2 (example_guide_test.go). The keys are
 // made on first run and kept, 0600, in the book directory, so a second run appends to the same log.
 package main
 

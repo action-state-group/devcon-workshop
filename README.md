@@ -226,9 +226,11 @@ mesh-llm config it creates, and its mesh-llm build carries no analytics key.
 Every component is pinned in [`versions.lock`](versions.lock), by commit or by release checksum, and
 `/opt/devcon8/MANIFEST` lists the sha256 of every shipped file. mesh-llm is built from source in CI
 for both architectures, from the lab commit the demo nodes run, so its bytes are not the demo nodes'
-own; the plugins are their published release files, checked by sha256. The image labels name both
-commits (`dev.actionstate.mesh-llm` = `1aba71da6da562b259ad0696210d7fc7b932ac02`,
-`dev.actionstate.capsules` = `0.1.10 41e0d603772a2ce7becef5b7d3e0a713f43d7040`), and
+own; the capsules plugin is its published release file, checked by sha256, and the lexe-wallet
+plugin is built from commit `9f830c1` of `ethanyzhang/lexe-wallet-plugin` (compare by commit). The image
+labels name these commits (`dev.actionstate.mesh-llm` = `1aba71da6da562b259ad0696210d7fc7b932ac02`,
+`dev.actionstate.capsules` = `0.1.10 41e0d603772a2ce7becef5b7d3e0a713f43d7040`,
+`dev.actionstate.lexe-wallet` = `v0.1.0 9f830c181b4042a81069df50752cf19d035a5047`), and
 `/opt/devcon8/MANIFEST` gives the sha256 of the image's own mesh-llm.
 
 This mesh-llm is a **pre-release lab build, not an official mesh-llm release**. Its

@@ -79,7 +79,7 @@ jobs:
 
       - name: Pins for the image labels
         id: lock
-        run: grep -E '^(MESH_LLM_SHA|CAPSULES_COMMIT|CAPSULES_VERSION|LEXE_VERSION)=' versions.lock >> "$GITHUB_OUTPUT"
+        run: grep -E '^(MESH_LLM_SHA|CAPSULES_COMMIT|CAPSULES_VERSION|LEXE_VERSION|LEXE_COMMIT)=' versions.lock >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -96,6 +96,7 @@ jobs:
             CAPSULES_COMMIT=${{ steps.lock.outputs.CAPSULES_COMMIT }}
             CAPSULES_VERSION=${{ steps.lock.outputs.CAPSULES_VERSION }}
             LEXE_VERSION=${{ steps.lock.outputs.LEXE_VERSION }}
+            LEXE_COMMIT=${{ steps.lock.outputs.LEXE_COMMIT }}
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
 
