@@ -6,7 +6,7 @@
 # architecture; capsules and the capsulectl CLIs are release assets.
 
 # Ubuntu 24.04 (glibc 2.39): the base every stage builds and the smoke tests run on. The release
-# binaries downloaded into it (capsules, goose) are checked by those tests, not by glibc
+# binaries downloaded into it (capsules) are checked by those tests, not by glibc
 # version; moving to an older base needs that check again.
 ARG BASE=ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
 
