@@ -9,7 +9,8 @@ lets you:
   its model and is caught by its twin and a referee (four nodes, all inside your container);
 - run an agent that trades a digital sticker with other participants' agents. It finds them through
   the [NANDA Index](https://nandaindex.org), messages them through its own [Agent Box](https://agentboxnanda.org)
-  mailbox, and seals every step with `capsulectl deal`. The payment is **simulated**: no money moves.
+  mailbox, and seals every step with `capsulectl deal`. The payment is **simulated** by default: no money
+  moves. With your own lexe wallet you can pay in real Lightning instead (optional, real money).
 - start from a short Go program on the [evidencebook](https://github.com/action-state-group/evidencebook)
   SDK.
 
@@ -106,7 +107,7 @@ Index. The NANDA Index works with ARD and AI Catalog. Read this first:
 
 The mailbox key is kept in `~/.devcon8/agentbox/key` (mode 0600) and is never printed.
 
-### 7. `devcon8 trade [--buy <address>]`: the trading agent
+### 7. `devcon8 trade [--buy <address>] [--pay lexe]`: the trading agent
 
 Your agent sells your digital fox sticker for 50 cents to any participant's agent that asks. With
 `--buy <their address>@agentboxnanda.org` it also buys one from that participant's agent, the address
@@ -117,11 +118,14 @@ they give you. It buys only from that address, never from search results.
   you its card in the chat and seals your answer. Say no and it holds.
 - It keeps checking its mailbox while it waits for buyers. If it stops and goes quiet, tell it to
   keep waiting ("keep checking the mailbox").
-- **The payment is simulated.** It is an x402 payment recorded against Base Sepolia, a test network,
-  with a settle response that says "SIMULATED". No money moves and no wallet is used.
+- **The payment is simulated** unless you add `--pay lexe`. It is an x402 payment recorded against Base
+  Sepolia, a test network, with a settle response that says "SIMULATED". No money moves and no wallet
+  is used. With `--pay lexe` the sticker is paid in real Lightning from your own wallet: see "Paying
+  for the sticker with your own wallet" below.
 - Other participants' agents are strangers. Your agent never sees their message text, only the parsed
   fields: kind, ids, digests and terms. Files arrive only as named, size-capped, sha256-checked
-  attachments (`buyer-terms.json`, `settle.json`, `sticker.png`).
+  attachments (`buyer-terms.json`, `settle.json`, `sticker.png`). In a `--pay lexe` run a proposal also
+  carries the shop's Lightning invoice, which is saved for the payment and not shown to the agent.
 - Each sale or purchase is one deal in `~/.local/share/capsule-deal`; files are in `~/deals/`.
 
 ### 8. `devcon8 go-seal`: the Go SDK example
@@ -142,13 +146,51 @@ Lightning wallet (next section). That is optional and real money.
 plugin creates one on first use, inside `~/.mesh-llm/payments` on your volume. Funding it
 (`mesh-llm wallet fund-wallet --amount-sats N`) and allowing payments
 (`mesh-llm wallet policy --mode automatic --daily-budget-sats N`) are up to you, and they spend real
-sats. With a funded wallet, keep goose in approve mode. The sticker trade stays simulated either way.
+sats. With a funded wallet, keep goose in approve mode. The sticker trade stays simulated unless you
+run it with `--pay lexe` (next section).
 
 What has been checked: on 2026-10-31 a funded demo node paid the serving node 1,900 msat for one
 request, and its own sealed record of the payment shows on its Evidence tab. That holds at the serving
 node's current price. At a much lower price the deposit can cover the whole bill, and then no payer
 record is sealed ([evidencebook#48](https://github.com/action-state-group/evidencebook/issues/48)):
 you would pay and see no record.
+
+## Paying for the sticker with your own wallet (optional, real Lightning, mainnet)
+
+`devcon8 trade --pay lexe` pays for the sticker with real sats, from your own lexe wallet to the seller's.
+Both sides must run `--pay lexe`: a buyer in a simulated run declines a shop that asks for Lightning,
+and a `--pay lexe` buyer declines a shop that does not.
+
+1. `devcon8 join`, then `devcon8 wallet`: your node and your own wallet (previous section). To buy, fund
+   it with a few hundred sats more than the price; selling needs no funds.
+2. Set your caps, for example:
+
+       devcon8 lightning --price-sats 500 --per-payment-sats 600 --total-sats 1000
+
+   `--price-sats` is what your agent asks for your sticker. `--per-payment-sats` is the most one payment
+   of yours may cost, routing fee included, and `--total-sats` the most all of this container's Lightning
+   payments may cost. `devcon8 lightning` shows them and what has been paid so far. The deal terms stay
+   at 50 cents; the price in sats is the one you set. The agent's `lightning` tool reads the caps and has
+   no way to raise them; the agent could still edit the file with its shell, which is one more reason
+   goose asks you before every command it runs.
+3. `devcon8 trade --pay lexe [--buy <address>]`.
+
+What happens:
+
+- As a seller, your agent asks your wallet for an invoice at your price and sends it with its offer.
+  Once your wallet reports the payment settled, it seals what your wallet received and hands over the
+  sticker. If the payment does not arrive, it does not deliver.
+- As a buyer, your agent's final check always pauses on a Lightning payment, because it cannot be
+  pulled back: you see the card and answer it. Then the `lightning` tool pays the shop's invoice, and
+  refuses any invoice over your caps, or expired, before anything is sent.
+- The invoice tells the buyer, and the Agent Box service that carries the message, the seller's
+  Lightning node id and the amount.
+- The sealed records name the payment by its payment hash, with the amounts. They do not carry the
+  invoice, the payment's preimage, or the receiving node id; `lightning` never prints or writes a
+  preimage.
+
+Your agent's NANDA listing still says "simulated payment". In a `--pay lexe` run that is not true:
+tell the other participant before they buy from you.
 
 ## Leaving the NANDA Index
 

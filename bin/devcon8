@@ -17,7 +17,11 @@ devcon8 s02                     serve the S02 settlement record on http://127.0.
 devcon8 s08 setup|<step>        the S08 liar demo, four nodes inside this container (steps: start lie
                                 twins referee show omit count ask stop fresh)
 devcon8 nanda <email> | leave   list your agent's Agent Box mailbox in the NANDA Index, or unlist it (permanent)
-devcon8 trade [--buy <address>] run your trading agent: sells your sticker; with --buy, buys one there
+devcon8 trade [--buy <address>] [--pay lexe]
+                                run your trading agent: sells your sticker; with --buy, buys one there;
+                                with --pay lexe the sticker is paid in REAL Lightning (your own wallet)
+devcon8 lightning [--price-sats P --per-payment-sats N --total-sats T]
+                                your caps for a --pay lexe trade (real sats, mainnet)
 devcon8 wallet                  open your own lexe wallet (optional, real Lightning, mainnet; paid
                                 requests seal a record at the serving node's current price, README)
 devcon8 go-seal [--reset]       build and run the evidencebook Go SDK example in ~/go-seal
@@ -90,6 +94,7 @@ case "${1:-help}" in
   s08) shift; exec "$D/lib/s08.sh" "$@" ;;
   nanda|trade) [ -x "$D/lib/$1.sh" ] || die "'devcon8 $1' is not in this build yet"; c=$1; shift; exec "$D/lib/$c.sh" "$@" ;;
   wallet) shift; exec "$D/lib/wallet.sh" "$@" ;;
+  lightning) shift; exec "$D/lib/lightning.sh" "$@" ;;
   go-seal)
     # Copied once; your edits survive a rerun. 'devcon8 go-seal --reset' starts over from the image's copy.
     if [ "${2:-}" = --reset ]; then rm -rf "$HOME/go-seal"; fi

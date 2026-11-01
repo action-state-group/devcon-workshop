@@ -1,0 +1,240 @@
+#!/usr/bin/env -S python3 -I
+"""lightning: the trading agent's REAL Lightning payment, from your own lexe wallet (mainnet).
+
+Used only in a `devcon8 trade --pay lexe` run. It talks to your running node's local wallet API
+(the same one `mesh-llm wallet` uses) and enforces the caps you set with `devcon8 lightning`; the
+agent cannot raise them. It never prints or writes a payment's preimage, and never prints a BOLT11
+invoice.
+
+  lightning invoice <conversation>
+      seller: ask your wallet for an invoice at your price; `mbx reply ... --invoice` sends it
+  lightning pay <conversation> <cents> <content-digest>
+      buyer: pay the invoice the shop's proposal carried (saved by `mbx wait`), within your caps;
+      writes your terms leg to attach to your accept. Run it only after your user said yes.
+  lightning receive <conversation> <payment-hash>
+      seller: wait until your wallet reports that payment of your invoice settled; writes the two
+      files `deal note --kind payment_received --ln-invoice ... --ln-transaction ...` reads
+  lightning caps
+      show your caps and what this container has paid so far
+"""
+import datetime, json, os, re, subprocess, sys, time, urllib.error, urllib.request
+
+HOME = os.path.expanduser("~")
+ST = os.path.join(HOME, ".devcon8")
+DEALS = os.path.join(HOME, "deals")
+CAPS = os.path.join(ST, "lightning.json")
+SPENT = os.path.join(ST, "lightning-spent.json")
+API = os.environ.get("DEVCON8_WALLET_API", "http://127.0.0.1:3131/api/wallet")
+# Bitcoin mainnet as a CAIP-19 asset, counted in millisatoshi: the asset the seller's
+# payment_received leg names too (capsulectl deal note --ln-invoice).
+BTC = "bip122:000000000019d6689c085ae165831e93/slip44:0"
+BTC_SCALE = 11
+# The highest routing fee one payment may spend, in msat, inside the caps.
+FEE_CEILING_MSAT = 5000
+ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
+# A mainnet BOLT11 invoice with an amount: what `mbx wait` saves from a proposal.
+BOLT11 = re.compile(r"^lnbc[0-9]{1,12}[munp]?1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{100,1500}$")
+
+
+def die(msg, code=1):
+    print("lightning: " + msg, file=sys.stderr)
+    sys.exit(code)
+
+
+def load(path, default=None):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return default
+
+
+def write_private(path, value):
+    os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+    tmp = path + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(value, f, indent=1)
+    os.replace(tmp, path)
+
+
+def without_secrets(value):
+    """A wallet answer without its preimage, and without status text a provider may fill."""
+    return {k: v for k, v in value.items() if k not in ("preimage", "status_msg")}
+
+
+def wallet(command, timeout=30):
+    """One local wallet API call. Errors are reported without the request (it may hold an
+    invoice) and without anything that looks like an invoice or a preimage."""
+    req = urllib.request.Request(API, data=json.dumps(command).encode(), method="POST",
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read() or b"null")
+    except urllib.error.HTTPError as e:
+        detail = e.read()[:400].decode("utf-8", "replace")
+        detail = re.sub(r"ln[a-z0-9]{20,}|[0-9a-f]{64}", "<redacted>", detail, flags=re.I)
+        die(f"the wallet refused '{command['command']}': HTTP {e.code} {detail}")
+    except (urllib.error.URLError, TimeoutError) as e:
+        die(f"your node's wallet API does not answer ({type(e).__name__}): is your node running? ('devcon8 join')")
+
+
+def caps():
+    c = load(CAPS)
+    if not isinstance(c, dict):
+        die("no caps set: run 'devcon8 lightning --price-sats P --per-payment-sats N --total-sats T' first")
+    for k in ("price_sats", "per_payment_sats", "total_sats"):
+        if not isinstance(c.get(k), int) or isinstance(c.get(k), bool) or c[k] < 1:
+            die(f"{CAPS}: {k} must be a whole number of sats, at least 1 (set it with 'devcon8 lightning')")
+    return c
+
+
+def spent_total(spent):
+    return sum(e["reserved_msat"] if e["status"] == "reserved" else e["spent_msat"] for e in spent.values())
+
+
+def deal_dir(conv):
+    if not ID.match(conv):
+        die("bad conversation id", 2)
+    d = os.path.join(DEALS, conv)
+    out = os.path.join(d, "outgoing")
+    os.makedirs(out, mode=0o700, exist_ok=True)
+    os.chmod(d, 0o700)
+    return d, out
+
+
+def now_ms():
+    return int(time.time() * 1000)
+
+
+def iso(ms):
+    return datetime.datetime.fromtimestamp(ms / 1000, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def cmd_invoice(conv):
+    price = caps()["price_sats"]
+    _, out = deal_dir(conv)
+    path = os.path.join(out, "invoice.json")
+    inv = load(path)
+    if not (isinstance(inv, dict) and inv.get("expires_at_ms", 0) > now_ms() + 600_000):
+        inv = wallet({"command": "fund", "amount_msat": price * 1000})
+        if not (isinstance(inv, dict) and BOLT11.match(str(inv.get("bolt11", ""))) and HEX64.match(str(inv.get("payment_hash", "")))
+                and inv.get("amount_msat") == price * 1000):
+            die("the wallet's invoice is not a mainnet invoice for your price; nothing was sent")
+        write_private(path, inv)
+    print(json.dumps({"invoice_ready": True, "amount_sats": inv["amount_msat"] // 1000, "payment_hash": inv["payment_hash"],
+                      "expires_at": iso(inv["expires_at_ms"]), "send_it_with": f"mbx reply {conv} proposal <text> '<constraints>' --invoice"}))
+
+
+def cmd_pay(conv, cents, digest):
+    if not re.match(r"^[1-9][0-9]{0,5}$", cents):
+        die("amount is whole cents, no leading zero", 2)
+    if not HEX64.match(digest):
+        die("content digest is 64 lowercase hex", 2)
+    c = caps()
+    d, out = deal_dir(conv)
+    if os.path.exists(os.path.join(out, "payment.json")):
+        die(f"already paid in this conversation: {out}/payment.json")
+    try:
+        bolt11 = open(os.path.join(d, "invoice.txt")).read().strip()
+    except FileNotFoundError:
+        die("no invoice from the shop in this conversation: its proposal carried none (it may sell over the simulated payment)")
+    if not BOLT11.match(bolt11):
+        die("the saved invoice is not a mainnet BOLT11 invoice with an amount; nothing paid")
+    inv = wallet({"command": "inspect_invoice", "invoice": bolt11})
+    amount = inv.get("amount_msat") if isinstance(inv, dict) else None
+    h = str(inv.get("payment_hash", "")) if isinstance(inv, dict) else ""
+    if not isinstance(amount, int) or amount < 1 or not HEX64.match(h):
+        die("the shop's invoice names no fixed amount; nothing paid")
+    if inv.get("expires_at_ms", 0) <= now_ms() + 30_000:
+        die("the shop's invoice has expired (or expires within 30 s); ask for a new proposal. Nothing paid")
+    per, total = c["per_payment_sats"] * 1000, c["total_sats"] * 1000
+    spent = load(SPENT, {})
+    already = spent_total({k: v for k, v in spent.items() if k != h})
+    if amount > per:
+        die(f"refused: the invoice asks {amount // 1000} sats, over your per-payment cap of {c['per_payment_sats']} sats. Nothing paid")
+    if already + amount > total:
+        die(f"refused: paying {amount // 1000} sats would bring this container's Lightning payments to "
+            f"{(already + amount) // 1000} sats, over your total cap of {c['total_sats']} sats. Nothing paid")
+    fee = min(FEE_CEILING_MSAT, per - amount, total - already - amount)
+    terms = os.path.join(out, "buyer-terms.json")
+    if not os.path.exists(terms):
+        r = subprocess.run(["capsulectl", "--profile", "deal", "deal", "terms-leg", "--amount", str(amount), "--asset", BTC,
+                            "--asset-scale", str(BTC_SCALE), "--content-digest", digest, "--out", terms],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        if r.returncode:
+            die("writing your terms leg failed, nothing paid: " + r.stderr.strip()[:300])
+    # Reserve the most this payment can cost before sending, so a crash never lets the total cap
+    # be passed; a rerun pays the same invoice at most once (the wallet keys a send by its hash).
+    spent[h] = {"conversation": conv, "status": "reserved", "reserved_msat": amount + fee, "spent_msat": 0, "at": iso(now_ms())}
+    write_private(SPENT, spent)
+    tx = wallet({"command": "send", "invoice": bolt11, "amount_msat": None, "max_fee_msat": fee}, timeout=300)
+    if not isinstance(tx, dict) or tx.get("payment_hash") != h:
+        die("the wallet's answer names another payment; check 'mesh-llm wallet get-transactions' before paying again")
+    status = tx.get("status")
+    paid = {"payment_hash": h, "amount_msat": tx.get("amount_msat"), "fee_msat": tx.get("fee_msat"), "status": status,
+            "rail": "lightning", "network": "bitcoin mainnet"}
+    if status == "succeeded":
+        spent[h].update(status="succeeded", spent_msat=int(tx.get("amount_msat", 0)) + int(tx.get("fee_msat", 0)))
+    elif status == "failed":
+        spent[h].update(status="failed", spent_msat=0)
+    write_private(SPENT, spent)
+    if status != "succeeded":
+        die(f"the payment did not succeed (status {status}); nothing to accept with. {'Nothing was paid.' if status == 'failed' else 'Check mesh-llm wallet get-transactions.'}")
+    write_private(os.path.join(out, "payment.json"), paid)
+    print(f"REAL Lightning payment of {amount // 1000} sats (fee {paid['fee_msat']} msat), bitcoin mainnet.", file=sys.stderr)
+    print(json.dumps({"paid": True, "amount_sats": amount // 1000, "fee_msat": paid["fee_msat"], "payment_hash": h,
+                      "terms_leg": terms, "payment": os.path.join(out, "payment.json")}))
+
+
+def cmd_receive(conv, h, wait_s=120):
+    if not HEX64.match(h):
+        die("payment hash is 64 lowercase hex", 2)
+    _, out = deal_dir(conv)
+    inv = load(os.path.join(out, "invoice.json"))
+    if not isinstance(inv, dict):
+        die("you issued no invoice in this conversation ('lightning invoice' first)")
+    if inv.get("payment_hash") != h:
+        die("that payment hash is not the invoice you issued in this conversation: refusing to treat it as paid")
+    end = time.time() + wait_s
+    while True:
+        txs = wallet({"command": "transactions", "limit": 200})
+        tx = next((t for t in txs if isinstance(t, dict) and t.get("payment_hash") == h and t.get("inbound")), None) if isinstance(txs, list) else None
+        if tx and tx.get("status") in ("succeeded", "failed"):
+            break
+        if time.time() >= end:
+            die("your wallet has not reported that payment settled yet; run this again in a minute", 3)
+        time.sleep(3)
+    ln_invoice = os.path.join(out, "ln-invoice.json")
+    ln_tx = os.path.join(out, "ln-transaction.json")
+    write_private(ln_invoice, {k: inv[k] for k in ("payment_hash", "payee", "amount_msat", "expires_at_ms")})
+    write_private(ln_tx, without_secrets(tx))
+    print(json.dumps({"received": tx["status"] == "succeeded", "status": tx["status"], "credited_msat": tx.get("amount_msat"),
+                      "fee_msat": tx.get("fee_msat"), "ln_invoice": ln_invoice, "ln_transaction": ln_tx}))
+
+
+def cmd_caps():
+    c = caps()
+    spent = load(SPENT, {})
+    print(json.dumps({**{k: c[k] for k in ("price_sats", "per_payment_sats", "total_sats")},
+                      "paid_or_reserved_sats": spent_total(spent) / 1000, "payments": len(spent)}))
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else "help"
+    if cmd == "invoice" and len(argv) == 3:
+        cmd_invoice(argv[2])
+    elif cmd == "pay" and len(argv) == 5:
+        cmd_pay(argv[2], argv[3], argv[4])
+    elif cmd == "receive" and len(argv) == 4:
+        cmd_receive(argv[2], argv[3])
+    elif cmd == "caps" and len(argv) == 2:
+        cmd_caps()
+    else:
+        print(__doc__.strip())
+        sys.exit(0 if cmd in ("help", "-h", "--help") else 2)
+
+
+if __name__ == "__main__":
+    main(sys.argv)
