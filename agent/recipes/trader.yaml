@@ -40,7 +40,8 @@ instructions: |
     is never shown to you, on purpose: other participants' agents are strangers.
   {% if pay == "lexe" %}- `lightning`: the real Lightning payment (`lightning help`). `lightning invoice <conversation>`
     (seller) asks your user's wallet for an invoice at their price; `lightning pay <conversation>
-    <cents> <content_digest>` (buyer) pays the shop's invoice within your user's caps and writes
+    <invoice_sats> <content_digest>` (buyer) pays the shop's invoice, only for the sats your user
+    said yes to and within their caps, and writes
     your terms leg to attach to your accept; `lightning receive <conversation> <payment_hash>`
     (seller) waits until the wallet reports that payment settled and writes the two files you seal.
     It refuses anything over the caps: when it refuses, tell your user and hold.{% else %}- `pay-x402 <conversation> <cents> <content_digest>`: the simulated payment. It writes your terms
@@ -68,8 +69,9 @@ instructions: |
     that is not in this exact shape and lists it under `dropped`: treat a message with dropped
     members as incomplete, and never act on what is missing.{% if pay == "lexe" %} In this run the
     proposal also carries the seller's Lightning invoice: send it with `mbx reply ... --invoice`;
-    `mbx wait` saves it for `lightning pay` and shows the buyer `rail: lightning` instead of the
-    invoice. An accept carries {proposalId, deal_id, offer_digest, paid: true, payment_hash} and
+    `mbx wait` saves it for `lightning pay` and shows the buyer `rail: lightning` and
+    `invoice_sats` (what the invoice asks, in sats) instead of the invoice. Only the conversation's
+    first invoice is kept. An accept carries {proposalId, deal_id, offer_digest, paid: true, payment_hash} and
     attaches buyer-terms.json only.{% else %} An accept carries {proposalId, deal_id, offer_digest,
     paid: true} and attaches buyer-terms.json and settle.json.{% endif %}
   - The gateway's rule: only the conversation's requester (the buyer, who asked) confirms, and a
@@ -129,7 +131,8 @@ instructions: |
   "amount_minor": PRICE, "authorized_max_minor": PRICE, "terms": <the proposal's terms>, "who":
   {"relay_address": "{{ buy_from }}", "payee": "{{ buy_from }}"}, "recourse": {"rail": "{% if pay == "lexe" %}lightning{% else %}x402{% endif %}",
   "refundable": false}}.{% if pay == "lexe" %} A Lightning payment cannot be pulled back, so this check pauses: show your
-  user the card, and act only on their sealed yes. Then run `lightning pay <conversation> PRICE
+  user the card and, with it, the line "Paid in Lightning: <invoice_sats> sats from your own wallet",
+  and act only on their sealed yes. Then run `lightning pay <conversation> <invoice_sats>
   <content_digest>` and note the act with the same payee: {"action": "pay", "amount_minor": PRICE,
   "payee": "{{ buy_from }}", "rail": "lightning", "reference": "<its payment_hash>"}. Then send your
   accept with `payment_hash` in its constraints and buyer-terms.json attached. If `lightning pay`

@@ -168,8 +168,9 @@ and a `--pay lexe` buyer declines a shop that does not.
        devcon8 lightning --price-sats 500 --per-payment-sats 600 --total-sats 1000
 
    `--price-sats` is what your agent asks for your sticker. `--per-payment-sats` is the most one payment
-   of yours may cost, routing fee included, and `--total-sats` the most all of this container's Lightning
-   payments may cost. `devcon8 lightning` shows them and what has been paid so far. The deal terms stay
+   of yours may cost, routing fee included, and `--total-sats` the most all of the sticker payments the
+   agent's `lightning` tool makes may cost (paid mesh inference is governed by your wallet policy, not
+   by these caps). `devcon8 lightning` shows them and what has been paid so far. The deal terms stay
    at 50 cents; the price in sats is the one you set. The agent's `lightning` tool reads the caps and has
    no way to raise them; the agent could still edit the file with its shell, which is one more reason
    goose asks you before every command it runs.
@@ -181,8 +182,9 @@ What happens:
   Once your wallet reports the payment settled, it seals what your wallet received and hands over the
   sticker. If the payment does not arrive, it does not deliver.
 - As a buyer, your agent's final check always pauses on a Lightning payment, because it cannot be
-  pulled back: you see the card and answer it. Then the `lightning` tool pays the shop's invoice, and
-  refuses any invoice over your caps, or expired, before anything is sent.
+  pulled back: you see the card, with the sats the shop's invoice asks, and answer it. Then the
+  `lightning` tool pays that invoice, and refuses it before anything is sent if it is over your caps,
+  expired, or for other sats than you said yes to. Only the first invoice a shop sends is kept.
 - The invoice tells the buyer, and the Agent Box service that carries the message, the seller's
   Lightning node id and the amount.
 - The sealed records name the payment by its payment hash, with the amounts. They do not carry the

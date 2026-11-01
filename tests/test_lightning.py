@@ -127,7 +127,7 @@ class Lightning(unittest.TestCase):
 
     def test_pay_within_the_caps(self):
         self.saved_invoice()
-        code, out, err = self.run_ln("pay", "conv_1", "50", DIGEST)
+        code, out, err = self.run_ln("pay", "conv_1", "500", DIGEST)
         self.assertEqual(code, 0, err)
         self.assertEqual(self.commands(), ["inspect_invoice", "send"])
         send = Wallet.calls[1]
@@ -150,9 +150,9 @@ class Lightning(unittest.TestCase):
 
     def test_a_second_payment_in_one_conversation_is_refused(self):
         self.saved_invoice()
-        self.assertEqual(self.run_ln("pay", "conv_1", "50", DIGEST)[0], 0)
+        self.assertEqual(self.run_ln("pay", "conv_1", "500", DIGEST)[0], 0)
         Wallet.calls = []
-        code, _, err = self.run_ln("pay", "conv_1", "50", DIGEST)
+        code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
         self.assertNotEqual(code, 0)
         self.assertIn("already paid", err)
         self.assertEqual(Wallet.calls, [])
@@ -160,7 +160,7 @@ class Lightning(unittest.TestCase):
     def test_over_the_per_payment_cap_nothing_is_sent(self):
         self.caps(price=500, per=400, total=1000)
         self.saved_invoice()
-        code, _, err = self.run_ln("pay", "conv_1", "50", DIGEST)
+        code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
         self.assertNotEqual(code, 0)
         self.assertIn("over your per-payment cap of 400 sats", err)
         self.assertEqual(self.commands(), ["inspect_invoice"])
@@ -171,7 +171,7 @@ class Lightning(unittest.TestCase):
             json.dump({"aa" * 32: {"status": "succeeded", "reserved_msat": 0, "spent_msat": 600_000},
                        "bb" * 32: {"status": "reserved", "reserved_msat": 1_000, "spent_msat": 0}}, f)
         self.saved_invoice()
-        code, _, err = self.run_ln("pay", "conv_1", "50", DIGEST)
+        code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
         self.assertNotEqual(code, 0)
         self.assertIn("over your total cap of 1000 sats", err)
         self.assertEqual(self.commands(), ["inspect_invoice"])
@@ -179,49 +179,117 @@ class Lightning(unittest.TestCase):
     def test_the_fee_never_passes_the_caps(self):
         self.caps(price=500, per=501, total=1000)
         self.saved_invoice()
-        self.assertEqual(self.run_ln("pay", "conv_1", "50", DIGEST)[0], 0)
+        self.assertEqual(self.run_ln("pay", "conv_1", "500", DIGEST)[0], 0)
         self.assertEqual(Wallet.calls[1]["max_fee_msat"], 1000)
 
     def test_expired_or_amountless_invoices_are_refused(self):
         self.saved_invoice()
         Wallet.script["inspect_invoice"] = lambda b: (200, invoice(expires_in_s=10))
-        code, _, err = self.run_ln("pay", "conv_1", "50", DIGEST)
+        code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
         self.assertIn("expired", err)
         Wallet.script["inspect_invoice"] = lambda b: (200, invoice(amount_msat=None))
-        code, _, err = self.run_ln("pay", "conv_1", "50", DIGEST)
+        code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
         self.assertIn("no fixed amount", err)
         self.assertNotIn("send", self.commands())
 
     def test_no_invoice_or_no_caps(self):
-        code, _, err = self.run_ln("pay", "conv_1", "50", DIGEST)
+        code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
         self.assertIn("no invoice from the shop", err)
         os.remove(ln.CAPS)
         self.saved_invoice()
-        code, _, err = self.run_ln("pay", "conv_1", "50", DIGEST)
+        code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
         self.assertIn("no caps set", err)
         self.assertEqual(Wallet.calls, [])
 
     def test_a_failed_payment_releases_the_reservation(self):
         self.saved_invoice()
         Wallet.script["send"] = lambda b: (200, transaction(status="failed"))
-        code, _, err = self.run_ln("pay", "conv_1", "50", DIGEST)
+        code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
         self.assertNotEqual(code, 0)
         self.assertIn("Nothing was paid", err)
         self.assertEqual(read_json(ln.SPENT)[HASH]["status"], "failed")
         self.assertEqual(ln.spent_total(read_json(ln.SPENT)), 0)
         self.assertFalse(os.path.exists(os.path.join(ln.DEALS, "conv_1", "outgoing", "payment.json")))
 
+    def test_a_failed_invoice_is_not_paid_again(self):
+        self.saved_invoice()
+        Wallet.script["send"] = lambda b: (200, transaction(status="failed"))
+        self.run_ln("pay", "conv_1", "500", DIGEST)
+        Wallet.calls = []
+        code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
+        self.assertIn("already failed", err)
+        self.assertEqual(self.commands(), ["inspect_invoice"])
+        self.assertEqual(read_json(ln.SPENT)[HASH]["status"], "failed")
+
+    def test_no_proxy_and_an_unanswered_send(self):
+        os.environ["http_proxy"] = os.environ["HTTP_PROXY"] = "http://127.0.0.1:9"
+        try:
+            self.saved_invoice()
+
+            def slow(b):
+                time.sleep(1.5)
+                return 200, transaction()
+            Wallet.script["send"] = slow
+            real = ln.wallet
+            ln.wallet = lambda command, timeout=30: real(command, timeout=1 if command["command"] == "send" else timeout)
+            try:
+                code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
+            finally:
+                ln.wallet = real
+            self.assertEqual(self.commands()[0], "inspect_invoice", "the proxy in the environment was not used")
+            self.assertIn("may still be in flight", err)
+            self.assertEqual(read_json(ln.SPENT)[HASH]["status"], "reserved")
+        finally:
+            del os.environ["http_proxy"], os.environ["HTTP_PROXY"]
+
+    def test_only_the_sats_the_user_approved(self):
+        self.saved_invoice()
+        code, _, err = self.run_ln("pay", "conv_1", "400", DIGEST)
+        self.assertNotEqual(code, 0)
+        self.assertIn("asks 500 sats, not the 400 sats your user said yes to", err)
+        self.assertEqual(self.commands(), ["inspect_invoice"])
+
+    def test_a_stale_terms_leg_is_not_attached(self):
+        self.saved_invoice()
+        out = os.path.join(ln.DEALS, "conv_1", "outgoing")
+        os.makedirs(out)
+        with open(os.path.join(out, "buyer-terms.json"), "w") as f:
+            json.dump({"settlement": {"amount": {"value": "300000"}}}, f)
+        self.assertEqual(self.run_ln("pay", "conv_1", "500", DIGEST)[0], 0)
+        self.assertEqual(read_json(os.path.join(out, "buyer-terms.json")), {}, "rewritten by terms-leg for 500000 msat")
+        with open(os.path.join(self.tmp.name, "bin", "args")) as f:
+            self.assertIn("--amount 500000", f.read())
+
+    def test_the_reservation_is_made_against_the_log_as_it_is_now(self):
+        # Another run's reservation written after this run first read the log still counts.
+        self.caps(price=500, per=600, total=1000)
+        self.saved_invoice()
+        real = ln.subprocess.run
+
+        def other_run_reserves(*a, **k):
+            with open(ln.SPENT, "w") as f:
+                json.dump({"ee" * 32: {"status": "reserved", "reserved_msat": 600_000, "spent_msat": 0}}, f)
+            return real(*a, **k)
+        ln.subprocess.run = other_run_reserves
+        try:
+            code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
+        finally:
+            ln.subprocess.run = real
+        self.assertIn("over your total cap", err)
+        self.assertNotIn("send", self.commands())
+        self.assertIn("ee" * 32, read_json(ln.SPENT), "the other run's entry is kept")
+
     def test_wallet_errors_do_not_echo_the_invoice(self):
         self.saved_invoice()
         Wallet.script["send"] = lambda b: (500, {"error": f"route not found for {INVOICE} hash {HASH}"})
-        code, out, err = self.run_ln("pay", "conv_1", "50", DIGEST)
+        code, out, err = self.run_ln("pay", "conv_1", "500", DIGEST)
         self.assertNotEqual(code, 0)
         self.assertNotIn(INVOICE, err)
         self.assertNotIn(HASH, err)
         self.assertEqual(read_json(ln.SPENT)[HASH]["status"], "reserved", "an unknown outcome stays counted")
 
     def test_bad_arguments(self):
-        for args in (["pay", "conv 1", "50", DIGEST], ["pay", "conv_1", "050", DIGEST], ["pay", "conv_1", "50", "AB" * 32]):
+        for args in (["pay", "conv 1", "500", DIGEST], ["pay", "conv_1", "0500", DIGEST], ["pay", "conv_1", "500", "AB" * 32]):
             self.assertEqual(self.run_ln(*args)[0], 2, args)
 
     def test_invoice_then_receive(self):

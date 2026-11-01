@@ -41,16 +41,16 @@ bolt11=$(jq -r .bolt11 "$T/seller/deals/$CONV/outgoing/invoice.json")
 # Buyer: mbx saved the proposal's invoice; caps are checked before anything is sent.
 home buyer; mkdir -p "deals/$CONV"; printf '%s\n' "$bolt11" > "deals/$CONV/invoice.txt"
 caps 1 400 1000
-if "$D/agent/bin/lightning" pay "$CONV" 50 "$DIGEST" 2>err.txt; then fail "paid over the per-payment cap"; fi
+if "$D/agent/bin/lightning" pay "$CONV" 500 "$DIGEST" 2>err.txt; then fail "paid over the per-payment cap"; fi
 grep -q 'over your per-payment cap' err.txt || { cat err.txt; fail "no per-payment refusal"; }
 grep -q '^send$' "$T/wallet.log" && fail "a send reached the wallet over the cap"
 caps 1 600 1000
-"$D/agent/bin/lightning" pay "$CONV" 50 "$DIGEST" > pay.out 2> pay.err
+"$D/agent/bin/lightning" pay "$CONV" 500 "$DIGEST" > pay.out 2> pay.err
 [ "$(jq -r .payment_hash pay.out)" = "$HASH" ] || { cat pay.out pay.err; fail "lightning pay did not pay"; }
 terms=$HOME/deals/$CONV/outgoing/buyer-terms.json
 [ "$(jq -r .settlement.amount.assetCode "$terms")" = "bip122:000000000019d6689c085ae165831e93/slip44:0" ] || fail "terms leg asset"
 [ "$(jq -r .settlement.amount.value "$terms")" = 500000 ] || fail "terms leg amount"
-if "$D/agent/bin/lightning" pay "$CONV" 50 "$DIGEST" 2>/dev/null; then fail "paid twice in one conversation"; fi
+if "$D/agent/bin/lightning" pay "$CONV" 500 "$DIGEST" 2>/dev/null; then fail "paid twice in one conversation"; fi
 
 # The buyer's pay check on Lightning pauses: money sent this way cannot be pulled back.
 ID=deal-00000000000051ff

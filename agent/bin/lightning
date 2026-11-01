@@ -8,16 +8,17 @@ invoice.
 
   lightning invoice <conversation>
       seller: ask your wallet for an invoice at your price; `mbx reply ... --invoice` sends it
-  lightning pay <conversation> <cents> <content-digest>
-      buyer: pay the invoice the shop's proposal carried (saved by `mbx wait`), within your caps;
-      writes your terms leg to attach to your accept. Run it only after your user said yes.
+  lightning pay <conversation> <sats> <content-digest>
+      buyer: pay the invoice the shop's proposal carried (saved by `mbx wait`, which shows its
+      `invoice_sats`), within your caps and only if it asks exactly <sats>, the amount your user
+      said yes to; writes your terms leg to attach to your accept.
   lightning receive <conversation> <payment-hash>
       seller: wait until your wallet reports that payment of your invoice settled; writes the two
       files `deal note --kind payment_received --ln-invoice ... --ln-transaction ...` reads
   lightning caps
       show your caps and what this container has paid so far
 """
-import datetime, json, os, re, subprocess, sys, time, urllib.error, urllib.request
+import contextlib, datetime, fcntl, json, os, re, subprocess, sys, time, urllib.error, urllib.request
 
 HOME = os.path.expanduser("~")
 ST = os.path.join(HOME, ".devcon8")
@@ -64,19 +65,27 @@ def without_secrets(value):
     return {k: v for k, v in value.items() if k not in ("preimage", "status_msg")}
 
 
+# The wallet API is on this machine: never through a proxy from the environment, which would see
+# the invoice (mesh-llm's own wallet client does the same, no_proxy).
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
 def wallet(command, timeout=30):
     """One local wallet API call. Errors are reported without the request (it may hold an
     invoice) and without anything that looks like an invoice or a preimage."""
     req = urllib.request.Request(API, data=json.dumps(command).encode(), method="POST",
                                  headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with OPENER.open(req, timeout=timeout) as r:
             return json.loads(r.read() or b"null")
     except urllib.error.HTTPError as e:
         detail = e.read()[:400].decode("utf-8", "replace")
         detail = re.sub(r"ln[a-z0-9]{20,}|[0-9a-f]{64}", "<redacted>", detail, flags=re.I)
         die(f"the wallet refused '{command['command']}': HTTP {e.code} {detail}")
     except (urllib.error.URLError, TimeoutError) as e:
+        if command["command"] == "send" and not isinstance(getattr(e, "reason", None), ConnectionRefusedError):
+            die("no answer from the wallet while paying: the payment may still be in flight. Run the same "
+                "'lightning pay' again (the wallet pays one invoice at most once) or check 'mesh-llm wallet get-transactions'")
         die(f"your node's wallet API does not answer ({type(e).__name__}): is your node running? ('devcon8 join')")
 
 
@@ -88,6 +97,19 @@ def caps():
         if not isinstance(c.get(k), int) or isinstance(c.get(k), bool) or c[k] < 1:
             die(f"{CAPS}: {k} must be a whole number of sats, at least 1 (set it with 'devcon8 lightning')")
     return c
+
+
+@contextlib.contextmanager
+def spent_lock():
+    """Held across reading, checking and writing the spent log, so two runs in one container never
+    both pass the total cap or overwrite each other's entries."""
+    os.makedirs(ST, mode=0o700, exist_ok=True)
+    fd = os.open(SPENT + ".lock", os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
 
 
 def spent_total(spent):
@@ -127,9 +149,19 @@ def cmd_invoice(conv):
                       "expires_at": iso(inv["expires_at_ms"]), "send_it_with": f"mbx reply {conv} proposal <text> '<constraints>' --invoice"}))
 
 
-def cmd_pay(conv, cents, digest):
-    if not re.match(r"^[1-9][0-9]{0,5}$", cents):
-        die("amount is whole cents, no leading zero", 2)
+def over_total(spent, h, amount, total, c):
+    """What the other payments in the log count against the total cap; refuses when this one would
+    pass it."""
+    already = spent_total({k: v for k, v in spent.items() if k != h})
+    if already + amount > total:
+        die(f"refused: paying {amount // 1000} sats would bring the sticker payments to "
+            f"{(already + amount) // 1000} sats, over your total cap of {c['total_sats']} sats. Nothing paid")
+    return already
+
+
+def cmd_pay(conv, sats, digest):
+    if not re.match(r"^[1-9][0-9]{0,7}$", sats):
+        die("amount is whole sats (the invoice_sats your user said yes to), no leading zero", 2)
     if not HEX64.match(digest):
         die("content digest is 64 lowercase hex", 2)
     c = caps()
@@ -149,16 +181,20 @@ def cmd_pay(conv, cents, digest):
         die("the shop's invoice names no fixed amount; nothing paid")
     if inv.get("expires_at_ms", 0) <= now_ms() + 30_000:
         die("the shop's invoice has expired (or expires within 30 s); ask for a new proposal. Nothing paid")
+    if amount != int(sats) * 1000:
+        die(f"refused: the invoice asks {amount / 1000:g} sats, not the {sats} sats your user said yes to. Nothing paid")
     per, total = c["per_payment_sats"] * 1000, c["total_sats"] * 1000
-    spent = load(SPENT, {})
-    already = spent_total({k: v for k, v in spent.items() if k != h})
     if amount > per:
         die(f"refused: the invoice asks {amount // 1000} sats, over your per-payment cap of {c['per_payment_sats']} sats. Nothing paid")
-    if already + amount > total:
-        die(f"refused: paying {amount // 1000} sats would bring this container's Lightning payments to "
-            f"{(already + amount) // 1000} sats, over your total cap of {c['total_sats']} sats. Nothing paid")
-    fee = min(FEE_CEILING_MSAT, per - amount, total - already - amount)
+    with spent_lock():
+        early = load(SPENT, {})
+    if early.get(h, {}).get("status") == "failed":
+        die("this invoice's payment already failed; ask the shop for a new proposal. Nothing paid")
+    over_total(early, h, amount, total, c)
     terms = os.path.join(out, "buyer-terms.json")
+    leg = load(terms)
+    if leg is not None and str(((leg.get("settlement") or {}).get("amount") or {}).get("value")) != str(amount):
+        os.remove(terms)  # an earlier attempt's leg for another amount: never attach it to this payment
     if not os.path.exists(terms):
         r = subprocess.run(["capsulectl", "--profile", "deal", "deal", "terms-leg", "--amount", str(amount), "--asset", BTC,
                             "--asset-scale", str(BTC_SCALE), "--content-digest", digest, "--out", terms],
@@ -167,19 +203,28 @@ def cmd_pay(conv, cents, digest):
             die("writing your terms leg failed, nothing paid: " + r.stderr.strip()[:300])
     # Reserve the most this payment can cost before sending, so a crash never lets the total cap
     # be passed; a rerun pays the same invoice at most once (the wallet keys a send by its hash).
-    spent[h] = {"conversation": conv, "status": "reserved", "reserved_msat": amount + fee, "spent_msat": 0, "at": iso(now_ms())}
-    write_private(SPENT, spent)
+    # The checks are made again under the lock, against the log as it is now.
+    with spent_lock():
+        spent = load(SPENT, {})
+        if spent.get(h, {}).get("status") == "failed":
+            die("this invoice's payment already failed; ask the shop for a new proposal. Nothing paid")
+        already = over_total(spent, h, amount, total, c)
+        fee = min(FEE_CEILING_MSAT, per - amount, total - already - amount)
+        spent[h] = {"conversation": conv, "status": "reserved", "reserved_msat": amount + fee, "spent_msat": 0, "at": iso(now_ms())}
+        write_private(SPENT, spent)
     tx = wallet({"command": "send", "invoice": bolt11, "amount_msat": None, "max_fee_msat": fee}, timeout=300)
     if not isinstance(tx, dict) or tx.get("payment_hash") != h:
         die("the wallet's answer names another payment; check 'mesh-llm wallet get-transactions' before paying again")
     status = tx.get("status")
     paid = {"payment_hash": h, "amount_msat": tx.get("amount_msat"), "fee_msat": tx.get("fee_msat"), "status": status,
             "rail": "lightning", "network": "bitcoin mainnet"}
-    if status == "succeeded":
-        spent[h].update(status="succeeded", spent_msat=int(tx.get("amount_msat", 0)) + int(tx.get("fee_msat", 0)))
-    elif status == "failed":
-        spent[h].update(status="failed", spent_msat=0)
-    write_private(SPENT, spent)
+    if status in ("succeeded", "failed"):
+        with spent_lock():
+            spent = load(SPENT, {})
+            entry = spent.get(h) or {"conversation": conv, "reserved_msat": 0, "at": iso(now_ms())}
+            entry.update(status=status, spent_msat=int(tx.get("amount_msat", 0)) + int(tx.get("fee_msat", 0)) if status == "succeeded" else 0)
+            spent[h] = entry
+            write_private(SPENT, spent)
     if status != "succeeded":
         die(f"the payment did not succeed (status {status}); nothing to accept with. {'Nothing was paid.' if status == 'failed' else 'Check mesh-llm wallet get-transactions.'}")
     write_private(os.path.join(out, "payment.json"), paid)

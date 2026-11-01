@@ -52,6 +52,15 @@ ITEM = "digital fox sticker"
 # carry in a `--pay lexe` run. It is saved to ~/deals/<conversation>/invoice.txt for `lightning pay`
 # and never shown to the model.
 BOLT11 = re.compile(r"^lnbc[0-9]{1,12}[munp]?1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{100,1500}$")
+# The amount a BOLT11 invoice's prefix states, in millisatoshi per unit of the multiplier
+# (BOLT 11: m, u, n, p after a BTC amount). The invoice's signature covers it.
+MSAT_PER = {"": 100_000_000_000, "m": 100_000_000, "u": 100_000, "n": 100, "p": 0.1}
+
+
+def invoice_msat(invoice):
+    m = re.match(r"^lnbc([0-9]+)([munp]?)1", invoice)
+    msat = int(m.group(1)) * MSAT_PER[m.group(2)]
+    return int(msat) if msat == int(msat) else None
 
 
 def whole(lo, hi):
@@ -266,14 +275,23 @@ def parse(m):
     invoice = out["constraints"].pop("invoice", None)
     if invoice is not None:
         # Only a shop's proposal to this buyer may carry one; the model sees that it came, not its text.
-        if kind == "proposal" and out["you_are"] == "buyer":
-            d = os.path.join(DEALS, conv)
+        # The conversation's first invoice is the one kept: a later proposal cannot swap in another
+        # amount or payee after the user said yes to the first.
+        d = os.path.join(DEALS, conv)
+        p = os.path.join(d, "invoice.txt")
+        try:
+            with open(p) as f:
+                kept = f.read().strip()
+        except FileNotFoundError:
+            kept = None
+        msat = invoice_msat(invoice)
+        if kind == "proposal" and out["you_are"] == "buyer" and msat and kept in (None, invoice):
             os.makedirs(d, mode=0o700, exist_ok=True)
-            p = os.path.join(d, "invoice.txt")
             fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w") as f:
                 f.write(invoice + "\n")
             out["rail"] = "lightning"
+            out["invoice_sats"] = msat / 1000 if msat % 1000 else msat // 1000
             saved.append(p)
         else:
             out.setdefault("dropped", []).append("invoice")
