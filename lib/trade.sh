@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
-# trade.sh [--buy <address>]: run your trading agent in goose. It sells your fox sticker to any
-# participant's agent that asks and, with --buy, buys one from that address. Payment is simulated.
-# goose runs in approve mode: it asks you before each tool call.
+# trade.sh [--buy <address>] [--pay lexe]: run your trading agent in goose. It sells your fox sticker
+# to any participant's agent that asks and, with --buy, buys one from that address. Payment is
+# simulated; with --pay lexe it is REAL Lightning from your own lexe wallet, within the caps you set
+# with 'devcon8 lightning'. goose runs in approve mode: it asks you before each tool call.
 set -euo pipefail
 . /opt/devcon8/lib/common.sh
-buy=""
-case "${1:-}" in
-  --buy) buy=$(tr '[:upper:]' '[:lower:]' <<<"${2:-}"); [[ $buy =~ ^[a-z0-9._-]+@agentboxnanda\.org$ ]] || die "--buy <their address>@agentboxnanda.org" ;;
-  "") ;;
-  *) die "devcon8 trade [--buy <address>@agentboxnanda.org]" ;;
-esac
+buy="" pay=simulated
+while [ $# -gt 0 ]; do
+  case $1 in
+    --buy) buy=$(tr '[:upper:]' '[:lower:]' <<<"${2:-}"); [[ $buy =~ ^[a-z0-9._-]+@agentboxnanda\.org$ ]] || die "--buy <their address>@agentboxnanda.org"; shift 2 ;;
+    --pay) [ "${2:-}" = lexe ] || die "--pay lexe (the only other way to pay is the default, simulated)"; pay=lexe; shift 2 ;;
+    *) die "devcon8 trade [--buy <address>@agentboxnanda.org] [--pay lexe]" ;;
+  esac
+done
+if [ "$pay" = lexe ]; then
+  [ -s "$ST/lightning.json" ] || die "--pay lexe needs your caps first: devcon8 lightning --price-sats P --per-payment-sats N --total-sats T"
+  node_pid >/dev/null || die "--pay lexe pays from your node's wallet: 'devcon8 join' first, then 'devcon8 wallet'"
+fi
 [ -s "$ST/agentbox/key" ] || die "no mailbox yet: run 'devcon8 nanda <your email>' first"
 grep -qE '^GOOSE_PROVIDER: (claude|codex)-acp' "$HOME/.config/goose/config.yaml" 2>/dev/null \
   || die "pick a brain first: 'devcon8 brain claude' or 'devcon8 brain codex'"
@@ -20,6 +27,11 @@ fi
 # an image upgrade the volume must not keep an older plugin beside the new capsulectl (install replaces it).
 capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
 capsulectl plugin install "$D/bin/capsulectl-book" >/dev/null
+# A --pay lexe seller seals what its wallet received with `deal note --ln-invoice`; a deal plugin
+# without it could take real money and record none, so the run refuses instead.
+if [ "$pay" = lexe ] && ! capsulectl deal note --help 2>/dev/null | grep -q -- '--ln-invoice'; then
+  die "--pay lexe needs a capsulectl-deal that records Lightning payments (v0.1.0-rc29 or later); this image's cannot"
+fi
 # The store is made once. With the plugin just installed, a failing 'deal list' means the deal
 # profile is missing (or its store is gone); deal init refuses a profile that already exists.
 if ! capsulectl --profile deal deal list >/dev/null 2>&1; then
@@ -29,7 +41,13 @@ if ! capsulectl --profile deal deal list >/dev/null 2>&1; then
 fi
 mkdir -p "$HOME/deals"
 cd "$HOME"
-echo "Payment in this run is SIMULATED: no money moves. goose asks before each tool call; answer in the chat."
-args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive)
+if [ "$pay" = lexe ]; then
+  echo "Payment in this run is REAL Lightning from your own lexe wallet (bitcoin mainnet), within your caps:"
+  "$D/agent/bin/lightning" caps
+  echo "goose asks before each tool call, and every payment shows you a card first; answer in the chat."
+else
+  echo "Payment in this run is SIMULATED: no money moves. goose asks before each tool call; answer in the chat."
+fi
+args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive --params "pay=$pay")
 [ -n "$buy" ] && args+=(--params "buy_from=$buy")
 GOOSE_MODE=approve exec goose "${args[@]}"

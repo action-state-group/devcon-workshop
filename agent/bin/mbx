@@ -18,8 +18,10 @@ the sticker arrived; the seller delivers it in a new request that names the purc
   mbx resolve <address>                        is that agent listed in the NANDA Index?
   mbx search <words>                           find agents by what they offer (information only)
   mbx send <address> <text>                    open a conversation (you are the buyer in it)
-  mbx reply <conversation> <kind> <text> [constraints-json] [--attach FILE]...
-                                               kind: proposal|accept|decline|cancel
+  mbx reply <conversation> <kind> <text> [constraints-json] [--attach FILE]... [--invoice]
+                                               kind: proposal|accept|decline|cancel; --invoice (a
+                                               proposal in a `--pay lexe` run) adds the invoice
+                                               `lightning invoice` made for this conversation
   mbx deliver <conversation> <deal_id> <text> --attach sticker.png
                                                seller: send the item to that conversation's buyer
   mbx confirm <conversation> <text>            buyer: confirm (names your latest accept for you)
@@ -38,13 +40,27 @@ MAX_FILE = 64 * 1024
 # (error 1010, checked 2026-10-31); a named User-Agent is answered.
 USER_AGENT = "devcon-workshop-mbx/1 (+https://github.com/action-state-group/devcon-workshop)"
 # The only files a reply may carry, by kind: the buyer's terms leg and the simulated settle response
-# with its accept, the sticker with the seller's delivery.
+# with its accept (a Lightning accept carries the terms leg only), the sticker with the seller's
+# delivery.
 ATTACH = {"accept": {"buyer-terms.json", "settle.json"}, "delivery": {"sticker.png"}}
 KINDS = {"request", "proposal", "accept", "decline", "confirm", "cancel"}
 SAFE = re.compile(r"[^A-Za-z0-9 _.,:/@+-]")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 URNISH = re.compile(r"^[A-Za-z0-9:._@/+-]{1,200}$")
 ITEM = "digital fox sticker"
+# A mainnet BOLT11 invoice with an amount (bech32 data, no free text): the only invoice a proposal may
+# carry in a `--pay lexe` run. It is saved to ~/deals/<conversation>/invoice.txt for `lightning pay`
+# and never shown to the model.
+BOLT11 = re.compile(r"^lnbc[0-9]{1,12}[munp]?1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{100,1500}$")
+# The amount a BOLT11 invoice's prefix states, in millisatoshi per unit of the multiplier
+# (BOLT 11: m, u, n, p after a BTC amount). The invoice's signature covers it.
+MSAT_PER = {"": 100_000_000_000, "m": 100_000_000, "u": 100_000, "n": 100, "p": 0.1}
+
+
+def invoice_msat(invoice):
+    m = re.match(r"^lnbc([0-9]+)([munp]?)1", invoice)
+    msat = int(m.group(1)) * MSAT_PER[m.group(2)]
+    return int(msat) if msat == int(msat) else None
 
 
 def whole(lo, hi):
@@ -71,6 +87,8 @@ FIELDS = {
     "terms": sale_terms,
     "acceptanceId": lambda v: isinstance(v, str) and bool(ID.match(v)),
     "delivery_for": lambda v: isinstance(v, str) and bool(ID.match(v)),
+    "invoice": lambda v: isinstance(v, str) and bool(BOLT11.match(v)),
+    "payment_hash": lambda v: isinstance(v, str) and bool(HEX64.match(v)),
 }
 ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 ADDRESS = re.compile(r"^[a-z0-9._-]{1,128}@agentboxnanda\.org$")
@@ -254,6 +272,31 @@ def parse(m):
     if kind == "request" and URNISH.match(sender):
         peers = state("peers.json"); peers[conv] = sender; save_state("peers.json", peers)
     saved, refused = save_files(conv, kind, c.get("files", []))
+    invoice = out["constraints"].pop("invoice", None)
+    if invoice is not None:
+        # Only a shop's proposal to this buyer may carry one; the model sees that it came, not its text.
+        # The conversation's first invoice is the one kept: a later proposal cannot swap in another
+        # amount or payee after the user said yes to the first.
+        d = os.path.join(DEALS, conv)
+        p = os.path.join(d, "invoice.txt")
+        try:
+            with open(p) as f:
+                kept = f.read().strip()
+        except FileNotFoundError:
+            kept = None
+        if kept is not None and not BOLT11.match(kept):
+            kept = None  # an empty or damaged file (an interrupted write) holds no invoice to keep
+        msat = invoice_msat(invoice)
+        if kind == "proposal" and out["you_are"] == "buyer" and msat and kept in (None, invoice):
+            os.makedirs(d, mode=0o700, exist_ok=True)
+            fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write(invoice + "\n")
+            out["rail"] = "lightning"
+            out["invoice_msat"] = msat
+            saved.append(p)
+        else:
+            out.setdefault("dropped", []).append("invoice")
     if saved:
         out["files"] = saved
     if refused:
@@ -263,9 +306,11 @@ def parse(m):
 
 def attachments(kind, rest):
     """Parse [constraints-json] [--attach FILE]... for a message of this kind."""
-    constraints, files = {}, []
+    constraints, files, invoice = {}, [], False
     while rest:
-        if rest[0] == "--attach" and len(rest) > 1:
+        if rest[0] == "--invoice":
+            invoice = True; rest = rest[1:]
+        elif rest[0] == "--attach" and len(rest) > 1:
             p = rest[1]; name = os.path.basename(p)
             if name not in ATTACH.get(kind, set()):
                 die(f"a {kind} may carry only {sorted(ATTACH.get(kind, set()))}, not {name}", 2)
@@ -281,7 +326,7 @@ def attachments(kind, rest):
             die(f"unexpected argument {rest[0]!r}", 2)
     if files:
         constraints["files"] = files
-    return constraints, files
+    return constraints, files, invoice
 
 
 def sent_id(r):
@@ -324,7 +369,21 @@ def main(argv):
         conv, kind, text, rest = argv[2], argv[3], argv[4], argv[5:]
         if not ID.match(conv) or kind not in KINDS - {"request", "confirm"}:
             die("usage: mbx reply <conversation> <proposal|accept|decline|cancel> <text> [constraints-json] [--attach FILE]...  (confirm: mbx confirm)", 2)
-        constraints, files = attachments(kind, rest)
+        constraints, files, invoice = attachments(kind, rest)
+        if invoice:
+            if kind != "proposal":
+                die("only a proposal carries an invoice", 2)
+            try:
+                with open(os.path.join(DEALS, conv, "outgoing", "invoice.json")) as f:
+                    saved = json.load(f)
+                bolt11, expires = saved.get("bolt11", ""), saved.get("expires_at_ms", 0)
+            except (FileNotFoundError, ValueError, AttributeError):
+                die(f"no invoice for this conversation: run 'lightning invoice {conv}' first", 2)
+            if not BOLT11.match(str(bolt11)):
+                die("the saved invoice is not a mainnet BOLT11 invoice with an amount", 2)
+            if not isinstance(expires, int) or expires <= (time.time() + 600) * 1000:
+                die(f"the saved invoice expires within 10 minutes: run 'lightning invoice {conv}' again, then send", 2)
+            constraints["invoice"] = bolt11
         r = call("POST", f"{BASE}/api/v1/conversations/{conv}/replies",
                  {"kind": kind, "text": text[:500], "constraints": constraints, "idempotencyKey": f"reply-{conv}-{kind}-{uuid.uuid4().hex[:8]}"})
         mid = sent_id(r)
@@ -346,7 +405,9 @@ def main(argv):
         to = reply_to(state("peers.json").get(conv, ""))
         if not ID.match(conv) or not ID.match(deal_id) or not to:
             die("usage: mbx deliver <conversation> <deal_id> <text> --attach sticker.png  (a conversation a buyer opened with you)", 2)
-        constraints, files = attachments("delivery", rest)
+        constraints, files, invoice = attachments("delivery", rest)
+        if invoice:
+            die("a delivery carries no invoice", 2)
         if not files:
             die("a delivery carries the item: --attach sticker.png", 2)
         constraints.update(delivery_for=conv, deal_id=deal_id)
