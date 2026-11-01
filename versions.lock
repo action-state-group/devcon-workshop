@@ -47,10 +47,13 @@ BOOK_VERSION=v0.1.0-rc29
 BOOK_SHA256_AMD64=7876e14daaef93bc3d0e800be43c4efbe92ed25997429c15d3a64cc19af37518
 BOOK_SHA256_ARM64=a9756007fc7f7772a82529578a74a70aecc7e42009003882a411f300f7ca6467
 
-# goose
+# goose: built from source at the v1.57.0 commit plus patches/goose-acp-approval-card-once.patch
+# (aaif-goose/goose#13273: in approve mode an ACP provider's approval card came back after the turn and
+# answering it exited goose with "tool confirmation request was already answered"). Back to the release
+# tarball once a goose release carries the fix.
+GOOSE_REPO=https://github.com/aaif-goose/goose
 GOOSE_VERSION=v1.57.0
-GOOSE_SHA256_AMD64=10eb96cb6a159b6e1d38eeedbef6ab64cd28168aad91948f1fa5c34eefdf98e3
-GOOSE_SHA256_ARM64=c32605acfd560aeb2adbf17ec359cc0217e28022a7e647b35a6af5dcfca91749
+GOOSE_SHA=30bba95105e59bc3e7df624cf6b4d433690cfe12
 
 # Go (the evidencebook SDK's go 1.27.0 directive)
 GO_VERSION=1.27.3

@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+// Minimal ACP agent: one tool call that asks permission, then ends the turn. Install as `claude-agent-acp` on PATH.
+const rl = require('readline').createInterface({input: process.stdin});
+const out = (o) => process.stdout.write(JSON.stringify(o) + '\n');
+let waiter;
+rl.on('line', async (l) => {
+  const m = JSON.parse(l);
+  if (m.method === undefined) return waiter && waiter(m.result);   // reply to our permission request
+  const ok = (r) => out({jsonrpc: '2.0', id: m.id, result: r});
+  if (m.method === 'initialize') return ok({protocolVersion: 1, agentCapabilities: {}, authMethods: []});
+  if (m.method === 'session/new') return ok({sessionId: 's1', modes: {currentModeId: 'default', availableModes: [{id: 'default', name: 'Default'}, {id: 'bypassPermissions', name: 'Bypass'}, {id: 'acceptEdits', name: 'Edits'}]}});
+  if (m.method === 'session/set_config_option') return ok({configOptions: [{id: 'model', name: 'Model', type: 'select', currentValue: 'default', options: [{value: 'default', name: 'Default'}]}]});
+  if (m.method !== 'session/prompt') return ok({});
+  const sid = m.params.sessionId, upd = (u) => out({jsonrpc: '2.0', method: 'session/update', params: {sessionId: sid, update: u}});
+  upd({sessionUpdate: 'tool_call', toolCallId: 't1', title: 'Bash: echo hi', kind: 'execute', status: 'pending', rawInput: {command: 'echo hi'}});
+  out({jsonrpc: '2.0', id: 9000, method: 'session/request_permission', params: {sessionId: sid, toolCall: {toolCallId: 't1', title: 'echo hi', kind: 'execute', status: 'pending', rawInput: {command: 'echo hi'}}, options: [{optionId: 'allow', name: 'Yes', kind: 'allow_once'}, {optionId: 'reject', name: 'No', kind: 'reject_once'}]}});
+  await new Promise(r => waiter = r);
+  upd({sessionUpdate: 'tool_call_update', toolCallId: 't1', status: 'completed', content: [{type: 'content', content: {type: 'text', text: 'hi'}}]});
+  upd({sessionUpdate: 'agent_message_chunk', content: {type: 'text', text: 'done'}});
+  out({jsonrpc: '2.0', id: m.id, result: {stopReason: 'end_turn'}});
+});

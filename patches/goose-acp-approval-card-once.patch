@@ -1,0 +1,15 @@
+--- a/crates/goose/src/agents/state_machine/session.rs
++++ b/crates/goose/src/agents/state_machine/session.rs
+@@ -143,7 +143,11 @@
+         for (index, effect) in effects.iter().enumerate() {
+             match effect {
+                 GooseEffect::Conversation(ConversationEffect::AppendMessage(message)) => {
+-                    if contains_tool_confirmation_request(message) {
++                    // A provider-originated request (ACP) was already emitted live while the
++                    // provider streamed; only requests the state machine itself generated are
++                    // published here. Publishing a live one again shows its card a second time
++                    // after the turn, and answering it fails with "already answered".
++                    if contains_tool_confirmation_request(message) && message.metadata.inference.is_none() {
+                         // Responses can arrive immediately, so publish only after the persistence pass.
+                         emit.emit(AgentEvent::Message(message.clone()));
+                     }

@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/sim-payment.sh tests/s08-ci.sh tests/mbx-net.sh tests/test_nanda.sh tests/test_trade_protocol.sh tests/sim-buyer.sh tests/sim-lightning.sh build/fetch.sh build/usb.sh
+        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/goose-approve.sh tests/sim-payment.sh tests/s08-ci.sh tests/mbx-net.sh tests/test_nanda.sh tests/test_trade_protocol.sh tests/sim-buyer.sh tests/sim-lightning.sh build/fetch.sh build/usb.sh
       - name: mbx unit tests
         run: python3 -I tests/test_mbx.py
       - name: lightning unit tests (fake wallet API, no money moves)
@@ -122,6 +122,8 @@ jobs:
 
       - name: Smoke tests
         run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/smoke.sh
+      - name: goose approve mode shows each card once (patched goose, mock ACP agent)
+        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/goose-approve.sh
 
       - name: The trader reaches the NANDA Index (no Cloudflare 403)
         run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/mbx-net.sh
