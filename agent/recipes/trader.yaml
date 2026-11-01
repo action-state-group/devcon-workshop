@@ -137,7 +137,9 @@ instructions: |
   <content_digest>` and note the act with the same payee: {"action": "pay", "amount_minor": PRICE,
   "payee": "{{ buy_from }}", "rail": "lightning", "reference": "<its payment_hash>"}. Then send your
   accept with `payment_hash` in its constraints and buyer-terms.json attached. If `lightning pay`
-  refuses or fails, nothing was paid unless it says so: tell your user and hold.{% else %} Act as its verdict says (above): run `pay-x402 <conversation> PRICE
+  refuses or fails, nothing was paid unless it says so: tell your user and hold; when it says this
+  conversation cannot be paid (a failed or expired invoice), cancel the deal and, if your user wants, start
+  a new purchase with `mbx send`.{% else %} Act as its verdict says (above): run `pay-x402 <conversation> PRICE
   <content_digest>`, then note the act with the same payee: {"action": "pay", "amount_minor":
   PRICE, "payee": "{{ buy_from }}", "rail": "x402", "reference": "<the settle response's
   transaction>"}. Then send your accept with both files

@@ -68,11 +68,6 @@ def write_private(path, value):
     os.replace(tmp, path)
 
 
-def without_secrets(value):
-    """A wallet answer without its preimage, and without status text a provider may fill."""
-    return {k: v for k, v in value.items() if k not in ("preimage", "status_msg")}
-
-
 def without_status_text(value):
     """A wallet answer without status text a provider may fill; its preimage stays, for deal to
     check and seal."""
@@ -213,7 +208,7 @@ def cmd_pay(conv, sats, digest):
     if not isinstance(amount, int) or amount < 1 or not HEX64.match(h):
         die("the shop's invoice names no fixed amount; nothing paid")
     if inv.get("expires_at_ms", 0) <= now_ms() + 30_000:
-        die("the shop's invoice has expired (or expires within 30 s); ask for a new proposal. Nothing paid")
+        die("the shop's invoice has expired (or expires within 30 s); a conversation keeps its first invoice, so this conversation cannot be paid now: tell your user, cancel this deal (mbx reply <conversation> cancel) and start a new purchase (mbx send). Nothing paid")
     if amount != int(sats) * 1000:
         die(f"refused: the invoice asks {amount / 1000:g} sats, not the {sats} sats your user said yes to. Nothing paid")
     per, total = c["per_payment_sats"] * 1000, c["total_sats"] * 1000
@@ -222,7 +217,7 @@ def cmd_pay(conv, sats, digest):
     with spent_lock():
         early = load(SPENT, {})
     if early.get(h, {}).get("status") == "failed":
-        die("this invoice's payment already failed; ask the shop for a new proposal. Nothing paid")
+        die("this invoice's payment already failed; this conversation cannot be paid now: tell your user, cancel this deal (mbx reply <conversation> cancel) and start a new purchase (mbx send). Nothing paid")
     over_total(early, h, amount, total, c)
     terms = os.path.join(out, "buyer-terms.json")
     leg = load(terms)
@@ -240,7 +235,7 @@ def cmd_pay(conv, sats, digest):
     with spent_lock():
         spent = load(SPENT, {})
         if spent.get(h, {}).get("status") == "failed":
-            die("this invoice's payment already failed; ask the shop for a new proposal. Nothing paid")
+            die("this invoice's payment already failed; this conversation cannot be paid now: tell your user, cancel this deal (mbx reply <conversation> cancel) and start a new purchase (mbx send). Nothing paid")
         already = over_total(spent, h, amount, total, c)
         fee = min(FEE_CEILING_MSAT, per - amount, total - already - amount)
         spent[h] = {"conversation": conv, "status": "reserved", "reserved_msat": amount + fee, "spent_msat": 0, "at": iso(now_ms())}
