@@ -291,7 +291,7 @@ def parse(m):
             with os.fdopen(fd, "w") as f:
                 f.write(invoice + "\n")
             out["rail"] = "lightning"
-            out["invoice_sats"] = msat / 1000 if msat % 1000 else msat // 1000
+            out["invoice_msat"] = msat
             saved.append(p)
         else:
             out.setdefault("dropped", []).append("invoice")

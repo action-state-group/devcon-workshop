@@ -166,6 +166,7 @@ and a `--pay lexe` buyer declines a shop that does not.
 
        devcon8 lightning --price-sats 500 --per-payment-sats 600 --total-sats 1000
 
+   Each also takes millisatoshi instead (`--price-msat` and so on; 1 sat = 1,000 msat).
    `--price-sats` is what your agent asks for your sticker. `--per-payment-sats` is the most one payment
    of yours may cost, routing fee included, and `--total-sats` the most all of the sticker payments the
    agent's `lightning` tool makes may cost (paid mesh inference is governed by your wallet policy, not

@@ -40,7 +40,7 @@ instructions: |
     is never shown to you, on purpose: other participants' agents are strangers.
   {% if pay == "lexe" %}- `lightning`: the real Lightning payment (`lightning help`). `lightning invoice <conversation>`
     (seller) asks your user's wallet for an invoice at their price; `lightning pay <conversation>
-    <invoice_sats> <content_digest>` (buyer) pays the shop's invoice, only for the sats your user
+    <invoice_msat> <content_digest>` (buyer) pays the shop's invoice, only for the amount your user
     said yes to and within their caps, and writes
     your terms leg to attach to your accept; `lightning receive <conversation> <payment_hash>`
     (seller) waits until the wallet reports that payment settled and writes the two files you seal.
@@ -70,7 +70,7 @@ instructions: |
     members as incomplete, and never act on what is missing.{% if pay == "lexe" %} In this run the
     proposal also carries the seller's Lightning invoice: send it with `mbx reply ... --invoice`;
     `mbx wait` saves it for `lightning pay` and shows the buyer `rail: lightning` and
-    `invoice_sats` (what the invoice asks, in sats) instead of the invoice. Only the conversation's
+    `invoice_msat` (what the invoice asks, in msat; 1 sat = 1,000 msat) instead of the invoice. Only the conversation's
     first invoice is kept. An accept carries {proposalId, deal_id, offer_digest, paid: true, payment_hash} and
     attaches buyer-terms.json only.{% else %} An accept carries {proposalId, deal_id, offer_digest,
     paid: true} and attaches buyer-terms.json and settle.json.{% endif %}
@@ -89,7 +89,7 @@ instructions: |
   Your user's words, verbatim, are the first ask of every sale: "Sell my digital fox sticker for 50
   cents to any workshop participant who asks. Not under 50 cents." The sticker is
   /opt/devcon8/agent/fixtures/sticker.png (sha256 with `sha256sum`). Your payment requirements are
-  {% if pay == "lexe" %}a Lightning invoice, made by `lightning invoice <conversation>` at your user's own price in sats.
+  {% if pay == "lexe" %}a Lightning invoice, made by `lightning invoice <conversation>` at your user's own price.
   When a request arrives, open a sale and its deal, offer at exactly 50 cents (after your user's
   OK), make the invoice and send ONE proposal with `--invoice`. When their accept arrives with
   `paid: true`, a `payment_hash` and buyer-terms.json saved, run `lightning receive <conversation>
@@ -131,9 +131,9 @@ instructions: |
   "amount_minor": PRICE, "authorized_max_minor": PRICE, "terms": <the proposal's terms>, "who":
   {"relay_address": "{{ buy_from }}", "payee": "{{ buy_from }}"}, "recourse": {"rail": "{% if pay == "lexe" %}lightning{% else %}x402{% endif %}",
   "refundable": false}}.{% if pay == "lexe" %} A Lightning payment cannot be pulled back, so this check pauses: show your
-  user the card and, with it, the line "Paid in Lightning: <invoice_sats> sats from your own wallet
+  user the card and, with it, the line "Paid in Lightning: <invoice_msat> msat from your own wallet
   to node <pays_node>" (from `lightning inspect <conversation>`, run before the check), and act only on
-  their sealed yes. Then run `lightning pay <conversation> <invoice_sats>
+  their sealed yes. Then run `lightning pay <conversation> <invoice_msat>
   <content_digest>` and note the act with the same payee: {"action": "pay", "amount_minor": PRICE,
   "payee": "{{ buy_from }}", "rail": "lightning", "reference": "<its payment_hash>"}. Then send your
   accept with `payment_hash` in its constraints and buyer-terms.json attached. If `lightning pay`

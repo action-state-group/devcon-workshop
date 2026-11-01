@@ -9,12 +9,12 @@ it from (Steven: seal the preimage, not the BOLT11); the buyer's is not kept.
 
   lightning invoice <conversation>
       seller: ask your wallet for an invoice at your price; `mbx reply ... --invoice` sends it
-  lightning pay <conversation> <sats> <content-digest>
+  lightning pay <conversation> <msat> <content-digest>
       buyer: pay the invoice the shop's proposal carried (saved by `mbx wait`, which shows its
-      `invoice_sats`), within your caps and only if it asks exactly <sats>, the amount your user
+      `invoice_msat`), within your caps and only if it asks exactly <msat>, the amount your user
       said yes to; writes your terms leg to attach to your accept.
   lightning inspect <conversation>
-      buyer: what the shop's invoice asks and where it pays (its sats, node id and expiry), to show
+      buyer: what the shop's invoice asks and where it pays (its amount, node id and expiry), to show
       your user before the payment check; pays nothing
   lightning receive <conversation> <payment-hash>
       seller: wait until your wallet reports that payment of your invoice settled; writes the two
@@ -99,13 +99,23 @@ def wallet(command, timeout=30):
 
 
 def caps():
+    """The caps in millisatoshi: price_msat, per_payment_msat, total_msat. A caps file an earlier
+    image wrote in whole sats (price_sats, ...) is read as sats."""
     c = load(CAPS)
     if not isinstance(c, dict):
         die("no caps set: run 'devcon8 lightning --price-sats P --per-payment-sats N --total-sats T' first")
-    for k in ("price_sats", "per_payment_sats", "total_sats"):
-        if not isinstance(c.get(k), int) or isinstance(c.get(k), bool) or c[k] < 1:
-            die(f"{CAPS}: {k} must be a whole number of sats, at least 1 (set it with 'devcon8 lightning')")
-    return c
+    out = {}
+    for k in ("price", "per_payment", "total"):
+        v = c.get(k + "_msat", c[k + "_sats"] * 1000 if isinstance(c.get(k + "_sats"), int) else None)
+        if not isinstance(v, int) or isinstance(v, bool) or v < 1:
+            die(f"{CAPS}: {k} must be a whole number of msat (or sats), at least 1 (set it with 'devcon8 lightning')")
+        out[k + "_msat"] = v
+    return out
+
+
+def amount_of(msat):
+    """An amount as a person reads it: whole sats when it is whole sats, msat otherwise."""
+    return f"{msat // 1000} sats" if msat % 1000 == 0 else f"{msat} msat"
 
 
 @contextlib.contextmanager
@@ -144,20 +154,20 @@ def iso(ms):
 
 
 def cmd_invoice(conv):
-    price = caps()["price_sats"]
+    price = caps()["price_msat"]
     _, out = deal_dir(conv)
     path = os.path.join(out, "invoice.json")
     inv = load(path)
     if not (isinstance(inv, dict) and inv.get("expires_at_ms", 0) > now_ms() + 600_000):
-        inv = wallet({"command": "fund", "amount_msat": price * 1000})
+        inv = wallet({"command": "fund", "amount_msat": price})
         # Every member `lightning receive` and `deal note --ln-invoice` read later, checked now,
         # while issuing another invoice costs nothing.
         if not (isinstance(inv, dict) and BOLT11.match(str(inv.get("bolt11", ""))) and HEX64.match(str(inv.get("payment_hash", "")))
-                and inv.get("amount_msat") == price * 1000 and NODE_ID.match(str(inv.get("payee", "")))
+                and inv.get("amount_msat") == price and NODE_ID.match(str(inv.get("payee", "")))
                 and isinstance(inv.get("expires_at_ms"), int)):
             die("the wallet's invoice is not a mainnet invoice for your price; nothing was sent")
         write_private(path, inv)
-    print(json.dumps({"invoice_ready": True, "amount_sats": inv["amount_msat"] // 1000, "payment_hash": inv["payment_hash"],
+    print(json.dumps({"invoice_ready": True, "amount_msat": inv["amount_msat"], "payment_hash": inv["payment_hash"],
                       "expires_at": iso(inv["expires_at_ms"]), "send_it_with": f"mbx reply {conv} proposal <text> '<constraints>' --invoice"}))
 
 
@@ -166,8 +176,8 @@ def over_total(spent, h, amount, total, c):
     pass it."""
     already = spent_total({k: v for k, v in spent.items() if k != h})
     if already + amount > total:
-        die(f"refused: paying {amount // 1000} sats would bring the sticker payments to "
-            f"{(already + amount) // 1000} sats, over your total cap of {c['total_sats']} sats. Nothing paid")
+        die(f"refused: paying {amount_of(amount)} would bring the sticker payments to "
+            f"{amount_of(already + amount)}, over your total cap of {amount_of(total)}. Nothing paid")
     return already
 
 
@@ -187,14 +197,14 @@ def cmd_inspect(conv):
     inv = wallet({"command": "inspect_invoice", "invoice": saved_invoice(conv)})
     if not isinstance(inv, dict) or not isinstance(inv.get("amount_msat"), int):
         die("the shop's invoice names no fixed amount")
-    print(json.dumps({"invoice_sats": inv["amount_msat"] / 1000 if inv["amount_msat"] % 1000 else inv["amount_msat"] // 1000,
+    print(json.dumps({"invoice_msat": inv["amount_msat"], "invoice": amount_of(inv["amount_msat"]),
                       "pays_node": inv.get("payee"), "expires_at": iso(inv.get("expires_at_ms", 0)),
                       "expired": inv.get("expires_at_ms", 0) <= now_ms() + 30_000}))
 
 
-def cmd_pay(conv, sats, digest):
-    if not re.match(r"^[1-9][0-9]{0,7}$", sats):
-        die("amount is whole sats (the invoice_sats your user said yes to), no leading zero", 2)
+def cmd_pay(conv, msat, digest):
+    if not re.match(r"^[1-9][0-9]{0,11}$", msat):
+        die("amount is whole msat (the invoice_msat your user said yes to), no leading zero", 2)
     if not HEX64.match(digest):
         die("content digest is 64 lowercase hex", 2)
     c = caps()
@@ -209,11 +219,11 @@ def cmd_pay(conv, sats, digest):
         die("the shop's invoice names no fixed amount; nothing paid")
     if inv.get("expires_at_ms", 0) <= now_ms() + 30_000:
         die("the shop's invoice has expired (or expires within 30 s); a conversation keeps its first invoice, so this conversation cannot be paid now: tell your user, cancel this deal (mbx reply <conversation> cancel) and start a new purchase (mbx send). Nothing paid")
-    if amount != int(sats) * 1000:
-        die(f"refused: the invoice asks {amount / 1000:g} sats, not the {sats} sats your user said yes to. Nothing paid")
-    per, total = c["per_payment_sats"] * 1000, c["total_sats"] * 1000
+    if amount != int(msat):
+        die(f"refused: the invoice asks {amount_of(amount)}, not the {amount_of(int(msat))} your user said yes to. Nothing paid")
+    per, total = c["per_payment_msat"], c["total_msat"]
     if amount > per:
-        die(f"refused: the invoice asks {amount // 1000} sats, over your per-payment cap of {c['per_payment_sats']} sats. Nothing paid")
+        die(f"refused: the invoice asks {amount_of(amount)}, over your per-payment cap of {amount_of(per)}. Nothing paid")
     with spent_lock():
         early = load(SPENT, {})
     if early.get(h, {}).get("status") == "failed":
@@ -256,8 +266,8 @@ def cmd_pay(conv, sats, digest):
     if status != "succeeded":
         die(f"the payment did not succeed (status {status}); nothing to accept with. {'Nothing was paid.' if status == 'failed' else 'Check mesh-llm wallet get-transactions.'}")
     write_private(os.path.join(out, "payment.json"), paid)
-    print(f"REAL Lightning payment of {amount // 1000} sats (fee {paid['fee_msat']} msat), bitcoin mainnet.", file=sys.stderr)
-    print(json.dumps({"paid": True, "amount_sats": amount // 1000, "fee_msat": paid["fee_msat"], "payment_hash": h, "paid_node": inv.get("payee"),
+    print(f"REAL Lightning payment of {amount_of(amount)} (fee {paid['fee_msat']} msat), bitcoin mainnet.", file=sys.stderr)
+    print(json.dumps({"paid": True, "amount_msat": amount, "fee_msat": paid["fee_msat"], "payment_hash": h, "paid_node": inv.get("payee"),
                       "terms_leg": terms, "payment": os.path.join(out, "payment.json")}))
 
 
@@ -290,8 +300,7 @@ def cmd_receive(conv, h, wait_s=120):
 def cmd_caps():
     c = caps()
     spent = load(SPENT, {})
-    print(json.dumps({**{k: c[k] for k in ("price_sats", "per_payment_sats", "total_sats")},
-                      "paid_or_reserved_sats": spent_total(spent) / 1000, "payments": len(spent)}))
+    print(json.dumps({**c, "paid_or_reserved_msat": spent_total(spent), "payments": len(spent)}))
 
 
 def main(argv):

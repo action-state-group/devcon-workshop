@@ -5,25 +5,28 @@
 #   devcon8 lightning                                   show your caps and what has been paid
 #   devcon8 lightning --price-sats P --per-payment-sats N --total-sats T
 #       P: what your agent asks for your sticker; N: the most one payment of yours may cost,
-#       routing fee included; T: the most all of this container's Lightning payments may cost.
+#       routing fee included; T: the most all of the sticker payments may cost.
+#       Each also takes msat instead (--price-msat, --per-payment-msat, --total-msat).
 set -euo pipefail
 . /opt/devcon8/lib/common.sh
 f=$ST/lightning.json
 [ $# = 0 ] && { [ -s "$f" ] || die "no caps yet: devcon8 lightning --price-sats P --per-payment-sats N --total-sats T"; exec "$D/agent/bin/lightning" caps; }
 price="" per="" total=""
+msat() { # value unit: the amount in msat
+  [[ $1 =~ ^[1-9][0-9]{0,11}$ ]] || die "each cap is a whole number, 1 or more"
+  if [ "$2" = sats ]; then echo $(( $1 * 1000 )); else echo "$1"; fi
+}
 while [ $# -gt 0 ]; do
   case $1 in
-    --price-sats) price=${2:-}; shift 2 ;;
-    --per-payment-sats) per=${2:-}; shift 2 ;;
-    --total-sats) total=${2:-}; shift 2 ;;
-    *) die "devcon8 lightning [--price-sats P --per-payment-sats N --total-sats T]" ;;
+    --price-sats|--price-msat) price=$(msat "${2:-}" "${1##*-}"); shift 2 ;;
+    --per-payment-sats|--per-payment-msat) per=$(msat "${2:-}" "${1##*-}"); shift 2 ;;
+    --total-sats|--total-msat) total=$(msat "${2:-}" "${1##*-}"); shift 2 ;;
+    *) die "devcon8 lightning [--price-sats P --per-payment-sats N --total-sats T] (or --*-msat)" ;;
   esac
 done
-for v in "$price" "$per" "$total"; do
-  [[ $v =~ ^[1-9][0-9]{0,7}$ ]] || die "each of --price-sats, --per-payment-sats and --total-sats is a whole number of sats, 1 or more"
-done
-[ "$per" -le "$total" ] || die "--per-payment-sats is over --total-sats"
+[ -n "$price" ] && [ -n "$per" ] && [ -n "$total" ] || die "give all three: a price, a per-payment cap and a total cap"
+[ "$per" -le "$total" ] || die "the per-payment cap is over the total cap"
 (umask 077; jq -n --argjson p "$price" --argjson n "$per" --argjson t "$total" \
-  '{price_sats: $p, per_payment_sats: $n, total_sats: $t}' > "$f.tmp" && mv "$f.tmp" "$f")
-echo "caps saved in $f: price $price sats, at most $per sats a payment, $total sats in all."
-echo "These are real sats on bitcoin mainnet. 'devcon8 trade --pay lexe' uses them."
+  '{price_msat: $p, per_payment_msat: $n, total_msat: $t}' > "$f.tmp" && mv "$f.tmp" "$f")
+echo "caps saved in $f (msat): price $price, at most $per a payment, $total in all."
+echo "These are real sats on bitcoin mainnet (1 sat = 1,000 msat). 'devcon8 trade --pay lexe' uses them."

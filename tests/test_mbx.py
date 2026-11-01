@@ -62,7 +62,7 @@ class Mbx(unittest.TestCase):
         out = mbx.parse(self.msg("proposal", {"deal_id": "d1", "invoice": invoice, "payment_hash": "ab" * 32}))
         self.assertNotIn(invoice, json.dumps(out))
         self.assertEqual(out["rail"], "lightning")
-        self.assertEqual(out["invoice_sats"], 500)
+        self.assertEqual(out["invoice_msat"], 500_000)
         saved = os.path.join(mbx.DEALS, "conv_1", "invoice.txt")
         self.assertEqual(out["files"], [saved])
         with open(saved) as f:
@@ -90,10 +90,10 @@ class Mbx(unittest.TestCase):
             json.dump({"conv_1": "shop@agentboxnanda.org"}, f)
         mbx.parse(self.msg("proposal", {"invoice": first}))
         again = mbx.parse(self.msg("proposal", {"invoice": first}))
-        self.assertEqual(again["invoice_sats"], 500)
+        self.assertEqual(again["invoice_msat"], 500_000)
         out = mbx.parse(self.msg("proposal", {"invoice": second}))
         self.assertEqual(out["dropped"], ["invoice"])
-        self.assertNotIn("invoice_sats", out)
+        self.assertNotIn("invoice_msat", out)
         with open(os.path.join(mbx.DEALS, "conv_1", "invoice.txt")) as f:
             self.assertEqual(f.read().strip(), first)
 
