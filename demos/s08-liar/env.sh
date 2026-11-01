@@ -32,11 +32,11 @@ export DO_NOT_TRACK=1   # mesh-llm sends no usage reports from any demo node (in
 MESH_SOURCE=e877a45df949721cdffa2dcb3c9885e649fdadf6
 MESH_VERSION=mesh-llm-lab-e877a45df   # the devcon-workshop pre-release tag; the binary says 0.78.0
 MESH_LLM=$S/bin-lab/mesh-llm                              # the release tarball's mesh-bundle/, extracted
-CAPSULES_VERSION=0.1.7
-CAPSULES_ARCHIVE=$S/dist/capsules-0.1.7-$TARGET.tar.gz   # capsules 0.1.7, the release
+CAPSULES_VERSION=0.1.9
+CAPSULES_ARCHIVE=$S/dist/capsules-0.1.9-$TARGET.tar.gz   # capsules 0.1.9, the release
 # The liar alone runs capsules plus redteam/selective-log.patch (built by the image's Dockerfile, never released).
 # It behaves exactly like the release until OMIT_TOGGLE exists; then it seals every second exchange it serves.
-CAPSULES_RED_ARCHIVE=$S/dist/capsules-0.1.7-selective-log-$TARGET.tar.gz
+CAPSULES_RED_ARCHIVE=$S/dist/capsules-0.1.9-selective-log-$TARGET.tar.gz
 RECONCILE=$S/bin-tools/reconcile-asked   # reconcile/, built against evidencebook (step 8)
 OMIT_TOGGLE=$S/liar/selective-log.on
 
