@@ -39,6 +39,7 @@ BTC_SCALE = 11
 FEE_CEILING_MSAT = 5000
 ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 NODE_ID = re.compile(r"^0[23][0-9a-f]{64}$")
+SAFE_TEXT = re.compile(r"ln[a-z0-9]{20,}|[0-9a-f]{64}|[^A-Za-z0-9 .,:;()'_-]")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 # A mainnet BOLT11 invoice with an amount: what `mbx wait` saves from a proposal.
 BOLT11 = re.compile(r"^lnbc[0-9]{1,12}[munp]?1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{100,1500}$")
@@ -79,9 +80,14 @@ def without_status_text(value):
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
-def wallet(command, timeout=30):
+class Refused(Exception):
+    """The wallet API answered a call with an HTTP error (its redacted detail)."""
+
+
+def wallet(command, timeout=30, refused_ok=False):
     """One local wallet API call. Errors are reported without the request (it may hold an
-    invoice) and without anything that looks like an invoice or a preimage."""
+    invoice) and without anything that looks like an invoice or a preimage. With refused_ok, an
+    HTTP error is raised as Refused for the caller to handle."""
     req = urllib.request.Request(API, data=json.dumps(command).encode(), method="POST",
                                  headers={"Content-Type": "application/json"})
     try:
@@ -90,6 +96,8 @@ def wallet(command, timeout=30):
     except urllib.error.HTTPError as e:
         detail = e.read()[:400].decode("utf-8", "replace")
         detail = re.sub(r"ln[a-z0-9]{20,}|[0-9a-f]{64}", "<redacted>", detail, flags=re.I)
+        if refused_ok:
+            raise Refused(f"HTTP {e.code} {detail}")
         die(f"the wallet refused '{command['command']}': HTTP {e.code} {detail}")
     except (urllib.error.URLError, TimeoutError) as e:
         if command["command"] == "send" and not isinstance(getattr(e, "reason", None), ConnectionRefusedError):
@@ -250,7 +258,19 @@ def cmd_pay(conv, msat, digest):
         fee = min(FEE_CEILING_MSAT, per - amount, total - already - amount)
         spent[h] = {"conversation": conv, "status": "reserved", "reserved_msat": amount + fee, "spent_msat": 0, "at": iso(now_ms())}
         write_private(SPENT, spent)
-    tx = wallet({"command": "send", "invoice": bolt11, "amount_msat": None, "max_fee_msat": fee}, timeout=300)
+    try:
+        tx = wallet({"command": "send", "invoice": bolt11, "amount_msat": None, "max_fee_msat": fee}, timeout=300, refused_ok=True)
+    except Refused as refused:
+        # A refused send may still have a definite outcome in the wallet (a payment it tried and
+        # failed, such as no route): read it, so a failure releases the reservation and a success
+        # is not lost. With no record, the outcome is unknown and the reservation stays.
+        txs = wallet({"command": "transactions", "limit": 200})
+        tx = next((t for t in txs if isinstance(t, dict) and t.get("payment_hash") == h and not t.get("inbound")), None) if isinstance(txs, list) else None
+        if tx is None or tx.get("status") not in ("succeeded", "failed"):
+            die(f"the wallet refused 'send' ({refused}) and has no settled record of it; the outcome is unknown, so "
+                "this payment stays counted against your caps. Check 'mesh-llm wallet get-transactions'")
+        if tx.get("status") == "failed" and tx.get("status_msg"):
+            print(f"lightning: the wallet reports: {SAFE_TEXT.sub('', str(tx['status_msg']))[:200]}", file=sys.stderr)
     if not isinstance(tx, dict) or tx.get("payment_hash") != h:
         die("the wallet's answer names another payment; check 'mesh-llm wallet get-transactions' before paying again")
     status = tx.get("status")

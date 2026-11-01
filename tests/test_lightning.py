@@ -231,7 +231,7 @@ class Lightning(unittest.TestCase):
                 return 200, transaction()
             Wallet.script["send"] = slow
             real = ln.wallet
-            ln.wallet = lambda command, timeout=30: real(command, timeout=1 if command["command"] == "send" else timeout)
+            ln.wallet = lambda command, timeout=30, refused_ok=False: real(command, timeout=1 if command["command"] == "send" else timeout, refused_ok=refused_ok)
             try:
                 code, _, err = self.run_ln("pay", "conv_1", "500000", DIGEST)
             finally:
@@ -321,6 +321,31 @@ class Lightning(unittest.TestCase):
         self.assertIn("REAL Lightning payment of 10 msat", err)
         self.assertEqual(Wallet.calls[-1]["max_fee_msat"], 2990)
         self.assertEqual(read_json(ln.SPENT)[HASH]["spent_msat"], 10)
+
+    def test_a_refused_send_the_wallet_failed_releases_the_reservation(self):
+        # Live 2026-11-01: a 10 msat send came back HTTP 400 "Lightning payment failed" and the
+        # wallet recorded it failed ("could not find usable route ..."): nothing was paid.
+        self.saved_invoice()
+        Wallet.script["send"] = lambda b: (400, {"error": "Lightning payment failed"})
+        failed = dict(transaction(status="failed"), status_msg="could not find usable route to send payment over")
+        failed.pop("preimage")
+        Wallet.script["transactions"] = lambda b: (200, [failed])
+        code, _, err = self.run_ln("pay", "conv_1", "500000", DIGEST)
+        self.assertNotEqual(code, 0)
+        self.assertIn("could not find usable route", err)
+        self.assertIn("Nothing was paid", err)
+        self.assertEqual(read_json(ln.SPENT)[HASH]["status"], "failed")
+        self.assertEqual(ln.spent_total(read_json(ln.SPENT)), 0)
+
+    def test_a_refused_send_the_wallet_completed_counts_as_paid(self):
+        self.saved_invoice()
+        Wallet.script["send"] = lambda b: (500, {"error": "timeout waiting for the provider"})
+        Wallet.script["transactions"] = lambda b: (200, [transaction()])
+        code, out, err = self.run_ln("pay", "conv_1", "500000", DIGEST)
+        self.assertEqual(code, 0, err)
+        self.assertTrue(json.loads(out)["paid"])
+        self.assertEqual(read_json(ln.SPENT)[HASH]["status"], "succeeded")
+        self.assertNotIn(PREIMAGE, out + err)
 
     def test_wallet_errors_do_not_echo_the_invoice(self):
         self.saved_invoice()
