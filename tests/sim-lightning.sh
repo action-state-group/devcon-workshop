@@ -35,6 +35,13 @@ caps() { jq -n --argjson p "$1" --argjson n "$2" --argjson t "$3" '{price_sats:$
 
 # Seller: an invoice at its price.
 home seller; caps 500 500 500
+# The image's deal plugin must record Lightning payments, or `devcon8 trade --pay lexe` refuses
+# (lib/trade.sh) and there is nothing to run here yet.
+if ! capsulectl deal note --help 2>/dev/null | grep -q -- '--ln-invoice'; then
+  echo "skip lightning: this image's capsulectl-deal has no --ln-invoice, so 'devcon8 trade --pay lexe' refuses (needs deal v0.1.0-rc29)"
+  exit 0
+fi
+
 "$D/agent/bin/lightning" invoice "$CONV" > invoice.out
 grep -q lnbc invoice.out && fail "lightning invoice printed the invoice"
 bolt11=$(jq -r .bolt11 "$T/seller/deals/$CONV/outgoing/invoice.json")

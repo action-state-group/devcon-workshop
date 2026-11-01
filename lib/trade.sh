@@ -27,6 +27,11 @@ fi
 # an image upgrade the volume must not keep an older plugin beside the new capsulectl (install replaces it).
 capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
 capsulectl plugin install "$D/bin/capsulectl-book" >/dev/null
+# A --pay lexe seller seals what its wallet received with `deal note --ln-invoice`; a deal plugin
+# without it could take real money and record none, so the run refuses instead.
+if [ "$pay" = lexe ] && ! capsulectl deal note --help 2>/dev/null | grep -q -- '--ln-invoice'; then
+  die "--pay lexe needs a capsulectl-deal that records Lightning payments (v0.1.0-rc29 or later); this image's cannot"
+fi
 # The store is made once. With the plugin just installed, a failing 'deal list' means the deal
 # profile is missing (or its store is gone); deal init refuses a profile that already exists.
 if ! capsulectl --profile deal deal list >/dev/null 2>&1; then
