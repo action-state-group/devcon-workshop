@@ -24,7 +24,9 @@ while [ $# -gt 0 ]; do
     *) die "devcon8 lightning [--price-sats P --per-payment-sats N --total-sats T] (or --*-msat)" ;;
   esac
 done
-[ -n "$price" ] && [ -n "$per" ] && [ -n "$total" ] || die "give all three: a price, a per-payment cap and a total cap"
+if [ -z "$price" ] || [ -z "$per" ] || [ -z "$total" ]; then
+  die "give all three: a price, a per-payment cap and a total cap"
+fi
 [ "$per" -le "$total" ] || die "the per-payment cap is over the total cap"
 (umask 077; jq -n --argjson p "$price" --argjson n "$per" --argjson t "$total" \
   '{price_msat: $p, per_payment_msat: $n, total_msat: $t}' > "$f.tmp" && mv "$f.tmp" "$f")
