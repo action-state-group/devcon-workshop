@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Step 6, the second hack: the liar keeps answering, but leaves every second exchange out of its log.
 # What it does seal stays genuine: signed, chained and checkpointed, so its log passes every check.
-# The liar runs capsules 0.1.7 plus redteam/selective-log.patch; this step only creates the file
+# The liar runs capsules 0.1.10 plus redteam/selective-log.patch; this step only creates the file
 # that switches the patch on (OMIT_TOGGLE in env.sh). 99-stop.sh removes it.
 set -uo pipefail
 cd "$(dirname "$0")" || exit 1; . ./env.sh

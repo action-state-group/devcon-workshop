@@ -21,7 +21,6 @@ get() { # URL SHA256 FILE
 }
 
 gh=https://github.com
-get "$gh/Mesh-LLM/lexe-wallet-plugin/releases/download/$LEXE_VERSION/lexe-wallet-$LEXE_VERSION-$TRIPLE.tar.gz" "$(pin LEXE)" "lexe-wallet-$LEXE_VERSION-$TRIPLE.tar.gz"
 get "$gh/action-state-group/capsule-cli/releases/download/$CAPSULECTL_VERSION/capsulectl-$CAPSULECTL_VERSION-linux-$ARCH" "$(pin CAPSULECTL)" capsulectl
 get "$gh/action-state-group/evidencebook-deal/releases/download/$DEAL_VERSION/capsulectl-deal-$DEAL_VERSION-linux-$ARCH" "$(pin DEAL)" capsulectl-deal
 get "$gh/action-state-group/evidencebook/releases/download/capsulectl/$BOOK_VERSION/capsulectl-book-$BOOK_VERSION-linux-$ARCH" "$(pin BOOK)" capsulectl-book
@@ -43,7 +42,6 @@ tar -xzf dl/deal-skill.tar.gz -C opt/agent
 tar -xzf dl/goose.tar.gz -C opt/bin ./goose && chmod 0755 opt/bin/goose
 mkdir -p opt/go && tar -xzf dl/go.tar.gz -C opt/go --strip-components=1
 mkdir -p opt/node && tar -xJf dl/node.tar.xz -C opt/node --strip-components=1
-cp "dl/lexe-wallet-$LEXE_VERSION-$TRIPLE.tar.gz" opt/mesh/plugins/
 cp "dl/capsules-$CAPSULES_VERSION-$TRIPLE.tar.gz" opt/mesh/plugins/ && echo "$CAPSULES_VERSION" > opt/mesh/capsules.version
 cp "dl/$Q8_FILE" "dl/$Q4_FILE" opt/models/
 echo "fetch: $ARCH ok"

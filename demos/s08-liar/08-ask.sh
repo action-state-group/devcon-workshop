@@ -8,8 +8,7 @@
 # confirmed it holds no record of. RED comes only from verified answers; nothing here ever calls
 # the log complete.
 # The signed request needs a host that announces plugin keys: the cast and attendees run the
-# unreleased mesh-llm lab build e877a45df949721cdffa2dcb3c9885e649fdadf6 (pre-release
-# action-state-group/devcon-workshop mesh-llm-lab-e877a45df) with capsules 0.1.7 (env.sh), so 08's RED reproduces
+# unreleased mesh-llm lab build 1aba71da6da562b259ad0696210d7fc7b932ac02 with capsules 0.1.10 (env.sh), so 08's RED reproduces
 # for everyone on those pins. On a host that announces none, such as
 # mesh-llm 0.78.1, the asker cannot sign and the liar refuses every ask; then 08 says so and prints
 # no RED (the fallback).
@@ -39,7 +38,7 @@ elif grep -q "the host announces no plugin keys; this node's key was not announc
 elif grep -q "this node's key was not announced" "$S/asker/logs/node.log"; then signed=no-refused; fi
 
 # On screen, which builds this is (the pins in env.sh, and what the binary says it is).
-echo "Builds: mesh-llm $("$MESH_LLM" --version 2>/dev/null | tail -1 | sed 's/^mesh-llm //'), the unreleased lab build $MESH_SOURCE (pre-release action-state-group/devcon-workshop $MESH_VERSION), and capsules $CAPSULES_VERSION on all four nodes; the liar adds redteam/selective-log.patch."
+echo "Builds: mesh-llm $("$MESH_LLM" --version 2>/dev/null | tail -1 | sed 's/^mesh-llm //'), the unreleased lab build $MESH_SOURCE, and capsules $CAPSULES_VERSION on all four nodes; the liar adds redteam/selective-log.patch."
 tool() { rm -f "$2"; curl -sS -m 60 -o "$2" -w '%{http_code}' -X POST "http://127.0.0.1:$(console asker)/api/plugins/capsules/tools/mesh_evidence_request" \
   -H 'content-type: application/json' --data-binary @"$1"; }
 held_rec() { jq -c --arg id "$1" "(.capsule? // .) | select(.capsule_id == \$id)" "$L/received-capsules.jsonl" | tail -1; }

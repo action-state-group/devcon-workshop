@@ -19,7 +19,8 @@ mesh_config() {
   fi
 }
 
-# Install each bundled plugin into the volume when its installed version differs from this image's.
+# Install each bundled plugin into the volume when its installed version, or the archive it came from,
+# differs from this image's (the lexe-wallet fork build carries the same version as the release).
 # Plugin data (the capsules ledger, payments/) is not touched.
 plugins_sync() {
   local t; t=$(triple)
@@ -28,11 +29,13 @@ plugins_sync() {
   plugin_ensure lexe-wallet 0.1.0 "$D/mesh/plugins/lexe-wallet-v0.1.0-$t.tar.gz"
 }
 plugin_ensure() { # name version archive
-  local have
+  local have want mark=$ST/plugin-$1.sha256
   have=$("$MESH" plugins info "$1" 2>/dev/null | sed -n 's/^[[:space:]"]*version[":=[:space:]]*"\{0,1\}\([^",[:space:]]*\).*/\1/p' | head -1 || true)
-  [ "$have" = "$2" ] && return 0
+  want=$(sha256sum "$3" | cut -d' ' -f1)
+  [ "$have" = "$2" ] && [ "$(cat "$mark" 2>/dev/null)" = "$want" ] && return 0
   "$MESH" plugins install --archive "$3" --name "$1" --version "$2" >> "$ST/plugins.log" 2>&1 \
     || { warn "installing plugin $1 $2 failed; see $ST/plugins.log"; return 1; }
+  mkdir -p "$ST" && printf '%s\n' "$want" > "$mark"
   echo "installed plugin $1 $2"
 }
 

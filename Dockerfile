@@ -2,11 +2,11 @@
 # Devcon 8 workshop participant image. Build one architecture natively per runner:
 #   docker buildx build --platform linux/arm64 -t devcon-workshop:dev .
 # Every input is pinned in versions.lock; see README.md "What is in the image". mesh-llm is the lab
-# build, compiled here from its commit for each architecture; the plugins and the capsulectl CLIs are
-# release assets.
+# build and lexe-wallet is the settled-preimage branch build, each compiled here from its commit for each
+# architecture; capsules and the capsulectl CLIs are release assets.
 
 # Ubuntu 24.04 (glibc 2.39): the base every stage builds and the smoke tests run on. The release
-# binaries downloaded into it (capsules, lexe-wallet, goose) are checked by those tests, not by glibc
+# binaries downloaded into it (capsules, goose) are checked by those tests, not by glibc
 # version; moving to an older base needs that check again.
 ARG BASE=ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
 
@@ -57,7 +57,7 @@ RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.carg
     && cp -a /x/mesh-bundle/mesh-llm /x/mesh-bundle/native-runtimes /out/bin/ \
     && /out/bin/mesh-llm --version | tee /out/version
 
-# --- s08's liar plugin: capsules 0.1.7 plus selective-log.patch -----------------------------------
+# --- s08's liar plugin: the pinned capsules plus selective-log.patch -----------------------------------
 FROM toolchain AS redteam
 ARG TARGETARCH
 COPY demos/s08-liar/redteam/selective-log.patch /src/selective-log.patch
@@ -76,6 +76,16 @@ RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.carg
     && mkdir -p /out \
     && (cd /pkg && tar --sort=name --format=ustar --owner=0 --group=0 --numeric-owner -cf - capsules) \
        | gzip -n -9 > "/out/capsules-$CAPSULES_VERSION-selective-log-$triple.tar.gz"
+
+# --- lexe-wallet plugin, built from the settled-preimage branch (Mesh-LLM/lexe-wallet-plugin#7) ----
+FROM toolchain AS lexe
+ARG TARGETARCH
+RUN . /src/versions.lock && git clone --filter=blob:none "$LEXE_REPO" /build/lexe \
+    && git -C /build/lexe checkout --detach "$LEXE_COMMIT"
+WORKDIR /build/lexe
+RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry \
+    cargo build --release --locked && python3 scripts/package.py \
+    && mkdir -p /out && cp dist/lexe-wallet-v*.tar.gz /out/
 
 # --- npm CLIs (claude, codex and their ACP adapters) ----------------------------------------------
 FROM ${BASE} AS npm
@@ -110,6 +120,7 @@ COPY --from=fetch /fetch/opt/bin/ $D/bin/
 COPY --from=fetch /fetch/opt/node/ $D/node/
 COPY --from=fetch /fetch/opt/go/ $D/go/
 COPY --from=fetch /fetch/opt/mesh/plugins/ $D/mesh/plugins/
+COPY --from=lexe /out/ $D/mesh/plugins/
 COPY --from=fetch /fetch/opt/models/ $D/models/
 COPY --from=mesh /out/bin/ $D/mesh/bin/
 COPY --from=fetch /fetch/opt/mesh/capsules.version $D/mesh/capsules.version
@@ -145,12 +156,13 @@ ARG MESH_LLM_SHA
 ARG CAPSULES_COMMIT
 ARG CAPSULES_VERSION
 ARG LEXE_VERSION
+ARG LEXE_COMMIT
 LABEL org.opencontainers.image.source=https://github.com/action-state-group/devcon-workshop \
       org.opencontainers.image.revision=$BUILD_REVISION \
       org.opencontainers.image.description="Devcon 8 workshop participant image" \
       dev.actionstate.mesh-llm=$MESH_LLM_SHA \
       dev.actionstate.capsules="$CAPSULES_VERSION $CAPSULES_COMMIT" \
-      dev.actionstate.lexe-wallet=$LEXE_VERSION
+      dev.actionstate.lexe-wallet="$LEXE_VERSION $LEXE_COMMIT"
 ENV PATH=$D/bin:$D/agent/bin:$D/mesh/bin:$D/npm/node_modules/.bin:$D/node/bin:$D/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     DO_NOT_TRACK=1 GOTOOLCHAIN=local
 USER participant

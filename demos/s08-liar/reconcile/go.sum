@@ -1,11 +1,11 @@
-github.com/action-state-group/agent-action-capsule/go v0.16.0 h1:MjgHUuR/z4/jjwtbmc4Hpjbi/UghmRF/jzGc5DIcUmQ=
-github.com/action-state-group/agent-action-capsule/go v0.16.0/go.mod h1:vlUl3rsHyR9DJaSqRSClVgmeuo2ORj7kCa54V25ZxuU=
+github.com/action-state-group/agent-action-capsule/go v0.18.0 h1:StNiP7yMpQ/lCJzz/tJ4VC4cTvXHOVg6daycJjMJRas=
+github.com/action-state-group/agent-action-capsule/go v0.18.0/go.mod h1:vlUl3rsHyR9DJaSqRSClVgmeuo2ORj7kCa54V25ZxuU=
 github.com/action-state-group/capsule-emit/go v0.3.0 h1:DEFDSHktFQoUxWScjeIbMKfET/4Kjgm/ZQsWJp4AI+Y=
 github.com/action-state-group/capsule-emit/go v0.3.0/go.mod h1:TKXiVniDy7RlksGjEAF6k9rj5NcwvwdQ6EGajzhghuo=
-github.com/action-state-group/checkpointed-local-log/go v0.1.0 h1:bDJSW+fy3eZnwneJBOGuvqYXe0VlvDfPKEJ6ecHnTek=
-github.com/action-state-group/checkpointed-local-log/go v0.1.0/go.mod h1:zyHyXVNqA4pMTJ14xtcRoDHZF0n4QyjS5KMDD3KwQ2Q=
-github.com/action-state-group/evidencebook v0.10.1-0.20261031051811-d8164613599e h1:WJXqwk3085DWnFY7n2xgc7YNKkUOA6DFO/wKSL66+W8=
-github.com/action-state-group/evidencebook v0.10.1-0.20261031051811-d8164613599e/go.mod h1:jCrwtOxSdZOnjZXbReNyVeX2EH3O0r4vkx+/Ul5uyXM=
+github.com/action-state-group/checkpointed-local-log/go v0.3.0 h1:vT7HEljD2jOm9CQqZPStSFe0+n9lS6EdtBC24wTdwkM=
+github.com/action-state-group/checkpointed-local-log/go v0.3.0/go.mod h1:zyHyXVNqA4pMTJ14xtcRoDHZF0n4QyjS5KMDD3KwQ2Q=
+github.com/action-state-group/evidencebook v0.12.2 h1:mLl00xjCv5HwnTUP1NPfpiHI6qa5Y30tR01VrRW3YWc=
+github.com/action-state-group/evidencebook v0.12.2/go.mod h1:MQvA2WqqCcitYTMjoCqWaF3t3hjJZOGxDB3vhxpTY6Q=
 github.com/datatrails/go-datatrails-merklelog/mmr v0.4.2-0.20250428132117-275103a34a08 h1:hfoqVFr2B8uIqnbKxHTFSP2J5Er6Znd4giwut3GcYYM=
 github.com/datatrails/go-datatrails-merklelog/mmr v0.4.2-0.20250428132117-275103a34a08/go.mod h1:D9U4yGzzpH3ObRlgbeZzn9RJVcgWgekEWE+Ye1q0yoU=
 github.com/dlclark/regexp2 v1.11.0 h1:G/nrcoOa7ZXlpoa/91N3X7mM3r8eIlMBBJZvsz/mxKI=

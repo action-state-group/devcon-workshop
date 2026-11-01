@@ -23,20 +23,18 @@ export DO_NOT_TRACK=1   # mesh-llm sends no usage reports from any demo node (in
 # All four run the builds #33's join README diff v5 proposes for attendees (not yet applied to its
 # source; the open devcon-workshop#4 moves the attendee image to them), and so do Brattain and
 # Shockley: the
-# unreleased mesh-llm lab build e877a45df (mesh-llm main c86f58e plus Mesh-LLM/mesh-llm#2620,
-# #2649, #2719, #2721 and #2744; its host announces each node's plugin key, plugin_keys.v1, #2299,
-# which step 8 needs), published as the pre-release action-state-group/devcon-workshop
-# mesh-llm-lab-e877a45df (a lab build, not an official mesh-llm release), and
-# capsules 0.1.7 (it accepts a signed request by the key that signed it, Mesh-LLM/capsules-plugin#77,
-# since 0.1.6).
-MESH_SOURCE=e877a45df949721cdffa2dcb3c9885e649fdadf6
-MESH_VERSION=mesh-llm-lab-e877a45df   # the devcon-workshop pre-release tag; the binary says 0.78.0
-MESH_LLM=$S/bin-lab/mesh-llm                              # the release tarball's mesh-bundle/, extracted
-CAPSULES_VERSION=0.1.7
-CAPSULES_ARCHIVE=$S/dist/capsules-0.1.7-$TARGET.tar.gz   # capsules 0.1.7, the release
+# unreleased mesh-llm lab build 1aba71da6 (mesh-llm main 000440ffa plus Mesh-LLM/mesh-llm#2620,
+# #2649, #2721, #2741, #2744, #2748 and #2760, squashed one commit per PR on the fork's
+# lab/asg-2026-11-01; its host announces each node's plugin key, plugin_keys.v1, #2299, which step 8
+# needs; a lab build, not an official mesh-llm release), and capsules 0.1.10 (it accepts a signed
+# request by the key that signed it, Mesh-LLM/capsules-plugin#77, since 0.1.6).
+MESH_SOURCE=1aba71da6da562b259ad0696210d7fc7b932ac02
+MESH_LLM=$S/bin-lab/mesh-llm                              # the image links this to its own lab build
+CAPSULES_VERSION=0.1.10
+CAPSULES_ARCHIVE=$S/dist/capsules-0.1.10-$TARGET.tar.gz   # capsules 0.1.10, the release
 # The liar alone runs capsules plus redteam/selective-log.patch (built by the image's Dockerfile, never released).
 # It behaves exactly like the release until OMIT_TOGGLE exists; then it seals every second exchange it serves.
-CAPSULES_RED_ARCHIVE=$S/dist/capsules-0.1.7-selective-log-$TARGET.tar.gz
+CAPSULES_RED_ARCHIVE=$S/dist/capsules-0.1.10-selective-log-$TARGET.tar.gz
 RECONCILE=$S/bin-tools/reconcile-asked   # reconcile/, built against evidencebook (step 8)
 OMIT_TOGGLE=$S/liar/selective-log.on
 
