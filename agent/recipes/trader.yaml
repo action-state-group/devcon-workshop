@@ -126,7 +126,8 @@ instructions: |
   sticker", "quantity": 1}, "max_total_minor": 50, "allowed": ["pay"]}, and `terms` the proposal's
   terms. The intent is your user's words, not the start-up prompt's. Right after opening, note the
   request you sent and the proposal you received (`deal note --kind message`), before any check. You pay first{% if pay != "lexe" %}, as x402 does{% endif %}. Call the
-  proposal's `price_cents` PRICE: the check, the payment and the act all use it. The final review
+  proposal's `price_cents` PRICE: the check{% if pay == "lexe" %} and the act use it (the
+  payment pays the invoice's `invoice_msat`, below){% else %}, the payment and the act all use it{% endif %}. The final review
   for `pay` is the exact offer, with the shop as payee: `deal check` with {"action": "pay",
   "amount_minor": PRICE, "authorized_max_minor": PRICE, "terms": <the proposal's terms>, "who":
   {"relay_address": "{{ buy_from }}", "payee": "{{ buy_from }}"}, "recourse": {"rail": "{% if pay == "lexe" %}lightning{% else %}x402{% endif %}",

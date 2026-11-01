@@ -117,6 +117,16 @@ class Mbx(unittest.TestCase):
         self.assertEqual(len(sent), 1)
         self.assertEqual(sent[0][2]["constraints"]["invoice"], invoice)
 
+    def test_a_damaged_invoice_file_does_not_block_the_next_invoice(self):
+        invoice = "lnbc5u1p" + ("qpzry9x8gf2tvdw0s3jn54khce6mua7l" * 8)[:240]
+        with open(os.path.join(mbx.STATE, "buying.json"), "w") as f:
+            json.dump({"conv_1": "shop@agentboxnanda.org"}, f)
+        os.makedirs(os.path.join(mbx.DEALS, "conv_1"))
+        with open(os.path.join(mbx.DEALS, "conv_1", "invoice.txt"), "w") as f:
+            f.write("")
+        out = mbx.parse(self.msg("proposal", {"invoice": invoice}))
+        self.assertEqual(out["invoice_msat"], 500_000)
+
     def test_invoice_amounts(self):
         for prefix, msat in (("lnbc20n1", 2000), ("lnbc5u1", 500_000), ("lnbc1m1", 100_000_000), ("lnbc1501", 15_000_000_000_000), ("lnbc10p1", 1), ("lnbc1p1", None)):
             self.assertEqual(mbx.invoice_msat(prefix + "qq"), msat, prefix)

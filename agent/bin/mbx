@@ -284,6 +284,8 @@ def parse(m):
                 kept = f.read().strip()
         except FileNotFoundError:
             kept = None
+        if kept is not None and not BOLT11.match(kept):
+            kept = None  # an empty or damaged file (an interrupted write) holds no invoice to keep
         msat = invoice_msat(invoice)
         if kind == "proposal" and out["you_are"] == "buyer" and msat and kept in (None, invoice):
             os.makedirs(d, mode=0o700, exist_ok=True)
