@@ -57,7 +57,7 @@ RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.carg
     && cp -a /x/mesh-bundle/mesh-llm /x/mesh-bundle/native-runtimes /out/bin/ \
     && /out/bin/mesh-llm --version | tee /out/version
 
-# --- s08's liar plugin: capsules 0.1.7 plus selective-log.patch -----------------------------------
+# --- s08's liar plugin: the pinned capsules plus selective-log.patch -----------------------------------
 FROM toolchain AS redteam
 ARG TARGETARCH
 COPY demos/s08-liar/redteam/selective-log.patch /src/selective-log.patch
@@ -76,6 +76,16 @@ RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.carg
     && mkdir -p /out \
     && (cd /pkg && tar --sort=name --format=ustar --owner=0 --group=0 --numeric-owner -cf - capsules) \
        | gzip -n -9 > "/out/capsules-$CAPSULES_VERSION-selective-log-$triple.tar.gz"
+
+# --- lexe-wallet plugin, built from the settled-preimage branch (Mesh-LLM/lexe-wallet-plugin#7) ----
+FROM toolchain AS lexe
+ARG TARGETARCH
+RUN . /src/versions.lock && git clone --filter=blob:none "$LEXE_REPO" /build/lexe \
+    && git -C /build/lexe checkout --detach "$LEXE_COMMIT"
+WORKDIR /build/lexe
+RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry \
+    cargo build --release --locked && python3 scripts/package.py \
+    && mkdir -p /out && cp dist/lexe-wallet-v*.tar.gz /out/
 
 # --- npm CLIs (claude, codex and their ACP adapters) ----------------------------------------------
 FROM ${BASE} AS npm
@@ -110,6 +120,7 @@ COPY --from=fetch /fetch/opt/bin/ $D/bin/
 COPY --from=fetch /fetch/opt/node/ $D/node/
 COPY --from=fetch /fetch/opt/go/ $D/go/
 COPY --from=fetch /fetch/opt/mesh/plugins/ $D/mesh/plugins/
+COPY --from=lexe /out/ $D/mesh/plugins/
 COPY --from=fetch /fetch/opt/models/ $D/models/
 COPY --from=mesh /out/bin/ $D/mesh/bin/
 COPY --from=fetch /fetch/opt/mesh/capsules.version $D/mesh/capsules.version

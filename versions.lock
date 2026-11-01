@@ -2,33 +2,36 @@
 # Sourced by build/fetch.sh and the Dockerfile's build stages; the build fails when a checksum differs.
 # Per-architecture values end in _AMD64 or _ARM64.
 
-# mesh-llm: the newest lab build (Ethan, 2026-10-31: "所有全部都用最新 lab"): e877a45df =
-# Mesh-LLM/mesh-llm main c86f58e plus #2620, #2649, #2719, #2721 and #2744, published as the
-# pre-release mesh-llm-lab-e877a45df by .github/workflows/mesh-llm-lab-release.yml. Built here with
-# the same just recipes, per architecture; compare by commit, not sha256.
+# mesh-llm: the newest lab build (Ethan, 2026-10-31: "所有全部都用最新 lab"): 1aba71da6 =
+# Mesh-LLM/mesh-llm main 000440ffa plus #2620, #2649, #2721 (9ef4c088c), #2741, #2744, #2748 and
+# #2760 (0001688cd), one squashed commit per PR (branch lab/asg-2026-11-01 of the fork). Built here
+# with the same just recipes as .github/workflows/mesh-llm-lab-release.yml, per architecture; compare
+# by commit, not sha256.
 MESH_LLM_REPO=https://github.com/ethanyzhang/mesh-llm
-MESH_LLM_SHA=e877a45df949721cdffa2dcb3c9885e649fdadf6
+MESH_LLM_SHA=1aba71da6da562b259ad0696210d7fc7b932ac02
 MESH_LLM_VERSION=0.78.0
 JUST_VERSION=1.59.0
-# capsules: release v0.1.7 (Mesh-LLM/capsules-plugin#181). The image never sets
+# capsules: release v0.1.9 (tag v0.1.9 = 2861c63; it ships capsule-viewer 0.9.0). The image never sets
 # CAPSULES_ADMISSION_PROFILE, so #165's admission price rule stays off.
-CAPSULES_COMMIT=b482749abd2fea11d45c18e41c6466f657605dba
-CAPSULES_VERSION=0.1.7
-CAPSULES_SHA256_AMD64=5042a1b7077e745d95c59a3a96bf0093e007dfb7c44033d7a158135e1d89a1c1
-CAPSULES_SHA256_ARM64=8b055f533612d13d61c04b794153ffb6517f1eccf90d52ea29af1d02b022ffd8
+CAPSULES_COMMIT=2861c631a9cef88cc1c7332fb56dbd4f12962913
+CAPSULES_VERSION=0.1.9
+CAPSULES_SHA256_AMD64=f3af5114d3599afa5f669af84722a505b90e87632bda10db25970a4496d875e2
+CAPSULES_SHA256_ARM64=a82ca0639d6cc2363b482d69495b512d7fc797a8bb3693313216016ed0a5c000
 CAPSULES_REPO=https://github.com/Mesh-LLM/capsules-plugin
 RUST_TOOLCHAIN=1.97.1
 
 # s08-liar is company-internal-all devcon8/s08-liar at e80b9fa55832311482c4219bd06e62c74060c8f8 (#50:
-# S08 on lab e877a45df + capsules 0.1.7), with three container edits (S08_LISTEN_ALL, the build
+# S08 on lab e877a45df + capsules 0.1.7; run here on the lab and capsules pinned above), with three container edits (S08_LISTEN_ALL, the build
 # note, the Evidence-page hint). It runs all four nodes on the mesh-llm and capsules above.
-# The liar's plugin is capsules 0.1.7 plus demos/s08-liar/redteam/selective-log.patch, built here
+# The liar's plugin is the capsules above plus demos/s08-liar/redteam/selective-log.patch, built here
 # from CAPSULES_COMMIT; step 8's reconcile tool is built from demos/s08-liar/reconcile (its go.mod
-# pins evidencebook d8164613).
-# lexe-wallet plugin
+# pins evidencebook v0.12.2).
+# lexe-wallet plugin: built here from the settled-preimage branch (Mesh-LLM/lexe-wallet-plugin#7,
+# feat/settled-preimage), which reports a succeeded payment's preimage; it pins the mesh-llm fork
+# crates in its Cargo.toml. Compare by commit, not sha256. The packaged version stays v0.1.0.
 LEXE_VERSION=v0.1.0
-LEXE_SHA256_AMD64=e565454cd5b8c8daf7e3091c1bffb9a30b205156c2a69cbe8c2c6f8f13589d64
-LEXE_SHA256_ARM64=c2a612e1cf6c7823a2c5fcfcfe1af363a3a66e548a79f92a2a5aa3de25e97baf
+LEXE_REPO=https://github.com/ethanyzhang/lexe-wallet-plugin
+LEXE_COMMIT=9f830c181b4042a81069df50752cf19d035a5047
 
 # capsulectl, the deal plugin and the book plugin: the paired rc29 releases (capsule-cli
 # v0.1.0-rc29, evidencebook-deal v0.1.0-rc29, evidencebook tag capsulectl/v0.1.0-rc29). rc29's deal

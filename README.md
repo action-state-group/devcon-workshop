@@ -167,6 +167,7 @@ and a `--pay lexe` buyer declines a shop that does not.
        devcon8 lightning --price-sats 500 --per-payment-sats 600 --total-sats 1000
 
    Each also takes millisatoshi instead (`--price-msat` and so on; 1 sat = 1,000 msat).
+   On the workshop's lab, 500 msat is the smallest Lightning payment that routed; 10 and 100 msat found no route.
    `--price-sats` is what your agent asks for your sticker. `--per-payment-sats` is the most one payment
    of yours may cost, routing fee included, and `--total-sats` the most all of the sticker payments the
    agent's `lightning` tool makes may cost (paid mesh inference is governed by your wallet policy, not
@@ -226,34 +227,27 @@ Every component is pinned in [`versions.lock`](versions.lock), by commit or by r
 `/opt/devcon8/MANIFEST` lists the sha256 of every shipped file. mesh-llm is built from source in CI
 for both architectures, from the lab commit the demo nodes run, so its bytes are not the demo nodes'
 own; the plugins are their published release files, checked by sha256. The image labels name both
-commits (`dev.actionstate.mesh-llm` = `e877a45df949721cdffa2dcb3c9885e649fdadf6`,
-`dev.actionstate.capsules` = `0.1.7 b482749abd2fea11d45c18e41c6466f657605dba`), and
+commits (`dev.actionstate.mesh-llm` = `1aba71da6da562b259ad0696210d7fc7b932ac02`,
+`dev.actionstate.capsules` = `0.1.9 2861c631a9cef88cc1c7332fb56dbd4f12962913`), and
 `/opt/devcon8/MANIFEST` gives the sha256 of the image's own mesh-llm.
 
 This mesh-llm is a **pre-release lab build, not an official mesh-llm release**. Its
 `mesh-llm --version` prints `mesh-llm 0.78.0`, the same string as the official 0.78.0 release, so
 the version does not tell them apart; the commit and the sha256 do. Installing it on your laptop
-instead? The same commit is published, built by this repository's
-`.github/workflows/mesh-llm-lab-release.yml`, as the pre-release
-[mesh-llm-lab-e877a45df](https://github.com/action-state-group/devcon-workshop/releases/tag/mesh-llm-lab-e877a45df):
-
-| tarball | sha256 |
-|---|---|
-| `mesh-llm-x86_64-unknown-linux-gnu.tar.gz` | `dab66a3a42b1aa4ae0275871bbf9a8a8b27cdf9b1a945f5e7674535f9e48edab` |
-| `mesh-llm-aarch64-unknown-linux-gnu.tar.gz` | `dfddb45968d73e2f667a9d1daba4d5d8e7ee6d1a9be0b376c149da1d693727c2` |
-| `mesh-llm-aarch64-apple-darwin.tar.gz` | `39426c7ec054e09d5ffcf2bbf5be7c1519a8b42367c731619b96da2bbd9cf45d` |
+instead? Build the same commit with this repository's `.github/workflows/mesh-llm-lab-release.yml`
+(run it with `mesh_commit` set to that commit); no pre-built tarball is published for this commit.
 
 The image builds the same commit with the same recipes, but its bytes are its own.
 
 | | |
 |---|---|
-| mesh-llm | lab build `e877a45` of `ethanyzhang/mesh-llm`: Mesh-LLM/mesh-llm main `c86f58e` plus open PRs [#2620](https://github.com/Mesh-LLM/mesh-llm/pull/2620), [#2649](https://github.com/Mesh-LLM/mesh-llm/pull/2649), [#2719](https://github.com/Mesh-LLM/mesh-llm/pull/2719), [#2721](https://github.com/Mesh-LLM/mesh-llm/pull/2721) and [#2744](https://github.com/Mesh-LLM/mesh-llm/pull/2744). CPU runtime |
-| capsules plugin | `v0.1.7` |
-| lexe-wallet plugin | Mesh-LLM/lexe-wallet-plugin v0.1.0 |
-| S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.7 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook `d816461` |
+| mesh-llm | lab build `1aba71d` of `ethanyzhang/mesh-llm`: Mesh-LLM/mesh-llm main `000440f` plus open PRs [#2620](https://github.com/Mesh-LLM/mesh-llm/pull/2620), [#2649](https://github.com/Mesh-LLM/mesh-llm/pull/2649), [#2721](https://github.com/Mesh-LLM/mesh-llm/pull/2721), [#2741](https://github.com/Mesh-LLM/mesh-llm/pull/2741), [#2744](https://github.com/Mesh-LLM/mesh-llm/pull/2744), [#2748](https://github.com/Mesh-LLM/mesh-llm/pull/2748) and [#2760](https://github.com/Mesh-LLM/mesh-llm/pull/2760). CPU runtime |
+| capsules plugin | `v0.1.9` (carries capsule-viewer 0.9.0) |
+| lexe-wallet plugin | built here from [lexe-wallet-plugin#7](https://github.com/Mesh-LLM/lexe-wallet-plugin/pull/7) (`feat/settled-preimage`, commit `9f830c1`), which reports a settled payment's preimage |
+| S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.9 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook v0.12.2 |
 | capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc29` releases (deal carries `capsulectl deal terms-leg` and seals a Lightning payment received) |
 | goose, Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
-| evidencebook Go SDK | v0.10.0, Go 1.27 |
+| evidencebook Go SDK | v0.12.2, Go 1.27 |
 | models | Qwen2.5-0.5B-Instruct GGUF, Q8_0 and Q4_K_M |
 
 The buyer's signed terms leg is written by `capsulectl deal terms-leg`

@@ -2,12 +2,12 @@ module github.com/action-state-group/company-internal-all/devcon8/s08-liar/recon
 
 go 1.27.0
 
-require github.com/action-state-group/evidencebook v0.10.1-0.20261031051811-d8164613599e
+require github.com/action-state-group/evidencebook v0.12.2
 
 require (
-	github.com/action-state-group/agent-action-capsule/go v0.16.0 // indirect
+	github.com/action-state-group/agent-action-capsule/go v0.18.0 // indirect
 	github.com/action-state-group/capsule-emit/go v0.3.0 // indirect
-	github.com/action-state-group/checkpointed-local-log/go v0.1.0 // indirect
+	github.com/action-state-group/checkpointed-local-log/go v0.3.0 // indirect
 	github.com/datatrails/go-datatrails-merklelog/mmr v0.4.2-0.20250428132117-275103a34a08 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
