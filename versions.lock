@@ -11,12 +11,12 @@ MESH_LLM_REPO=https://github.com/ethanyzhang/mesh-llm
 MESH_LLM_SHA=1aba71da6da562b259ad0696210d7fc7b932ac02
 MESH_LLM_VERSION=0.78.0
 JUST_VERSION=1.59.0
-# capsules: release v0.1.9 (tag v0.1.9 = 2861c63; it ships capsule-viewer 0.9.0). The image never sets
+# capsules: release v0.1.10 (tag v0.1.10 = 41e0d60: 0.1.9 plus the referee fix capsules-plugin#222; ships capsule-viewer 0.9.0). The image never sets
 # CAPSULES_ADMISSION_PROFILE, so #165's admission price rule stays off.
-CAPSULES_COMMIT=2861c631a9cef88cc1c7332fb56dbd4f12962913
-CAPSULES_VERSION=0.1.9
-CAPSULES_SHA256_AMD64=f3af5114d3599afa5f669af84722a505b90e87632bda10db25970a4496d875e2
-CAPSULES_SHA256_ARM64=a82ca0639d6cc2363b482d69495b512d7fc797a8bb3693313216016ed0a5c000
+CAPSULES_COMMIT=41e0d603772a2ce7becef5b7d3e0a713f43d7040
+CAPSULES_VERSION=0.1.10
+CAPSULES_SHA256_AMD64=332e07b28f94393d3442efba72b9c5357e69ea95a16d64d3f5957ccac7aad2ee
+CAPSULES_SHA256_ARM64=087c2e0556b43a0d7d4106f831c21acfb955f7fb1f10c853f9d578eecd39c81e
 CAPSULES_REPO=https://github.com/Mesh-LLM/capsules-plugin
 RUST_TOOLCHAIN=1.97.1
 
