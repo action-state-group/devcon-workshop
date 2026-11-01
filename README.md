@@ -186,9 +186,9 @@ What happens:
   expired, or for other sats than you said yes to. Only the first invoice a shop sends is kept.
 - The invoice tells the buyer, and the Agent Box service that carries the message, the seller's
   Lightning node id and the amount.
-- The sealed records name the payment by its payment hash, with the amounts. They do not carry the
-  invoice, the payment's preimage, or the receiving node id; `lightning` never prints or writes a
-  preimage.
+- The sealed records name the payment by its payment hash, with the amounts. The seller's own record also
+  seals the payment's preimage, the proof it settled (the buyer already holds it). No record carries the invoice or the receiving node id, and `lightning`
+  never prints a preimage.
 
 A mailbox listed by an earlier image keeps the description it was listed with, "simulated payment"
 (this image does not change an existing listing); if yours says that, tell the other participant before a `--pay lexe` sale.

@@ -2,7 +2,7 @@
 
 Run: python3 -I tests/test_mbx.py   (no network; the gateway is never called)
 """
-import base64, hashlib, importlib.machinery, importlib.util, json, os, sys, tempfile, unittest, zlib
+import base64, contextlib, hashlib, io, importlib.machinery, importlib.util, json, os, sys, tempfile, unittest, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 loader = importlib.machinery.SourceFileLoader("mbx", os.path.join(HERE, "..", "agent", "bin", "mbx"))
@@ -96,6 +96,26 @@ class Mbx(unittest.TestCase):
         self.assertNotIn("invoice_sats", out)
         with open(os.path.join(mbx.DEALS, "conv_1", "invoice.txt")) as f:
             self.assertEqual(f.read().strip(), first)
+
+    def test_reply_refuses_an_invoice_about_to_expire(self):
+        import time as _t
+        out = os.path.join(mbx.DEALS, "conv_9", "outgoing")
+        os.makedirs(out)
+        invoice = "lnbc5u1p" + ("qpzry9x8gf2tvdw0s3jn54khce6mua7l" * 8)[:240]
+        sent = []
+        mbx.call = lambda *a, **k: sent.append(a) or {"id": "m1"}
+        for expires_in, ok in ((300, False), (3600, True)):
+            with open(os.path.join(out, "invoice.json"), "w") as f:
+                json.dump({"bolt11": invoice, "expires_at_ms": int((_t.time() + expires_in) * 1000)}, f)
+            try:
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    mbx.main(["mbx", "reply", "conv_9", "proposal", "offer", "{}", "--invoice"])
+                done = True
+            except SystemExit:
+                done = False
+            self.assertEqual(done, ok, expires_in)
+        self.assertEqual(len(sent), 1)
+        self.assertEqual(sent[0][2]["constraints"]["invoice"], invoice)
 
     def test_invoice_amounts(self):
         for prefix, msat in (("lnbc20n1", 2000), ("lnbc5u1", 500_000), ("lnbc1m1", 100_000_000), ("lnbc1501", 15_000_000_000_000), ("lnbc10p1", 1), ("lnbc1p1", None)):

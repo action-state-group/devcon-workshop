@@ -116,11 +116,11 @@ class Lightning(unittest.TestCase):
     def commands(self):
         return [c["command"] for c in Wallet.calls]
 
-    def everything_written(self):
+    def everything_written(self, skip=()):
         text = ""
         for root, _, files in os.walk(self.tmp.name):
             for name in files:
-                if name not in ("invoice.txt", "invoice.json"):
+                if name not in ("invoice.txt", "invoice.json") + tuple(skip):
                     with open(os.path.join(root, name)) as f:
                         text += f.read()
         return text
@@ -279,6 +279,31 @@ class Lightning(unittest.TestCase):
         self.assertNotIn("send", self.commands())
         self.assertIn("ee" * 32, read_json(ln.SPENT), "the other run's entry is kept")
 
+    def test_inspect_shows_sats_node_and_expiry(self):
+        self.saved_invoice()
+        code, out, err = self.run_ln("inspect", "conv_1")
+        self.assertEqual(code, 0, err)
+        r = json.loads(out)
+        self.assertEqual((r["invoice_sats"], r["pays_node"], r["expired"]), (500, PAYEE, False))
+        self.assertNotIn(INVOICE, out)
+        self.assertEqual(self.commands(), ["inspect_invoice"])
+
+    def test_a_malformed_caps_file_is_refused_cleanly(self):
+        with open(ln.CAPS, "w") as f:
+            f.write("{not json")
+        self.saved_invoice()
+        code, _, err = self.run_ln("pay", "conv_1", "500", DIGEST)
+        self.assertEqual(code, 1)
+        self.assertIn("not valid JSON", err)
+        self.assertEqual(Wallet.calls, [])
+
+    def test_an_invoice_missing_what_receive_needs_is_refused_at_issue(self):
+        for drop in ("payee", "expires_at_ms"):
+            Wallet.script["fund"] = lambda b, drop=drop: (200, {k: v for k, v in invoice(b["amount_msat"]).items() if k != drop})
+            code, _, err = self.run_ln("invoice", "conv_" + drop.replace("_", ""))
+            self.assertEqual(code, 1, drop)
+            self.assertIn("not a mainnet invoice for your price", err)
+
     def test_wallet_errors_do_not_echo_the_invoice(self):
         self.saved_invoice()
         Wallet.script["send"] = lambda b: (500, {"error": f"route not found for {INVOICE} hash {HASH}"})
@@ -311,9 +336,11 @@ class Lightning(unittest.TestCase):
         self.assertEqual((r["received"], r["credited_msat"], r["fee_msat"]), (True, 495_000, 5000))
         inv, tx = read_json(r["ln_invoice"]), read_json(r["ln_transaction"])
         self.assertEqual(sorted(inv), ["amount_msat", "expires_at_ms", "payee", "payment_hash"])
-        self.assertNotIn("preimage", tx)
+        # The seller keeps its preimage for deal to seal, only in that 0600 file, and prints none.
+        self.assertEqual(tx["preimage"], PREIMAGE)
+        self.assertEqual(stat.S_IMODE(os.stat(r["ln_transaction"]).st_mode), 0o600)
         self.assertNotIn("status_msg", tx)
-        for text in (out, err, self.everything_written()):
+        for text in (out, err, self.everything_written(skip=("ln-transaction.json",))):
             self.assertNotIn(PREIMAGE, text)
             self.assertNotIn(INVOICE, text)
 

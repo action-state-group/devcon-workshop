@@ -373,11 +373,14 @@ def main(argv):
                 die("only a proposal carries an invoice", 2)
             try:
                 with open(os.path.join(DEALS, conv, "outgoing", "invoice.json")) as f:
-                    bolt11 = json.load(f).get("bolt11", "")
+                    saved = json.load(f)
+                bolt11, expires = saved.get("bolt11", ""), saved.get("expires_at_ms", 0)
             except (FileNotFoundError, ValueError, AttributeError):
                 die(f"no invoice for this conversation: run 'lightning invoice {conv}' first", 2)
             if not BOLT11.match(str(bolt11)):
                 die("the saved invoice is not a mainnet BOLT11 invoice with an amount", 2)
+            if not isinstance(expires, int) or expires <= (time.time() + 600) * 1000:
+                die(f"the saved invoice expires within 10 minutes: run 'lightning invoice {conv}' again, then send", 2)
             constraints["invoice"] = bolt11
         r = call("POST", f"{BASE}/api/v1/conversations/{conv}/replies",
                  {"kind": kind, "text": text[:500], "constraints": constraints, "idempotencyKey": f"reply-{conv}-{kind}-{uuid.uuid4().hex[:8]}"})

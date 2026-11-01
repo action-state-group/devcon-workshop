@@ -131,8 +131,9 @@ instructions: |
   "amount_minor": PRICE, "authorized_max_minor": PRICE, "terms": <the proposal's terms>, "who":
   {"relay_address": "{{ buy_from }}", "payee": "{{ buy_from }}"}, "recourse": {"rail": "{% if pay == "lexe" %}lightning{% else %}x402{% endif %}",
   "refundable": false}}.{% if pay == "lexe" %} A Lightning payment cannot be pulled back, so this check pauses: show your
-  user the card and, with it, the line "Paid in Lightning: <invoice_sats> sats from your own wallet",
-  and act only on their sealed yes. Then run `lightning pay <conversation> <invoice_sats>
+  user the card and, with it, the line "Paid in Lightning: <invoice_sats> sats from your own wallet
+  to node <pays_node>" (from `lightning inspect <conversation>`, run before the check), and act only on
+  their sealed yes. Then run `lightning pay <conversation> <invoice_sats>
   <content_digest>` and note the act with the same payee: {"action": "pay", "amount_minor": PRICE,
   "payee": "{{ buy_from }}", "rail": "lightning", "reference": "<its payment_hash>"}. Then send your
   accept with `payment_hash` in its constraints and buyer-terms.json attached. If `lightning pay`

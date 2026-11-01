@@ -3,14 +3,14 @@ tests/sim-lightning.sh. One synthetic 500 sat invoice: `fund` issues it, `inspec
 it, `send` pays it and `transactions` reports it received (495,000 msat credited, 5,000 msat fee).
 Its answers carry a preimage, as a real wallet's do, so the test can check that none is kept.
 No wallet is opened and no money moves. Each request's command is appended to LOG."""
-import json, sys, time
+import hashlib, json, sys, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 INVOICE = "lnbc5u1p" + (CHARSET * 8)[:240]
-HASH = "c5" * 32
-PAYEE = "02" + "ab" * 32
 PREIMAGE = "9e" * 32
+HASH = hashlib.sha256(bytes.fromhex(PREIMAGE)).hexdigest()
+PAYEE = "02" + "ab" * 32
 NOW = int(time.time() * 1000)
 invoice = {"bolt11": INVOICE, "payment_hash": HASH, "payee": PAYEE, "amount_msat": 500_000, "expires_at_ms": NOW + 3_600_000}
 

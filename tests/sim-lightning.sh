@@ -3,8 +3,9 @@
 # scripted in two throwaway HOMEs against a fake wallet API (tests/fake_wallet.py): no wallet is
 # opened and no money moves. The buyer's `lightning pay` writes its terms leg; the seller's
 # `lightning receive` writes what `deal note --kind payment_received --ln-invoice --ln-transaction`
-# seals. Fails if a preimage or the invoice is kept anywhere, if a cap is not enforced, or if the
-# buyer's Lightning pay check does not pause.
+# seals, the preimage included. Fails if a preimage is kept or printed anywhere but the seller's
+# transaction file and deal store, if the invoice is kept outside its own files, if a cap is not
+# enforced, or if the buyer's Lightning pay check does not pause.
 # Run inside the image: docker run --rm IMAGE /opt/devcon8/tests/sim-lightning.sh
 set -euo pipefail
 D=${D:-/opt/devcon8}
@@ -21,8 +22,8 @@ for _ in $(seq 50); do curl -fsS -o /dev/null -d '{"command":"fund"}' "$DEVCON8_
 : > "$T/wallet.log"
 STICKER=$D/agent/fixtures/sticker.png
 DIGEST=$(sha256sum "$STICKER" | cut -d' ' -f1)
-HASH=$(printf 'c5%.0s' $(seq 32))
 PREIMAGE=$(printf '9e%.0s' $(seq 32))
+HASH=$(python3 -I -c 'import hashlib,sys; print(hashlib.sha256(bytes.fromhex(sys.argv[1])).hexdigest())' "$PREIMAGE")
 PAYEE=02$(printf 'ab%.0s' $(seq 32))
 CONV=conv-ln
 home() { # name: a participant's HOME with its deal store
@@ -99,9 +100,15 @@ grep -aq "$HASH" "$db" || fail "the sealed records do not name the payment hash"
 capsulectl --profile deal disclose --deal "$sid" --share counterparty --to "Workshop buyer" --out shared.json >/dev/null
 grep -aq "$HASH" shared.json || fail "the shared copy does not carry the payment hash it joins on"
 grep -aq "$PAYEE" shared.json && fail "the receiving node id is in the shared copy"
+grep -aqF "$PREIMAGE" shared.json && fail "the preimage is in the counterparty's shared copy"
 # Neither the preimage nor the invoice is kept anywhere, except the invoice files that hold it.
-if grep -rlaF "$PREIMAGE" "$T" --exclude=fake_wallet.py | grep -q .; then grep -rlaF "$PREIMAGE" "$T"; fail "a preimage was kept"; fi
+# The seller's preimage is sealed (Steven: seal the preimage, not the BOLT11) and kept in the file it
+# was sealed from; nowhere else, and never printed.
+grep -aqF "$PREIMAGE" "$db" || fail "the preimage is not sealed in the seller's records"
+if grep -rlaF "$PREIMAGE" "$T" | grep -vE "^$T/seller/(\.local/share/capsule-deal/|deals/$CONV/outgoing/ln-transaction\.json$)" | grep -q .; then
+  grep -rlaF "$PREIMAGE" "$T"; fail "a preimage was kept outside the seller's transaction file and deal store"
+fi
 if grep -rlaF "$bolt11" "$T" | grep -vE "/deals/$CONV/(invoice\.txt|outgoing/invoice\.json)$" | grep -q .; then
   grep -rlaF "$bolt11" "$T"; fail "the invoice was kept outside its own files"
 fi
-echo "ok   lightning: caps enforced, Lightning pay paused and checked, payment_received sealed by payment hash, no preimage or invoice kept"
+echo "ok   lightning: caps enforced, Lightning pay paused and checked, payment_received sealed by payment hash with its preimage, none printed or shared, no invoice kept"
