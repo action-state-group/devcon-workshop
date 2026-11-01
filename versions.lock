@@ -30,19 +30,20 @@ LEXE_VERSION=v0.1.0
 LEXE_SHA256_AMD64=e565454cd5b8c8daf7e3091c1bffb9a30b205156c2a69cbe8c2c6f8f13589d64
 LEXE_SHA256_ARM64=c2a612e1cf6c7823a2c5fcfcfe1af363a3a66e548a79f92a2a5aa3de25e97baf
 
-# capsulectl, the deal plugin and the book plugin: the batched rc26 releases (capsule-cli
-# v0.1.0-rc26, evidencebook-deal v0.1.0-rc26). rc26's deal carries `capsulectl deal terms-leg` (evidencebook-deal#70). The book
-# release is evidencebook tag capsulectl/v0.1.0-rc26.
-CAPSULECTL_VERSION=v0.1.0-rc26
-CAPSULECTL_SHA256_AMD64=1c900d22372bdee379fb932aa88034fd00a45fff15fbf1fe20f0fbf08c3031d3
-CAPSULECTL_SHA256_ARM64=5134d8dfd1e4bee9f7768f699c96dac4ecf8903067b97539cf58314150661611
-DEAL_VERSION=v0.1.0-rc26
-DEAL_SHA256_AMD64=5ffcf27a1b69c488937a19545f1d92340082938e71d9d55405adf92d8d4ee502
-DEAL_SHA256_ARM64=b993362ac13402169b0d89b9e477e067946efad0d0829e634fe9c58f80a795d0
-DEAL_SKILL_SHA256=da1b4f6508ace7dcc30eb33f8bd0eb261e1fe8697f8aa9d81751a4677ad69cc2
-BOOK_VERSION=v0.1.0-rc26
-BOOK_SHA256_AMD64=cffd6690376c86d07cdb02c2c38fc2b52147ed120935a6e3e50d2cdb8f862d06
-BOOK_SHA256_ARM64=bbf7f51532f9fe0cc97362213be08b739a24fcceba24b185d8ae88793c7a0367
+# capsulectl, the deal plugin and the book plugin: the paired rc29 releases (capsule-cli
+# v0.1.0-rc29, evidencebook-deal v0.1.0-rc29, evidencebook tag capsulectl/v0.1.0-rc29). rc29's deal
+# seals a Lightning payment_received with its preimage (evidencebook-deal#90, on evidencebook
+# v0.12.1), which `devcon8 trade --pay lexe` needs; it carries `deal terms-leg` (evidencebook-deal#70).
+CAPSULECTL_VERSION=v0.1.0-rc29
+CAPSULECTL_SHA256_AMD64=fb0f01aa03168dc3eabdab0982482e6f0793a573f0daf5ae40e11ff7b912626b
+CAPSULECTL_SHA256_ARM64=f017cae0d7329f553e4370b603314685337809ca26ddfe5c547ae89ef08fc797
+DEAL_VERSION=v0.1.0-rc29
+DEAL_SHA256_AMD64=42104fa9ae9c90d3090dadc8d2491f1c0fb294fe3699b2399a1f340237cc0544
+DEAL_SHA256_ARM64=76a443c7ad039c24b59c63703fe48ab560e66a4f2fcf733a946785332894db94
+DEAL_SKILL_SHA256=5a3ac7d12488d2173829db6ee779e78624093e596d4790f9a1520c59a6e6275c
+BOOK_VERSION=v0.1.0-rc29
+BOOK_SHA256_AMD64=7876e14daaef93bc3d0e800be43c4efbe92ed25997429c15d3a64cc19af37518
+BOOK_SHA256_ARM64=a9756007fc7f7772a82529578a74a70aecc7e42009003882a411f300f7ca6467
 
 # goose
 GOOSE_VERSION=v1.57.0
