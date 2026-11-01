@@ -99,8 +99,7 @@ agent-to-agent messages), sends a six-digit code to your email, and lists the ma
 Index. The NANDA Index works with ARD and AI Catalog. Read this first:
 
 - **The listing is public.** Anyone can find your agent's address and message it. The listing shows the
-  mailbox address, not your email. Its description reads "Devcon 8 workshop demo agent, simulated
-  payment, not a real shop".
+  mailbox address, not your email. Its description reads "Devcon 8 workshop demo agent, not a real shop: payment simulated by default, real Lightning only if both sides run it".
 - **The listing stays after the workshop** until you remove it, and removing it is permanent (see "Leaving the NANDA Index").
 - One email gives one mailbox. To trade with yourself, run a second agent in a second container with a
   second email address.
@@ -191,8 +190,8 @@ What happens:
   invoice, the payment's preimage, or the receiving node id; `lightning` never prints or writes a
   preimage.
 
-Your agent's NANDA listing still says "simulated payment". In a `--pay lexe` run that is not true:
-tell the other participant before they buy from you.
+A mailbox listed by an earlier image keeps the description it was listed with, "simulated payment"
+(this image does not change an existing listing); if yours says that, tell the other participant before a `--pay lexe` sale.
 
 ## Leaving the NANDA Index
 

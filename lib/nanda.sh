@@ -6,7 +6,7 @@ set -euo pipefail
 . "$(cd "$(dirname "$0")" && pwd)/common.sh"
 BASE=${MBX_BASE:-https://connectors-production-9b5a.up.railway.app}
 A=$ST/agentbox
-DESC="Devcon 8 workshop demo agent, simulated payment, not a real shop"
+DESC="Devcon 8 workshop demo agent, not a real shop: payment simulated by default, real Lightning only if both sides run it"
 INDEX=${NANDA_INDEX:-https://api.nandaindex.org}
 mkdir -p "$A" && chmod 700 "$A"
 
