@@ -145,6 +145,7 @@ jobs:
             code=$(curl -s -o /dev/null -w '%{http_code}' -m 3 http://127.0.0.1:3141/api/plugins || true)
             [ "$code" = 200 ] && break; sleep 2
           done
+          [ "$code" = 200 ] || { docker logs "$id"; docker exec "$id" sh -c 'cat /tmp/dw-*/run.log /tmp/dw-*/.devcon8/relay.log' || true; }
           docker rm -f "$id" >/dev/null
           [ "$code" = 200 ] || { echo "/api/plugins through the published port: HTTP $code"; exit 1; }
 

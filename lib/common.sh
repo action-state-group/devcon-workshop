@@ -49,13 +49,14 @@ node_pid() {
 }
 node_start() {
   [ -s "$ST/join.txt" ] || die "no invite yet: run 'devcon8 join'"
-  if node_pid >/dev/null; then echo "your node is already running (pid $(node_pid))"; return 0; fi
+  if node_pid >/dev/null; then relay_start; echo "your node is already running (pid $(node_pid))"; return 0; fi
   mesh_config; plugins_sync
   nohup "$MESH" serve --client --join-file "$ST/join.txt" --port 9337 --console 3131 --listen-all \
     > "$ST/node.log" 2>&1 < /dev/null &
-  echo $! > "$ST/node.pid"
+  local np=$!
+  echo "$np" > "$ST/node.pid"
   relay_start
-  echo "your node started (pid $!); console http://127.0.0.1:3141 (on your laptop)"
+  echo "your node started (pid $np); console http://127.0.0.1:3141 (on your laptop)"
 }
 # The console's management routes accept only a loopback peer, and Docker's published port is not one.
 # The relay (lib/console-relay.py) listens on 3132, which the README publishes as the laptop's 3141.
