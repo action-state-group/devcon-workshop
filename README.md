@@ -42,7 +42,7 @@ of `@sha256:<digest>`.
 
 You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
-The console is on port 3141 because Buzz Desktop uses 3131. If you started `devcon8` from an older version of these steps, run `docker rm devcon8` first, then the `docker run` above; your `devcon8-home` volume keeps your state.
+The console is on port 3141 because Buzz Desktop uses 3131. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then the `docker run` above; your `devcon8-home` volume keeps your state.
 
 ### 1. `devcon8 doctor`
 
