@@ -36,9 +36,9 @@ LEXE_COMMIT=9f830c181b4042a81069df50752cf19d035a5047
 # v0.1.0-rc29, evidencebook-deal v0.1.0-rc29, evidencebook tag capsulectl/v0.1.0-rc29). rc29's deal
 # seals a Lightning payment_received with its preimage (evidencebook-deal#90, on evidencebook
 # v0.12.1), which `devcon8 trade --pay lexe` needs; it carries `deal terms-leg` (evidencebook-deal#70).
-CAPSULECTL_VERSION=v0.1.0-rc29
-CAPSULECTL_SHA256_AMD64=fb0f01aa03168dc3eabdab0982482e6f0793a573f0daf5ae40e11ff7b912626b
-CAPSULECTL_SHA256_ARM64=f017cae0d7329f553e4370b603314685337809ca26ddfe5c547ae89ef08fc797
+CAPSULECTL_VERSION=v0.1.0-rc32
+CAPSULECTL_SHA256_AMD64=ff17f9c3da2ac68ea2624ddedf78c4ec483218bb8a94c056e7c37b8400739a48
+CAPSULECTL_SHA256_ARM64=fd6f5f903f2747c016b2c72f998053df83bc14b2bb765438718088ae90bdbc6c
 DEAL_VERSION=v0.1.0-rc29
 DEAL_SHA256_AMD64=42104fa9ae9c90d3090dadc8d2491f1c0fb294fe3699b2399a1f340237cc0544
 DEAL_SHA256_ARM64=76a443c7ad039c24b59c63703fe48ab560e66a4f2fcf733a946785332894db94

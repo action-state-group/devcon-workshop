@@ -10,6 +10,18 @@
 # version; moving to an older base needs that check again.
 ARG BASE=ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
 
+# --- per-stage pins: each source build copies only the pins it uses, so a bump of another pin (the deal
+# plugin, say) leaves its layers cached. BuildKit compares the copied file's content, not versions.lock's.
+FROM ${BASE} AS pins
+COPY versions.lock /src/versions.lock
+RUN mkdir /pins && cd /pins \
+    && grep -E '^(RUST_TOOLCHAIN|JUST_VERSION)=' /src/versions.lock > toolchain.lock \
+    && grep -E '^MESH_LLM_' /src/versions.lock > mesh.lock \
+    && grep -E '^CAPSULES_(REPO|COMMIT|VERSION)=' /src/versions.lock > capsules.lock \
+    && grep -E '^LEXE_' /src/versions.lock > lexe.lock \
+    && grep -E '^GOOSE_' /src/versions.lock > goose.lock \
+    && wc -l *.lock
+
 # --- release assets, models, Go and Node: downloaded and sha256-checked ---------------------------
 FROM ${BASE} AS fetch
 ARG TARGETARCH
@@ -26,7 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl git cmake ninja-build pkg-config libssl-dev libdbus-1-dev python3 \
       build-essential jq patchelf xz-utils mold lld \
     && rm -rf /var/lib/apt/lists/*
-COPY versions.lock /src/versions.lock
+COPY --from=pins /pins/toolchain.lock /src/versions.lock
 COPY --from=fetch /fetch/opt/node /usr/local/node
 ENV PATH=/root/.cargo/bin:/usr/local/node/bin:$PATH CARGO_NET_GIT_FETCH_WITH_CLI=true
 RUN . /src/versions.lock \
@@ -36,6 +48,7 @@ RUN . /src/versions.lock \
 # --- mesh-llm lab build: host, CPU native runtimes ------------------------------------------------
 FROM toolchain AS mesh
 ARG TARGETARCH
+COPY --from=pins /pins/mesh.lock /src/versions.lock
 RUN . /src/versions.lock && git clone --filter=blob:none "$MESH_LLM_REPO" /build/mesh-llm \
     && git -C /build/mesh-llm checkout --detach "$MESH_LLM_SHA"
 WORKDIR /build/mesh-llm
@@ -62,6 +75,7 @@ FROM toolchain AS redteam
 ARG TARGETARCH
 COPY demos/s08-liar/redteam/selective-log.patch /src/selective-log.patch
 COPY --from=fetch /fetch/opt/mesh/plugins/ /release/
+COPY --from=pins /pins/capsules.lock /src/versions.lock
 RUN . /src/versions.lock && git clone --filter=blob:none "$CAPSULES_REPO" /build/capsules \
     && git -C /build/capsules checkout --detach "$CAPSULES_COMMIT" && git -C /build/capsules apply /src/selective-log.patch
 WORKDIR /build/capsules/crates/evidence-plugin
@@ -80,6 +94,7 @@ RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.carg
 # --- lexe-wallet plugin, built from the settled-preimage branch (Mesh-LLM/lexe-wallet-plugin#7) ----
 FROM toolchain AS lexe
 ARG TARGETARCH
+COPY --from=pins /pins/lexe.lock /src/versions.lock
 RUN . /src/versions.lock && git clone --filter=blob:none "$LEXE_REPO" /build/lexe \
     && git -C /build/lexe checkout --detach "$LEXE_COMMIT"
 WORKDIR /build/lexe
@@ -114,6 +129,7 @@ ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends clang libclang-dev libxcb1-dev \
     && rm -rf /var/lib/apt/lists/*
 COPY patches/ /src/patches/
+COPY --from=pins /pins/goose.lock /src/versions.lock
 RUN . /src/versions.lock && git clone --filter=blob:none "$GOOSE_REPO" /build/goose \
     && git -C /build/goose checkout --detach "$GOOSE_SHA" \
     && for p in /src/patches/goose-*.patch; do git -C /build/goose apply "$p"; done
