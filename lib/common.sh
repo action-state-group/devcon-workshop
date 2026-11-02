@@ -54,9 +54,26 @@ node_start() {
   nohup "$MESH" serve --client --join-file "$ST/join.txt" --port 9337 --console 3131 --listen-all \
     > "$ST/node.log" 2>&1 < /dev/null &
   echo $! > "$ST/node.pid"
+  relay_start
   echo "your node started (pid $!); console http://127.0.0.1:3141 (on your laptop)"
 }
+# The console's management routes accept only a loopback peer, and Docker's published port is not one.
+# The relay (lib/console-relay.py) listens on 3132, which the README publishes as the laptop's 3141.
+relay_pid() {
+  local p; p=$(cat "$ST/relay.pid" 2>/dev/null) || return 1
+  kill -0 "$p" 2>/dev/null && tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -qF console-relay.py && echo "$p"
+}
+relay_start() {
+  relay_pid >/dev/null && return 0
+  nohup python3 "$D/lib/console-relay.py" 3132 3131 > "$ST/relay.log" 2>&1 < /dev/null &
+  echo $! > "$ST/relay.pid"
+}
+relay_stop() {
+  local p; p=$(relay_pid) && kill -TERM "$p"
+  rm -f "$ST/relay.pid"
+}
 node_stop() {
+  relay_stop
   local p; p=$(node_pid) || { echo "your node is not running"; rm -f "$ST/node.pid"; return 0; }
   # p is verified to be this node (node_pid)
   kill -TERM "$p"; for _ in $(seq 40); do kill -0 "$p" 2>/dev/null || break; sleep 0.5; done

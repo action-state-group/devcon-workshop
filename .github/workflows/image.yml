@@ -137,6 +137,17 @@ jobs:
       - name: Lightning payment against a fake wallet (caps, paused pay, payment_received, no preimage kept)
         run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-lightning.sh
 
+      - name: The published console port serves the management routes (the relay)
+        run: |
+          id=$(docker run -d -p 127.0.0.1:3141:3132 devcon-workshop:ci /opt/devcon8/tests/console-relay-serve.sh)
+          code=000
+          for _ in $(seq 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 3 http://127.0.0.1:3141/api/plugins || true)
+            [ "$code" = 200 ] && break; sleep 2
+          done
+          docker rm -f "$id" >/dev/null
+          [ "$code" = 200 ] || { echo "/api/plugins through the published port: HTTP $code"; exit 1; }
+
       - name: S08 in the container (start, lie, twins, referee, stop)
         timeout-minutes: 45
         run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/s08-ci.sh
