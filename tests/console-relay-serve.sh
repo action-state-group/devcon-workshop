@@ -4,7 +4,8 @@
 set -uo pipefail
 export D=/opt/devcon8 HOME=$(mktemp -d /tmp/dw-XXXXXX); export ST=$HOME/.devcon8; mkdir -p "$ST"
 . "$D/lib/common.sh"
-mesh_config
+mesh_config; plugins_sync
+export CAPSULES_DATA_DIR=$HOME/capsule-data
 "$MESH" serve --port 19337 --console 3131 --headless --disable-iroh-relays > "$HOME/run.log" 2>&1 < /dev/null &
 relay_start
 wait
