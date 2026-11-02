@@ -21,7 +21,11 @@ Inference runs on your CPU (Docker on a Mac has no GPU access). The image is abo
 You need Docker (Docker Desktop on macOS or Windows, Docker Engine on Linux) with at least **8 GB of
 memory** for the container (Docker Desktop: Settings > Resources) and about 6 GB of free disk.
 
-Pull the image ahead of time, by the digest announced for the workshop. Conference wifi is slow:
+Pull the image ahead of time. Conference wifi is slow:
+
+    docker pull ghcr.io/action-state-group/devcon-workshop:latest
+
+`latest` moves on every build from main. For a reproducible pull, use the immutable tag and digest announced for the workshop:
 
     docker pull ghcr.io/action-state-group/devcon-workshop@sha256:<digest>
 
@@ -37,12 +41,12 @@ of `@sha256:<digest>`.
 ## Start
 
     docker run -it --name devcon8 -v devcon8-home:/home/participant \
-      -p 127.0.0.1:3141:3131 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9611-9614 \
-      ghcr.io/action-state-group/devcon-workshop@sha256:<digest>
+      -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
+      ghcr.io/action-state-group/devcon-workshop:latest
 
-You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
+(Or the `@sha256:<digest>` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
-The console is on port 3141 because Buzz Desktop uses 3131. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then the `docker run` above; your `devcon8-home` volume keeps your state.
+The console is on port 3141 because Buzz Desktop uses 3131. Inside the container a small relay (port 3132) hands the console its requests from the container's own loopback, which mesh-llm requires for the console's plugin routes (the Evidence tab). A client node hides the Configuration tab by mesh-llm's design. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then the `docker run` above; your `devcon8-home` volume keeps your state.
 
 ### 1. `devcon8 doctor`
 
