@@ -37,7 +37,7 @@ of `@sha256:<digest>`.
 ## Start
 
     docker run -it --name devcon8 -v devcon8-home:/home/participant \
-      -p 127.0.0.1:3131:3131 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9611-9614 \
+      -p 127.0.0.1:3141:3131 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9611-9614 \
       ghcr.io/action-state-group/devcon-workshop@sha256:<digest>
 
 You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
@@ -55,7 +55,7 @@ back). Your node starts as a client, with its wallet policy at the default, **fr
 pays. Then it asks the mesh one question. One of two things happens:
 
 - The serving node is free: you get an answer, and the sealed record of that exchange is on your
-  node's console, http://127.0.0.1:3131, Evidence tab.
+  node's console, http://127.0.0.1:3141, Evidence tab.
 - The serving node charges: your request is refused. That is the free-only policy doing its job.
   Nothing was paid. See "If your first prompt is refused" below.
 
