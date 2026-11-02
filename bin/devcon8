@@ -68,7 +68,7 @@ join_mesh() {
   case $code in
     200)
       echo "Answer from $model: $(jq -r '.choices[0].message.content' "$ST/join-reply.json")"
-      echo "The sealed record of that exchange: http://127.0.0.1:3131 , Evidence tab." ;;
+      echo "The sealed record of that exchange: http://127.0.0.1:3141 , Evidence tab." ;;
     402|403|503)
       echo "Refused (HTTP $code): $(jq -r '.error.message // .error // .' "$ST/join-reply.json" 2>/dev/null | head -c 300)"
       echo

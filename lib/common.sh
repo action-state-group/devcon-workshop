@@ -54,7 +54,7 @@ node_start() {
   nohup "$MESH" serve --client --join-file "$ST/join.txt" --port 9337 --console 3131 --listen-all \
     > "$ST/node.log" 2>&1 < /dev/null &
   echo $! > "$ST/node.pid"
-  echo "your node started (pid $!); console http://127.0.0.1:3131"
+  echo "your node started (pid $!); console http://127.0.0.1:3141 (on your laptop)"
 }
 node_stop() {
   local p; p=$(node_pid) || { echo "your node is not running"; rm -f "$ST/node.pid"; return 0; }
