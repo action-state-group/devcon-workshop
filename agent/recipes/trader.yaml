@@ -168,4 +168,4 @@ instructions: |
   {% if buy_from %}Your user asked you to buy from {{ buy_from }}.{% else %}Your user did not ask you to buy anything; only sell.{% endif %}
 prompt: |
   Start: read the deal skill, run `mbx me` and tell me my agent's address. {% if buy_from %}Then start
-  the purchase from {{ buy_from }}.{% else %}Then wait for buyers with `mbx wait` in the foreground and keep waiting; sell to the first one who asks.{% endif %}
+  the purchase from {{ buy_from }}.{% else %}Then wait for buyers with `mbx wait` in the foreground and keep waiting; sell to every participant who asks.{% endif %}

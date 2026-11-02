@@ -59,7 +59,9 @@ ok "goose $(goose --version | head -1), claude, codex, both ACP adapters, capsul
 
 # The seller keeps listening (foreground `mbx wait`), never asks for an item or price, and renews a stale card (issue #11).
 R="$D/agent/recipes/trader.yaml"
-grep -q 'in the FOREGROUND, never in the background' "$R" && grep -q 'never ask your user for an' "$R" && grep -q 'A check goes stale' "$R" || fail "trader recipe lost the seller keep-listening text"
+for t in 'in the FOREGROUND, never in the background' 'never ask your user for an' 'A check goes stale'; do
+  grep -q "$t" "$R" || fail "trader recipe lost the seller keep-listening text: $t"
+done
 ok "trader recipe: seller waits in the foreground, no item/price questions, stale card renewed"
 
 # Nothing tracks: DO_NOT_TRACK is set and MESH_LLM_ANALYTICS is not.
