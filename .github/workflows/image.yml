@@ -2,7 +2,7 @@ name: image
 
 # Builds the participant image natively for each architecture from versions.lock, runs the secret
 # scan (with its negative test) and the smoke tests, and on main publishes an immutable tag per
-# architecture plus a multi-arch manifest list:
+# architecture plus a multi-arch manifest list, which a moving `latest` tag also points at:
 #   ghcr.io/action-state-group/devcon-workshop:YYYYMMDD-ml<lab commit>-cap<capsules version>-b<build>.<run>
 # Pull requests build and test only.
 
@@ -174,7 +174,8 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           tag="${{ needs.meta.outputs.tag }}"
           if docker manifest inspect "$IMAGE:$tag" >/dev/null 2>&1; then echo "$IMAGE:$tag already exists"; exit 1; fi
-          docker buildx imagetools create -t "$IMAGE:$tag" "$IMAGE:$tag-amd64" "$IMAGE:$tag-arm64"
+          # `latest` moves on every main publish (Ethan, 2026-11-02); the immutable tag and its digest stay the reproducible reference.
+          docker buildx imagetools create -t "$IMAGE:$tag" -t "$IMAGE:latest" "$IMAGE:$tag-amd64" "$IMAGE:$tag-arm64"
           docker buildx imagetools inspect "$IMAGE:$tag" | tee /tmp/inspect
           echo "### $IMAGE:$tag" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"; cat /tmp/inspect >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
