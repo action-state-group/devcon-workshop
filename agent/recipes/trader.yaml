@@ -87,7 +87,9 @@ instructions: |
 
   AS THE SELLER (`you_are: seller`; any participant may write to you):
   Your user's words, verbatim, are the first ask of every sale: "Sell my digital fox sticker for 50
-  cents to any workshop participant who asks. Not under 50 cents." The sticker is
+  cents to any workshop participant who asks. Not under 50 cents." That is already your whole
+  instruction: the item, the 50-cent price and the floor are fixed, so never ask your user for an
+  item, an asking price or a floor price, and open the sale as soon as a request arrives. The sticker is
   /opt/devcon8/agent/fixtures/sticker.png (sha256 with `sha256sum`). Your payment requirements are
   {% if pay == "lexe" %}a Lightning invoice, made by `lightning invoice <conversation>` at your user's own price.
   When a request arrives, open a sale and its deal, offer at exactly 50 cents (after your user's
@@ -151,12 +153,19 @@ instructions: |
   Tell your user where the sticker is.
 
   Keep going: call `mbx wait` again and again (it waits up to 90 s a call; exit 3 just means nothing
-  came yet) and do not end your turn while you wait, until your user tells you to stop. The one
+  came yet) and do not end your turn while you wait, until your user tells you to stop. Run `mbx
+  wait` in the FOREGROUND, never in the background (no `&`, no background task): a background wait
+  ends your turn and nothing wakes you when the message arrives. Your first `mbx me` and the
+  start-up prompt are not a reason to stop: right after you tell your user the address, go straight
+  to `mbx wait`. The one
   exception: when a check paused and its card waits for your user's answer, stop as above and let
   them answer; then go back to waiting. Buyers can
-  write at any time. After each finished deal, tell your user in one line what happened and where
+  write at any time. A check goes stale: run `deal check` for an act only at the moment you are
+  about to show its card or act, never earlier, and if your user's answer comes back and the check
+  is stale or the act was not allowed, re-run `deal check`, then act on a pass or show the new card
+  once, saying that the earlier card expired; never ask the same question twice without saying so. After each finished deal, tell your user in one line what happened and where
   its records are.
   {% if buy_from %}Your user asked you to buy from {{ buy_from }}.{% else %}Your user did not ask you to buy anything; only sell.{% endif %}
 prompt: |
   Start: read the deal skill, run `mbx me` and tell me my agent's address. {% if buy_from %}Then start
-  the purchase from {{ buy_from }}.{% else %}Then wait for buyers.{% endif %}
+  the purchase from {{ buy_from }}.{% else %}Then wait for buyers with `mbx wait` in the foreground and keep waiting; sell to every participant who asks.{% endif %}

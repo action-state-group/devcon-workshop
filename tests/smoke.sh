@@ -57,6 +57,13 @@ ok "goose $(goose --version | head -1), claude, codex, both ACP adapters, capsul
 # The trader recipe reads the deal skill from here.
 [ -f "$D/agent/skills/deal/SKILL.md" ] || fail "deal skill missing"; ok "deal skill present"
 
+# The seller keeps listening (foreground `mbx wait`), never asks for an item or price, and renews a stale card (issue #11).
+R="$D/agent/recipes/trader.yaml"
+for t in 'in the FOREGROUND, never in the background' 'never ask your user for an' 'A check goes stale'; do
+  grep -q "$t" "$R" || fail "trader recipe lost the seller keep-listening text: $t"
+done
+ok "trader recipe: seller waits in the foreground, no item/price questions, stale card renewed"
+
 # Nothing tracks: DO_NOT_TRACK is set and MESH_LLM_ANALYTICS is not.
 if [ "${DO_NOT_TRACK:-}" != 1 ] || [ -n "${MESH_LLM_ANALYTICS+x}" ]; then fail "analytics environment"; fi
 ok "DO_NOT_TRACK=1"
