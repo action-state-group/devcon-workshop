@@ -32,20 +32,20 @@ LEXE_VERSION=v0.1.0
 LEXE_REPO=https://github.com/ethanyzhang/lexe-wallet-plugin
 LEXE_COMMIT=9f830c181b4042a81069df50752cf19d035a5047
 
-# capsulectl, the deal plugin and the book plugin: the paired rc29 releases (capsule-cli
-# v0.1.0-rc29, evidencebook-deal v0.1.0-rc29, evidencebook tag capsulectl/v0.1.0-rc29). rc29's deal
-# seals a Lightning payment_received with its preimage (evidencebook-deal#90, on evidencebook
+# capsulectl, the deal plugin and the book plugin: the paired rc32 releases (capsule-cli
+# v0.1.0-rc32, evidencebook-deal v0.1.0-rc32, evidencebook tag capsulectl/v0.1.0-rc32; the plugins' handshake
+# core_version must equal the core's). Since rc29 the deal plugin seals a Lightning payment_received with its preimage (evidencebook-deal#90, on evidencebook
 # v0.12.1), which `devcon8 trade --pay lexe` needs; it carries `deal terms-leg` (evidencebook-deal#70).
-CAPSULECTL_VERSION=v0.1.0-rc29
-CAPSULECTL_SHA256_AMD64=fb0f01aa03168dc3eabdab0982482e6f0793a573f0daf5ae40e11ff7b912626b
-CAPSULECTL_SHA256_ARM64=f017cae0d7329f553e4370b603314685337809ca26ddfe5c547ae89ef08fc797
-DEAL_VERSION=v0.1.0-rc29
-DEAL_SHA256_AMD64=42104fa9ae9c90d3090dadc8d2491f1c0fb294fe3699b2399a1f340237cc0544
-DEAL_SHA256_ARM64=76a443c7ad039c24b59c63703fe48ab560e66a4f2fcf733a946785332894db94
-DEAL_SKILL_SHA256=5a3ac7d12488d2173829db6ee779e78624093e596d4790f9a1520c59a6e6275c
-BOOK_VERSION=v0.1.0-rc29
-BOOK_SHA256_AMD64=7876e14daaef93bc3d0e800be43c4efbe92ed25997429c15d3a64cc19af37518
-BOOK_SHA256_ARM64=a9756007fc7f7772a82529578a74a70aecc7e42009003882a411f300f7ca6467
+CAPSULECTL_VERSION=v0.1.0-rc32
+CAPSULECTL_SHA256_AMD64=ff17f9c3da2ac68ea2624ddedf78c4ec483218bb8a94c056e7c37b8400739a48
+CAPSULECTL_SHA256_ARM64=fd6f5f903f2747c016b2c72f998053df83bc14b2bb765438718088ae90bdbc6c
+DEAL_VERSION=v0.1.0-rc32
+DEAL_SHA256_AMD64=4dbbefcdecea5b75c1e26f4204165c027ed8bc1d8734ee14dd127a3e983ad641
+DEAL_SHA256_ARM64=9c599a953a006c8e50765e79b81fe61086837a206c89327a635b37baa13ae8e9
+DEAL_SKILL_SHA256=56ded02c8ff10c8e58d8588b7385ebd077703165317fdf6673839cb3c294d673
+BOOK_VERSION=v0.1.0-rc32
+BOOK_SHA256_AMD64=410f51905d1c8f0f93ab8dc0f0aa3d0639c59434885bfd4ca9f0be089596b530
+BOOK_SHA256_ARM64=2fa616588061b4a3ec279370fbc25702d8deeaccb59bd677be16bbb74a56244f
 
 # goose: built from source at the v1.57.0 commit plus patches/goose-acp-approval-card-once.patch
 # (aaif-goose/goose#13273: in approve mode an ACP provider's approval card came back after the turn and
