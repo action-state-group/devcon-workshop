@@ -149,9 +149,19 @@ jobs:
           docker rm -f "$id" >/dev/null
           [ "$code" = 200 ] || { echo "/api/plugins through the published port: HTTP $code"; exit 1; }
 
-      - name: S08 in the container (start, lie, twins, referee, stop)
+      - name: S08 in the container (start, console through the published port, lie, twins, referee, stop)
         timeout-minutes: 45
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/s08-ci.sh
+        run: |
+          id=$(docker run -d -e S08_CI_HOLD=1 -p 127.0.0.1:9614:9624 devcon-workshop:ci /opt/devcon8/tests/s08-ci.sh)
+          until docker exec "$id" test -e /tmp/s08-started 2>/dev/null; do
+            [ "$(docker inspect -f '{{.State.Running}}' "$id")" = true ] || { docker logs "$id"; exit 1; }
+            sleep 5
+          done
+          code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 http://127.0.0.1:9614/api/plugins || true)
+          docker exec "$id" touch /tmp/s08-continue
+          rc=$(docker wait "$id"); docker logs "$id"; docker rm "$id" >/dev/null
+          [ "$code" = 200 ] || { echo "s08 asker /api/plugins through the published port: HTTP $code"; exit 1; }
+          [ "$rc" = 0 ] || { echo "s08-ci exited $rc"; exit 1; }
 
       - name: Push the per-architecture tag
         if: env.PUBLISH == 'true'

@@ -38,6 +38,13 @@ start() {
   cd "$N" || return 1
   nohup "$bin" serve "${args[@]}" > "$N/logs/node.log" 2>&1 < /dev/null &
   echo $! > "$N/logs/node.pid"
+  # In the container (S08_LISTEN_ALL) the console's management routes would answer 403 through Docker's
+  # port forward; a loopback relay on console+10 (README publishes 9611-9614 from 9621-9624) fixes that.
+  if [ -n "${S08_LISTEN_ALL:-}" ] && ! mine "$(cat "$N/logs/relay.pid" 2>/dev/null)"; then
+    nohup python3 "${D:-/opt/devcon8}/lib/console-relay.py" $(( $(console "$NAME") + 10 )) "$(console "$NAME")" \
+      > "$N/logs/relay.log" 2>&1 < /dev/null &
+    echo $! > "$N/logs/relay.pid"
+  fi
   echo "$NAME started (api $(api "$NAME"), console $(console "$NAME"))"
 }
 
@@ -46,6 +53,7 @@ mine() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null && [ "$(proc_cwd "$1")" = "$N" 
 
 # Stops only this node's own process, and fails unless it is gone afterwards.
 stop() {
+  local R; R=$(cat "$N/logs/relay.pid" 2>/dev/null) && mine "$R" && kill -TERM "$R"; rm -f "$N/logs/relay.pid"
   local P; P=$(cat "$N/logs/node.pid" 2>/dev/null) || { echo "$NAME: not started"; return 0; }
   # A dead pid, or one some other process reuses now, means this node is not running: never kill it.
   mine "$P" || { rm -f "$N/logs/node.pid"; echo "$NAME: not running"; return 0; }

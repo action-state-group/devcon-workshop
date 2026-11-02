@@ -48,10 +48,10 @@ Q4_SHA=74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db
 
 # The few commands that differ between Linux (the provider VM) and macOS.
 command -v sha256sum >/dev/null 2>&1 || sha256sum() { shasum -a 256 "$@"; }
-# Lines on a demo port (9601-9604, 9611-9614) that something listens on; empty when none.
+# Lines on a demo port (9601-9604, 9611-9614, and the container's console relays 9621-9624) that something listens on; empty when none.
 demo_listening() {
-  if command -v ss >/dev/null 2>&1; then ss -ltn | grep -E ':96(0[1-4]|1[1-4]) '
-  else lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -E ':96(0[1-4]|1[1-4]) '; fi
+  if command -v ss >/dev/null 2>&1; then ss -ltn | grep -E ':96([02][1-4]|1[1-4]) '
+  else lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -E ':96([02][1-4]|1[1-4]) '; fi
 }
 file_size() { stat -c %s "$1" 2>/dev/null || stat -f %z "$1"; }
 proc_cwd() { readlink "/proc/$1/cwd" 2>/dev/null || lsof -a -d cwd -p "$1" -Fn 2>/dev/null | sed -n 's/^n//p'; }

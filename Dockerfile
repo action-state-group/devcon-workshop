@@ -187,6 +187,6 @@ ENV PATH=$D/bin:$D/agent/bin:$D/mesh/bin:$D/npm/node_modules/.bin:$D/node/bin:$D
 USER participant
 WORKDIR /home/participant
 VOLUME /home/participant
-EXPOSE 3132 8080 9611-9614
+EXPOSE 3132 8080 9611-9614 9621-9624
 ENTRYPOINT ["/usr/bin/tini", "--", "/opt/devcon8/bin/devcon8-entry"]
 CMD ["bash", "-l"]

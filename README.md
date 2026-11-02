@@ -41,7 +41,7 @@ of `@sha256:<digest>`.
 ## Start
 
     docker run -it --name devcon8 -v devcon8-home:/home/participant \
-      -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9611-9614 \
+      -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
       ghcr.io/action-state-group/devcon-workshop:latest
 
 (Or the `@sha256:<digest>` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.

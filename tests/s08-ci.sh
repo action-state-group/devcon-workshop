@@ -7,6 +7,13 @@ fail() { echo "FAIL $*" >&2; devcon8 s08 stop >/dev/null 2>&1; exit 1; }
 devcon8 s08 setup >/dev/null || fail "setup"
 timeout 1200 devcon8 s08 start > /tmp/start.log 2>&1 || { tail -20 /tmp/start.log; fail "start"; }
 echo "ok   start: four nodes up"
+# CI curls the asker's console through the published port (9614 -> 9621-9624 relays) from outside, then
+# lets the run go on. Without the hook (a plain run) nothing waits.
+if [ -n "${S08_CI_HOLD:-}" ]; then
+  touch /tmp/s08-started
+  for _ in $(seq 300); do [ -e /tmp/s08-continue ] && break; sleep 2; done
+  [ -e /tmp/s08-continue ] || fail "CI never released the hold"
+fi
 timeout 300 devcon8 s08 lie > /tmp/lie.log 2>&1 || { tail -20 /tmp/lie.log; fail "lie"; }
 parted=""
 for q in "Name three colors." "Write a haiku about the ocean."; do
