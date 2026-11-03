@@ -47,12 +47,16 @@ cp "$S/referee/env" "$S/asker/env" 2>/dev/null || { mkdir -p "$S/asker"; cp "$S/
 echo "export CAPSULES_ADJUDICATE_DIFFERING_TWINS=on   # ask a referee when two twins disagree" >> "$S/asker/env"
 ./node.sh stop referee && ./node.sh start referee && wait_up referee || exit 1
 ./node.sh start asker && wait_up asker && ./node.sh ident asker || exit 1
-# The liar answers the asker's signed evidence requests (step 8). It needs the asker's key under the
-# id its records name the asker by, which is not the id the host announces that key under, so it
-# gets every key here and restarts once.
+# Since capsules 0.1.14 a pushed record is accepted only under a key the receiver was told in
+# CAPSULES_PEER_KEYS (the host's announcement no longer counts), and the liar also needs the asker's
+# key under the id its records name the asker by, so the liar and the referee get all four keys and
+# restart once. The honest node made the mesh and is never restarted (its invite would break); the
+# asker's push of its half to it is refused, which nothing later needs.
 keys=$(for n in honest liar referee asker; do read -r id key < "$S/$n/ident"; printf '"%s":"%s",' "$id" "$key"; done)
-printf "export CAPSULES_PEER_KEYS='{%s}'\n" "${keys%,}" > "$S/liar/env"
-./node.sh stop liar && ./node.sh start liar && wait_up liar || exit 1
+for n in liar referee; do
+  printf "export CAPSULES_PEER_KEYS='{%s}'\n" "${keys%,}" > "$S/$n/env"
+  ./node.sh stop "$n" && ./node.sh start "$n" && wait_up "$n" || exit 1
+done
 
 echo
 echo "The mesh, as the asker sees it:"

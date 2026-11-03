@@ -26,9 +26,9 @@ L=$S/asker/data/ledger
 K=$(count_lines "$RUN/own.jsonl")
 
 # Each of the asker's own halves from step 7, with both digests of its exchange (the ask names them).
-jq -c --slurpfile own "$RUN/own.jsonl" '($own | map(.id)) as $ids | select(.capsule_id as $c | $ids | index($c))
-  | {id: .capsule_id, request: .effect.request_digest, answer: .effect.response_digest}' "$L/capsules.jsonl" > "$RUN/ask-halves.jsonl"
-[ "$(count_lines "$RUN/ask-halves.jsonl")" = "$K" ] || { echo "could not find the asker's $K halves in $L/capsules.jsonl"; exit 1; }
+chain_lines asker | jq -c --slurpfile own "$RUN/own.jsonl" '($own | map(.id)) as $ids | select(.capsule_id as $c | $ids | index($c))
+  | {id: .capsule_id, request: .effect.request_digest, answer: .effect.response_digest}' > "$RUN/ask-halves.jsonl"
+[ "$(count_lines "$RUN/ask-halves.jsonl")" = "$K" ] || { echo "could not find the asker's $K halves in the asker's chain"; exit 1; }
 
 # Does the asker sign what it sends? capsules signs only once its host has announced its key
 # (peer_keys.rs logs one of these three lines at start; anything else is "unknown").
@@ -185,10 +185,11 @@ esac
 # liar's records 07 paired with the asker's halves (by answer digest), and only when every one of
 # them is still there with a number; otherwise no claim about gaps at all.
 ok=0
-if jq -c --slurpfile run "$RUN/liar-ledger.jsonl" --slurpfile own "$RUN/own.jsonl" \
+if chain_lines liar > "$RUN/liar-chain-08.jsonl" \
+   && jq -c --slurpfile run "$RUN/liar-ledger.jsonl" --slurpfile own "$RUN/own.jsonl" \
      "(\$own | map(.answer)) as \$a | (\$run | map(select(.answer as \$x | \$a | index(\$x))) | map(.id)) as \$ids
       | select(.capsule_id as \$c | \$ids | index(\$c)) | {seq: $sp.seq, prev: $sp.prev_seq}" \
-     "$S/liar/data/ledger/capsules.jsonl" > "$RUN/liar-seq.jsonl" 2>/dev/null \
+     "$RUN/liar-chain-08.jsonl" > "$RUN/liar-seq.jsonl" 2>/dev/null \
    && [ "$(count_lines "$RUN/liar-seq.jsonl")" -eq "$logged" ] \
    && jq -se 'all(.[]; .seq | type == "number")' "$RUN/liar-seq.jsonl" > /dev/null; then ok=1; fi
 nums=$(jq -r '"\(.seq) (prev \(.prev // "none"))"' "$RUN/liar-seq.jsonl" 2>/dev/null | paste -sd, - | sed 's/,/, /g')

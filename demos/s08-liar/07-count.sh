@@ -16,14 +16,17 @@ MODEL=$(curl -fsS "http://127.0.0.1:$(console honest)/api/status" | jq -er '.mod
 
 served_by='.model_attestation.compute_attestation["x-mesh-poc-v1"].serving_provenance.served_by_node_id'
 # The asker's own halves of exchanges the liar served (not the records citing a received half).
-own()  { [ -f "$L/capsules.jsonl" ] && jq -c --arg id "$LIAR" "select($served_by == \$id and (.model_attestation.compute_attestation.received_half == null))
-  | {id: .capsule_id, answer: .effect.response_digest}" "$L/capsules.jsonl"; }
+own()  { chain_lines asker | jq -c --arg id "$LIAR" "select($served_by == \$id and (.model_attestation.compute_attestation.received_half == null))
+  | {id: .capsule_id, answer: .effect.response_digest}"; }
 held() { [ -f "$L/received-capsules.jsonl" ] && jq -c --arg id "$LIAR" ".capsule? // . | select($served_by == \$id) | {id: .capsule_id, answer: .effect.response_digest}" "$L/received-capsules.jsonl"; }
 lines() { count_lines "$1"; }
 # The liar's own ledger, on this same box: the cross-check that a half the asker lacks was never sealed
 # (and not merely late or lost on the way).
-LL=$S/liar/data/ledger/capsules.jsonl
-own > "$RUN/own-before.jsonl"; held > "$RUN/held-before.jsonl"; ll0=$(lines "$LL")
+# A failed read here would leave the "before" sets empty and count earlier runs as this one.
+own > "$RUN/own-before.jsonl" || { echo "could not read the asker's chain; run 07-count.sh again"; exit 1; }
+held > "$RUN/held-before.jsonl"
+liar_before=$(chain_lines liar) || { echo "could not read the liar's chain; run 07-count.sh again"; exit 1; }
+ll0=$(printf '%s\n' "$liar_before" | wc -l)
 r0=$(lines "$L/rejected-record-pushes.jsonl"); i0=$(lines "$L/received-inclusion.jsonl")
 
 for k in $(seq "$K"); do
@@ -55,8 +58,8 @@ held | new "$RUN/held-before.jsonl" > "$RUN/held.jsonl"
 
 # Without all of the liar's ledger there is no telling "left out" from "not pushed": stop rather than
 # guess on any read or parse error (a line still being written included; running 07 again is enough).
-[ -r "$LL" ] && tail -n +"$((ll0 + 1))" "$LL" | jq -c '{id: .capsule_id, answer: .effect.response_digest}' > "$RUN/liar-ledger.jsonl" \
-  || { echo "could not read the liar's ledger $LL; no count. Run 07-count.sh again."; exit 1; }
+chain_lines liar > "$RUN/liar-chain.jsonl" && tail -n +"$((ll0 + 1))" "$RUN/liar-chain.jsonl" | jq -c '{id: .capsule_id, answer: .effect.response_digest}' > "$RUN/liar-ledger.jsonl" \
+  || { echo "could not read the liar's chain; no count. Run 07-count.sh again."; exit 1; }
 rej=$(( $(lines "$L/rejected-record-pushes.jsonl") - r0 )); inc=$(( $(lines "$L/received-inclusion.jsonl") - i0 ))
 
 # One to one: each of the liar's halves (and each of its ledger records) pairs with at most one of the
@@ -93,7 +96,7 @@ fi
 echo "The liar's $kept pushed records all passed the asker's checks: its signature, the checkpoint it"
 echo "signed, and the inclusion proof under that checkpoint ($inc new in received-inclusion.jsonl, none"
 echo "refused). Its log is intact. It is just short. (On this box we can also open the liar's own ledger,"
-echo "$LL: it has no record of the other $omitted either.)"
+echo "its own chain: it has no record of the other $omitted either.)"
 echo
 if [ "$omitted" -gt 0 ]; then
   echo "RED: the liar served the asker $k exchanges and its log holds $kept."
