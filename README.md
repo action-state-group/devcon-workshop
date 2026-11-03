@@ -14,6 +14,8 @@ lets you:
 - start from a short Go program on the [evidencebook](https://github.com/action-state-group/evidencebook)
   SDK.
 
+New here? [WORKSHOP.md](WORKSHOP.md) walks through the workshop step by step, with screenshots.
+
 Inference runs on your CPU (Docker on a Mac has no GPU access). The image is about 3 GB (3.0 GiB on arm64, 3.1 GiB on amd64).
 
 ## Before the workshop
