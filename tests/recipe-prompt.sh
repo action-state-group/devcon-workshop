@@ -31,7 +31,7 @@ for s in 'payment is REAL' 'lightning invoice <conversation>' 'lightning receive
   has "$sim" "$s" && fail "simulated prompt has lexe text: $s"
 done
 # Prices and receipts are in msat in a lexe run (currency BTC: price_minor counts millisatoshi), in USD cents otherwise.
-for s in 'price_msat' '"currency": "BTC"' 'Sell my digital fox sticker for PRICE msat' 'MAX msat at most'; do
+for s in 'price_msat' '"currency": "BTC"' 'Sell my digital fox sticker for PRICE msat' 'MAX msat at most' '`price_minor` equals `price_msat`'; do
   has "$lexe" "$s" || fail "lexe prompt lacks: $s"
 done
 for s in '50 cents' 'price_cents' '"currency": "USD"'; do

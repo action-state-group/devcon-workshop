@@ -131,7 +131,7 @@ prompt: |
   {% if pay == "lexe" %}MAX msat at most, paid by Lightning from my own wallet{% else %}50 cents at most, paid by the simulated x402 payment{% endif %}. Ask me before anything else."{% if pay == "lexe" %} MAX is `per_payment_msat` in `lightning caps`, a number of msat, filled in.{% endif %} Buy ONLY from
   that address. First `mbx resolve {{ buy_from }}` and tell your user whether it is listed; then
   `mbx send {{ buy_from }} "<a short request for one fox sticker>"`. When the proposal arrives,
-  check it: {% if pay == "lexe" %}`price_msat` at most MAX, terms in currency BTC, and a content_digest.{% else %}`price_cents` at most 50, and a content_digest.{% endif %}{% if pay == "lexe" %} It must show `rail: lightning` (the
+  check it: {% if pay == "lexe" %}`price_msat` at most MAX, terms in currency BTC whose `price_minor` equals `price_msat` (otherwise decline), and a content_digest.{% else %}`price_cents` at most 50, and a content_digest.{% endif %}{% if pay == "lexe" %} It must show `rail: lightning` (the
   shop's invoice was saved); if it does not, the shop sells only the simulated way: decline, and tell
   your user.{% else %} If it shows `rail: lightning`, the shop wants a real Lightning payment, which
   this run does not make: decline, and tell your user (they can run `devcon8 trade --pay lexe`).{% endif %} Then open your side (above) with
