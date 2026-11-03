@@ -20,6 +20,8 @@ Inference runs on your CPU (Docker on a Mac has no GPU access). The image is abo
 
 You need Docker (Docker Desktop on macOS or Windows, Docker Engine on Linux) with at least **8 GB of
 memory** for the container (Docker Desktop: Settings > Resources) and about 6 GB of free disk.
+If you have both Colima and Docker Desktop: run `docker context ls`; if the starred context is colima, run `docker context use desktop-linux`.
+**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Docker picks the right one for `latest` and for the digest below.
 
 Pull the image ahead of time. Conference wifi is slow:
 
@@ -30,7 +32,7 @@ Pull the image ahead of time. Conference wifi is slow:
     docker pull ghcr.io/action-state-group/devcon-workshop@sha256:<digest>
 
 No network at the venue? USB sticks carry one tarball per architecture. Load the one that matches your
-laptop (`arm64` for Apple silicon, `amd64` for Intel and most Linux and Windows machines):
+laptop (`arm64` for Apple silicon, `amd64` for x86 Linux and Windows machines):
 
     docker load -i devcon-workshop-<tag>-arm64.tar
 
