@@ -1,10 +1,11 @@
 name: image
 
 # Builds the participant image natively for each architecture from versions.lock, runs the secret
-# scan (with its negative test) and the smoke tests, and on main publishes an immutable tag per
-# architecture plus a multi-arch manifest list, which a moving `latest` tag also points at:
+# scan (with its negative test) and the smoke tests. On main the `publish` job then pushes an immutable
+# tag per architecture plus a multi-arch manifest list, which a moving `latest` tag also points at:
 #   ghcr.io/action-state-group/devcon-workshop:YYYYMMDD-ml<lab commit>-cap<capsules version>-b<build>.<run>
-# Pull requests build and test only.
+# `publish` runs under the `image-release` environment and waits for a reviewer's approval, so a
+# push to main alone publishes nothing and never moves `latest`. Pull requests build and test only.
 
 on:
   pull_request:
@@ -166,28 +167,55 @@ jobs:
           [ "$code" = 200 ] || { echo "s08 asker /api/plugins through the published port: HTTP $code"; exit 1; }
           [ "$rc" = 0 ] || { echo "s08-ci exited $rc"; exit 1; }
 
-      - name: Push the per-architecture tag
+      # Nothing is published from here: the tested image is handed to the `publish` job, which waits
+      # for approval. The same bytes that passed the tests above are what gets pushed.
+      - name: Save the tested image for the publish job
         if: env.PUBLISH == 'true'
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          ref="$IMAGE:${{ needs.meta.outputs.tag }}-${{ matrix.arch }}"
-          if docker manifest inspect "$ref" >/dev/null 2>&1; then echo "$ref already exists"; exit 1; fi
-          docker tag devcon-workshop:ci "$ref"
-          docker push "$ref"
+          docker tag devcon-workshop:ci devcon-workshop:ci-${{ matrix.arch }}
+          docker save devcon-workshop:ci-${{ matrix.arch }} | gzip -1 > "$RUNNER_TEMP/image-${{ matrix.arch }}.tar.gz"
+      - name: Upload the tested image
+        if: env.PUBLISH == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.arch }}
+          path: ${{ runner.temp }}/image-${{ matrix.arch }}.tar.gz
+          retention-days: 3
+          compression-level: 0
 
-  manifest:
+  # The only job that writes to ghcr.io. It runs under the `image-release` environment, which has
+  # required reviewers: a push to main builds and tests but publishes nothing until a reviewer
+  # approves this job. `latest` moves only here (see "Publishing the image" in README.md).
+  publish:
     needs: [meta, build]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    environment: image-release
     permissions:
+      contents: read
       packages: write
     steps:
-      - name: Multi-arch manifest list
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: image-*
+          path: ${{ runner.temp }}/images
+          merge-multiple: true
+
+      - name: Push the per-architecture tags and the multi-arch manifest list
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           tag="${{ needs.meta.outputs.tag }}"
           if docker manifest inspect "$IMAGE:$tag" >/dev/null 2>&1; then echo "$IMAGE:$tag already exists"; exit 1; fi
-          # `latest` moves on every main publish (Ethan, 2026-11-02); the immutable tag and its digest stay the reproducible reference.
+          for arch in amd64 arm64; do
+            ref="$IMAGE:$tag-$arch"
+            if docker manifest inspect "$ref" >/dev/null 2>&1; then echo "$ref already exists"; exit 1; fi
+            gzip -dc "$RUNNER_TEMP/images/image-$arch.tar.gz" | docker load
+            got=$(docker image inspect "devcon-workshop:ci-$arch" --format '{{.Architecture}}')
+            [ "$got" = "$arch" ] || { echo "devcon-workshop:ci-$arch is $got"; exit 1; }
+            docker tag "devcon-workshop:ci-$arch" "$ref"
+            docker push "$ref"
+          done
+          # `latest` moves only on an approved publish; the immutable tag and its digest stay the reproducible reference.
           docker buildx imagetools create -t "$IMAGE:$tag" -t "$IMAGE:latest" "$IMAGE:$tag-amd64" "$IMAGE:$tag-arm64"
           docker buildx imagetools inspect "$IMAGE:$tag" | tee /tmp/inspect
           echo "### $IMAGE:$tag" >> "$GITHUB_STEP_SUMMARY"
