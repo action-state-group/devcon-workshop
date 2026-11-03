@@ -174,7 +174,7 @@ COPY agent/fixtures/sticker.png $D/agent/fixtures/sticker.png
 COPY agent/fixtures/x402/ $D/agent/fixtures/x402/
 COPY README.md $D/README.md
 COPY tests/goose-approve/ $D/tests/goose-approve/
-COPY tests/smoke.sh tests/console-relay-serve.sh tests/goose-approve.sh tests/sim-payment.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/fake_wallet.py tests/s08-ci.sh tests/mbx-net.sh $D/tests/
+COPY tests/smoke.sh tests/console-relay-serve.sh tests/goose-approve.sh tests/sim-payment.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/fake_wallet.py tests/s08-ci.sh tests/mbx-net.sh tests/recipe-prompt.sh $D/tests/
 # claude: the Claude Code CLI that claude-agent-acp's SDK bundles, so it ships once (package.json).
 RUN case "$TARGETARCH" in amd64) a=x64;; arm64) a=arm64;; esac \
     && ln -s "$D/npm/node_modules/@anthropic-ai/claude-agent-sdk-linux-$a/claude" $D/bin/claude
