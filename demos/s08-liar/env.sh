@@ -53,7 +53,7 @@ demo_listening() {
   if command -v ss >/dev/null 2>&1; then ss -ltn | grep -E ':96([02][1-4]|1[1-4]) '
   else lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -E ':96([02][1-4]|1[1-4]) '; fi
 }
-file_size() { stat -c %s "$1" 2>/dev/null || stat -f %z "$1"; }
+file_size() { stat -L -c %s "$1" 2>/dev/null || stat -L -f %z "$1"; }
 proc_cwd() { readlink "/proc/$1/cwd" 2>/dev/null || lsof -a -d cwd -p "$1" -Fn 2>/dev/null | sed -n 's/^n//p'; }
 count_lines() { if [ -f "$1" ]; then echo $(( $(wc -l < "$1") )); else echo 0; fi; }
 # The single-run lock on fd 9 (01-start.sh): flock(1) on Linux, the same flock(2) through perl on macOS.
