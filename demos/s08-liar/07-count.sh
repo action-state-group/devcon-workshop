@@ -26,7 +26,7 @@ lines() { count_lines "$1"; }
 own > "$RUN/own-before.jsonl" || { echo "could not read the asker's chain; run 07-count.sh again"; exit 1; }
 held > "$RUN/held-before.jsonl"
 liar_before=$(chain_lines liar) || { echo "could not read the liar's chain; run 07-count.sh again"; exit 1; }
-ll0=$(printf '%s\n' "$liar_before" | wc -l)
+ll0=$(printf '%s' "$liar_before" | grep -c '')
 r0=$(lines "$L/rejected-record-pushes.jsonl"); i0=$(lines "$L/received-inclusion.jsonl")
 
 for k in $(seq "$K"); do
