@@ -8,7 +8,7 @@
 # confirmed it holds no record of. RED comes only from verified answers; nothing here ever calls
 # the log complete.
 # The signed request needs a host that announces plugin keys: the cast and attendees run the
-# unreleased mesh-llm lab build 1aba71da6da562b259ad0696210d7fc7b932ac02 with capsules 0.1.14 (env.sh), so 08's RED reproduces
+# unreleased mesh-llm lab build 1aba71da6da562b259ad0696210d7fc7b932ac02 with capsules 0.1.15 (env.sh), so 08's RED reproduces
 # for everyone on those pins. On a host that announces none, such as
 # mesh-llm 0.78.1, the asker cannot sign and the liar refuses every ask; then 08 says so and prints
 # no RED (the fallback).
