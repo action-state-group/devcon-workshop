@@ -55,37 +55,41 @@ The stick holds these three files in its top folder (no subfolders):
     SHA256SUMS
 
 `docker run` cannot read a tarball: copy the one file for your laptop, check it, `docker load` it, then
-run the loaded tag. Each tarball is about 1.9 GB; loading takes 1 to 3 minutes and prints nothing until
-the `Loaded image:` line. Docker must be running.
+run the loaded tag. Each tarball is about 1.9 GB; loading takes 1 to 3 minutes and may print nothing until
+the `Loaded image:` line (or shows only layer progress bars). Docker must be running. Do steps 1 to 5 in
+one terminal window, since step 1 sets `A`; if you open a new window, set `A` again.
 
-**1. Pick your file.** Apple-silicon Mac: `arm64`. Windows or x86 Linux: `amd64`. Check yourself:
+**1. Pick your file.** Any Mac (Apple silicon): `arm64`, even if `uname -m` says `x86_64` in a terminal opened with Rosetta. Windows or x86 Linux: `amd64`. Check yourself:
 `uname -m` prints `arm64` or `aarch64` (use `arm64`) or `x86_64` (use `amd64`); in Windows PowerShell,
 `$env:PROCESSOR_ARCHITECTURE` prints `AMD64` (use `amd64`) or `ARM64` (use `arm64`). Intel Macs are not supported.
 
 **2. Copy it from the stick into a folder on your laptop** (set `A` to your arch first):
 
-macOS (the stick appears under `/Volumes`; `ls /Volumes` shows its name):
+macOS (the stick appears under `/Volumes`; `ls /Volumes` shows its name, for example `NO NAME`: replace STICKNAME
+with it and keep the quotes):
 
     A=arm64
-    mkdir -p ~/devcon8-usb && cp /Volumes/<STICK NAME>/devcon-workshop-*-$A.tar /Volumes/<STICK NAME>/SHA256SUMS ~/devcon8-usb/ && cd ~/devcon8-usb
+    cd "/Volumes/STICKNAME" && mkdir -p ~/devcon8-usb && cp devcon-workshop-*-$A.tar SHA256SUMS ~/devcon8-usb/ && cd ~/devcon8-usb
 
-Linux (`ls /media/$USER` or `ls /run/media/$USER` shows the stick):
+Linux (`ls /media/$USER` shows the stick; on Fedora and Arch use `/run/media/$USER` in its place):
 
     A=amd64
-    mkdir -p ~/devcon8-usb && cp /media/$USER/<STICK NAME>/devcon-workshop-*-$A.tar /media/$USER/<STICK NAME>/SHA256SUMS ~/devcon8-usb/ && cd ~/devcon8-usb
+    cd "/media/$USER/STICKNAME" && mkdir -p ~/devcon8-usb && cp devcon-workshop-*-$A.tar SHA256SUMS ~/devcon8-usb/ && cd ~/devcon8-usb
 
 Windows PowerShell (the stick has a drive letter, for example `E:`):
 
     $A = "amd64"
-    mkdir $HOME\devcon8-usb; copy "E:\devcon-workshop-*-$A.tar","E:\SHA256SUMS" $HOME\devcon8-usb; cd $HOME\devcon8-usb
+    mkdir -Force $HOME\devcon8-usb; copy "E:\devcon-workshop-*-$A.tar","E:\SHA256SUMS" $HOME\devcon8-usb; cd $HOME\devcon8-usb
 
 **3. Check the file.** macOS (reads only your arch's line from `SHA256SUMS`; it must print `OK`):
 
     grep -e "-$A.tar" SHA256SUMS | shasum -a 256 -c
 
-Linux: the same with `sha256sum -c` in place of `shasum -a 256 -c`. Windows: run
-`Get-FileHash -Algorithm SHA256 devcon-workshop-*-$A.tar` and compare its hash with the same file's line in `SHA256SUMS`.
-Not `OK` (or a different hash): the copy is incomplete, copy it again.
+Linux: the same with `sha256sum -c` in place of `shasum -a 256 -c`. Windows: this prints `True` when the file is intact:
+
+    (Get-FileHash devcon-workshop-*-$A.tar).Hash -eq (Select-String "-$A.tar" SHA256SUMS).Line.Split(' ')[0]
+
+Not `OK` (or `False`): the copy is incomplete, copy it again.
 
 **4. Load it.** `docker load -i` takes the file name (the `*` fills in the tag):
 
