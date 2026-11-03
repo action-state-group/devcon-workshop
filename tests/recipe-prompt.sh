@@ -8,16 +8,16 @@
 #  2. what a claude-acp session actually sends: goose runs against a local stand-in for the Anthropic
 #     API that records the requests, and the recorded text holds the lexe branch.
 # Run inside the image: docker run --rm IMAGE /opt/devcon8/tests/recipe-prompt.sh
+# shellcheck disable=SC2016  # backticks are literal text in the prompt
 set -euo pipefail
 D=${D:-/opt/devcon8}
 R=$D/agent/recipes/trader.yaml
 fail() { echo "FAIL $*" >&2; exit 1; }
 render() { goose run --recipe "$R" --render-recipe --params "pay=$1" ${2:+--params "buy_from=$2"}; }
-has() { grep -qF -- "$2" <<<"$1"; }
+has() { tr -s " \n" "  " <<<"$1" | grep -qF -- "$2"; }  # whitespace-normalised: the prompt wraps lines
 
 lexe=$(render lexe); sim=$(render simulated); buyer=$(render lexe shop@agentboxnanda.org)
 if grep -q '^instructions:' <<<"$lexe"; then fail "the protocol is in 'instructions', which ACP providers drop"; fi
-# shellcheck disable=SC2016  # backticks are literal text in the prompt
 for s in 'payment is REAL' 'AS THE SELLER' 'lightning invoice <conversation>' 'with `--invoice`' 'lightning receive'; do
   has "$lexe" "$s" || fail "lexe prompt lacks: $s"
 done
@@ -30,13 +30,19 @@ done
 for s in 'payment is REAL' 'lightning invoice <conversation>' 'lightning receive <conversation>'; do
   has "$sim" "$s" && fail "simulated prompt has lexe text: $s"
 done
-has "$buyer" 'lightning pay <conversation>' || fail "lexe buyer prompt lacks lightning pay"
-has "$buyer" 'shop@agentboxnanda.org' || fail "buyer prompt lacks the shop address"
+has "$buyer" 'Then start the purchase from shop@agentboxnanda.org' || fail "buyer prompt lacks its start line"
+has "$buyer" 'Your user asked you to buy from shop@agentboxnanda.org' || fail "buyer prompt lacks the shop address"
+has "$buyer" 'rail: lightning' || fail "lexe buyer prompt lacks the Lightning pay check"
+for s in 'Then start the purchase from' 'Your user asked you to buy from'; do
+  has "$lexe" "$s" && fail "seller prompt has the buyer text: $s"
+done
+has "$lexe" 'Then wait for buyers with `mbx wait`' || fail "seller prompt lacks its start line"
+has "$buyer" 'Then wait for buyers with' && fail "buyer prompt has the seller start line"
 echo "ok   rendered recipe: lexe and simulated prompts carry their own payment branch"
 
 # What the model is sent through claude-acp (needs the non-root user: Claude Code refuses
-# bypassPermissions as root). Skipped where the image has no claude-acp provider.
-goose run --help >/dev/null 2>&1 || exit 0
+# bypassPermissions as root). Skipped where the image has no claude-acp adapter.
+command -v claude-agent-acp >/dev/null 2>&1 || { echo "skip claude-acp: no claude-agent-acp in this image"; exit 0; }
 T=$(mktemp -d)
 cat > "$T/cap.py" <<'PY'
 import sys
