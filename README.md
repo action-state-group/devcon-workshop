@@ -50,16 +50,17 @@ The console is on port 3141 because Buzz Desktop uses 3131. Inside the container
 
 The stick holds these three files in its top folder (no subfolders):
 
-    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64.tar    Apple-silicon Macs, arm64 Linux
+    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
     devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-amd64.tar    Windows and x86 Linux
     SHA256SUMS
 
 `docker run` cannot read a tarball: copy the one file for your laptop, check it, `docker load` it, then
 run the loaded tag. Each tarball is about 1.9 GB; loading takes 1 to 3 minutes and may print nothing until
-the `Loaded image:` line (or shows only layer progress bars). Docker must be running. Do steps 1 to 5 in
+the `Loaded image:` line (or shows only layer progress bars). Docker must be running. You need about 4 GB free
+disk for the copy plus the loaded image (`devcon8 doctor` only checks disk after the load). Do steps 1 to 5 in
 one terminal window, since step 1 sets `A`; if you open a new window, set `A` again.
 
-**1. Pick your file.** Any Mac (Apple silicon): `arm64`, even if `uname -m` says `x86_64` in a terminal opened with Rosetta. Windows or x86 Linux: `amd64`. Check yourself:
+**1. Pick your file.** Apple-silicon Mac: `arm64` (always, even if `uname -m` says `x86_64` in a terminal opened with Rosetta). Windows or x86 Linux: `amd64`. Check yourself:
 `uname -m` prints `arm64` or `aarch64` (use `arm64`) or `x86_64` (use `amd64`); in Windows PowerShell,
 `$env:PROCESSOR_ARCHITECTURE` prints `AMD64` (use `amd64`) or `ARM64` (use `arm64`). Intel Macs are not supported.
 
