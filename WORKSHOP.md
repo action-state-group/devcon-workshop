@@ -281,6 +281,8 @@ never made, or say it has none. It says:
 | Lie 1 | Served Q4, signed "Q8" | The signature is real; the false claim is inside it | The **twin**: same request, same claimed weights, temperature 0, different words. The **referee**: a third node reproduces one twin; its signed verdict says `CONTRADICTED` for the liar |
 | Lie 2 | Answered 6, logged 3 | The 3 records it kept are chained and checkpointed; nothing inside its log is missing | The **asker's own half**: the asker sealed every exchange on its side. A **signed evidence request** for each one returns the liar's signed "no record", which is now on file against the asker's sealed half |
 
+Everything in S08 is a **free** exchange. Nothing is paid, and the twin check, the referee and the evidence request judge it all the same. A record exists because an exchange happened, not because it was paid for. Payment adds settlement legs to the record. It doesn't decide whether the exchange can be checked.
+
 Both catches work the same way: **each side seals its own half.** The asker never has to trust the
 liar's log, because it keeps its own record. For every claim the liar makes, there is now an
 independent signed record or a signed statement. For lie 1, that's the referee's verdict. For lie 2,
@@ -335,8 +337,9 @@ against a signed checkpoint, for that peer to check its own count against:
 curl -s "http://127.0.0.1:9614/api/plugins/capsules/http/settlement-bundle?peer=<peer id>"
 ```
 
-S08 is free, so nothing is paid and all three answer with a refusal. That is the correct answer: with
-no payment, there is nothing to receipt.
+S08 is free, so nothing is paid and the receipt and settlement routes answer with a refusal. That is
+the correct answer: with no payment, there is nothing to receipt. The free exchanges are still on the
+record, still checked, and still in the history above.
 
 ```
 {"state":"refused","why":"this node holds no deal for that exchange"}
