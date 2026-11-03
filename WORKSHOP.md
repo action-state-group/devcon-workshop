@@ -75,7 +75,7 @@ docker rm -f devcon8 ; docker run -it --pull never --name devcon8 -v devcon8-hom
 - `--pull never` stops Docker from going to the network. If you get `No such image`, the image
   is not loaded or pulled yet; go back one step.
 - The `docker rm -f devcon8` at the front clears an old container of that name. Your state is on the
-  `devcon8-home` volume and survives it.
+  `devcon8-home` volume and survives it. On a first run it prints `No such container`; that is normal.
 - `port is already allocated`: something else on your laptop uses 3141, 8080 or 9611–9614. Quit it,
   or change the left-hand number (for example `-p 127.0.0.1:3151:3132`, then use port 3151 below).
 
@@ -84,7 +84,8 @@ You get a shell inside the container. Run `devcon8 doctor`. It should say `DO_NO
 
 **Keep this shell open.** Typing `exit` stops the container and every node in it, and the console
 stops answering. To step away, press `Ctrl-P` then `Ctrl-Q`. To come back later, run
-`docker start -ai devcon8`.
+`docker start -ai devcon8`. A serving node you started by hand in section 2 does not come back by
+itself: run its four lines again.
 
 ## 2. Join the real mesh as a serving node
 
@@ -347,7 +348,7 @@ record, still checked, and still in the history above.
 {"state":"refused","why":"this node holds no terminal settlement record for an exchange with that peer"}
 ```
 
-To see what a paid one looks like, run `devcon8 s02` and open **http://127.0.0.1:8080/settlement-record.html**.
+To see what a paid one looks like, run `devcon8 s02` (it keeps the shell until you press Ctrl-C) and open **http://127.0.0.1:8080/settlement-record.html**.
 It shows one real Lightning payment between two demo nodes, Shockley paying Brattain 1,000 msat
 (995 received, 5 msat fee), as two signed halves under two keys. Your browser checks both, offline.
 Each side signed only what it saw, and the page derives the payment state from the two legs.
