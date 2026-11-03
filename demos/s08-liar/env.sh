@@ -55,6 +55,13 @@ demo_listening() {
 }
 file_size() { stat -L -c %s "$1" 2>/dev/null || stat -L -f %z "$1"; }
 proc_cwd() { readlink "/proc/$1/cwd" 2>/dev/null || lsof -a -d cwd -p "$1" -Fn 2>/dev/null | sed -n 's/^n//p'; }
+# A node's chain, one record per line. From capsules 0.1.11 it lives on the node's shelf
+# (ledger/shelf.db), which `capsules chain-lines` reads without stopping the node or taking its
+# writer lock; earlier releases keep it in ledger/capsules.jsonl.
+chain_lines() {
+  if [ -f "$S/$1/data/ledger/capsules.jsonl" ]; then cat "$S/$1/data/ledger/capsules.jsonl"; return; fi
+  "$S/$1/home/.mesh-llm/plugins/installed/capsules/capsules" chain-lines --data-dir "$S/$1/data"
+}
 count_lines() { if [ -f "$1" ]; then echo $(( $(wc -l < "$1") )); else echo 0; fi; }
 # The single-run lock on fd 9 (01-start.sh): flock(1) on Linux, the same flock(2) through perl on macOS.
 lock_fd9() {
