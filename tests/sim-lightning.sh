@@ -86,7 +86,8 @@ a=$(deal note --deal "$ID" --kind act --input act.json)
 report=$(deal report --deal "$ID")
 [ "$(jq -r .money.text <<<"$report")" = "Paid 500000 msat, returned 0 msat: net 500000 msat." ] || { jq .money <<<"$report"; fail "the buyer's receipt does not state the payment in msat"; }
 deal report --deal "$ID" --html "$HOME/receipt.html" >/dev/null
-grep -aq 'Paid 500000 msat' "$HOME/receipt.html" && ! grep -aq 'Paid \$' "$HOME/receipt.html" || fail "the buyer's rendered receipt does not read in msat"
+grep -aq 'Paid 500000 msat' "$HOME/receipt.html" || fail "the buyer's rendered receipt does not read in msat"
+if grep -aq 'Paid \$' "$HOME/receipt.html"; then fail "the buyer's rendered receipt still reads a dollar amount"; fi
 
 # Seller: the payment settled in its wallet; seal it, then the delivery.
 export HOME=$T/seller; cd "$HOME"
