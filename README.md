@@ -32,7 +32,7 @@ Pull the image ahead of time. Conference wifi is slow:
     docker pull ghcr.io/action-state-group/devcon-workshop@sha256:<digest>
 
 No network at the venue? USB sticks carry one tarball per architecture. Load the one that matches your
-laptop (`arm64` for Apple silicon, `amd64` for Intel and most Linux and Windows machines):
+laptop (`arm64` for Apple silicon, `amd64` for x86 Linux and Windows machines):
 
     docker load -i devcon-workshop-<tag>-arm64.tar
 
