@@ -29,7 +29,7 @@ Pull the image ahead of time. Conference wifi is slow:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
 
-`latest` moves on every build from main. For a reproducible pull, use the immutable tag and digest announced for the workshop:
+`latest` moves only when a maintainer approves a publish of a tested build from main. For a reproducible pull, use the immutable tag and digest announced for the workshop:
 
     docker pull ghcr.io/action-state-group/devcon-workshop@sha256:<digest>
 
@@ -266,3 +266,13 @@ The buyer's signed terms leg is written by `capsulectl deal terms-leg`
 the buyer's own deal key.
 
 Build it yourself: `docker buildx build --platform linux/arm64 -t devcon-workshop .` (about an hour).
+
+## Publishing the image (maintainers)
+
+A push to `main` builds the image and runs every test, then stops: the `publish` job in
+`.github/workflows/image.yml` waits for approval under the `image-release` environment (Settings, Environments;
+required reviewers ethanyzhang and StevenMih, either one suffices; administrators cannot bypass). Open the run in the Actions tab, choose "Review deployments", select
+`image-release` and approve. Only then are the per-architecture tags, the multi-arch tag and `latest` pushed,
+from the same image bytes the tests ran against. Rejecting the run publishes nothing, and `latest`
+stays where it was. Reject a run you will not publish: publishes are serialized, so an unanswered approval holds back every later one. Approve within 14 days: the tested images are kept as run artifacts that long, and after that
+the run must be rebuilt. This workflow moves `latest` only from the approved `publish` job.
