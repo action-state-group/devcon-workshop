@@ -26,15 +26,15 @@ export DO_NOT_TRACK=1   # mesh-llm sends no usage reports from any demo node (in
 # unreleased mesh-llm lab build 1aba71da6 (mesh-llm main 000440ffa plus Mesh-LLM/mesh-llm#2620,
 # #2649, #2721, #2741, #2744, #2748 and #2760, squashed one commit per PR on the fork's
 # lab/asg-2026-11-01; its host announces each node's plugin key, plugin_keys.v1, #2299, which step 8
-# needs; a lab build, not an official mesh-llm release), and capsules 0.1.10 (it accepts a signed
+# needs; a lab build, not an official mesh-llm release), and capsules 0.1.14 (it accepts a signed
 # request by the key that signed it, Mesh-LLM/capsules-plugin#77, since 0.1.6).
 MESH_SOURCE=1aba71da6da562b259ad0696210d7fc7b932ac02
 MESH_LLM=$S/bin-lab/mesh-llm                              # the image links this to its own lab build
-CAPSULES_VERSION=0.1.10
-CAPSULES_ARCHIVE=$S/dist/capsules-0.1.10-$TARGET.tar.gz   # capsules 0.1.10, the release
+CAPSULES_VERSION=0.1.14
+CAPSULES_ARCHIVE=$S/dist/capsules-0.1.14-$TARGET.tar.gz   # capsules 0.1.14, the release
 # The liar alone runs capsules plus redteam/selective-log.patch (built by the image's Dockerfile, never released).
 # It behaves exactly like the release until OMIT_TOGGLE exists; then it seals every second exchange it serves.
-CAPSULES_RED_ARCHIVE=$S/dist/capsules-0.1.10-selective-log-$TARGET.tar.gz
+CAPSULES_RED_ARCHIVE=$S/dist/capsules-0.1.14-selective-log-$TARGET.tar.gz
 RECONCILE=$S/bin-tools/reconcile-asked   # reconcile/, built against evidencebook (step 8)
 OMIT_TOGGLE=$S/liar/selective-log.on
 

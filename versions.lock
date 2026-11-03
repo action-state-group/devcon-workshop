@@ -11,12 +11,12 @@ MESH_LLM_REPO=https://github.com/ethanyzhang/mesh-llm
 MESH_LLM_SHA=1aba71da6da562b259ad0696210d7fc7b932ac02
 MESH_LLM_VERSION=0.78.0
 JUST_VERSION=1.59.0
-# capsules: release v0.1.10 (tag v0.1.10 = 41e0d60: 0.1.9 plus the referee fix capsules-plugin#222; ships capsule-viewer 0.9.0). The image never sets
+# capsules: release v0.1.14 (tag v0.1.14 = 0c0f772: the shared History view, capsules-plugin#256, and the referee split-margin threshold as a setting, default 0, #258; with the default the S08 referee rules contradicted:<liar> again). The image never sets
 # CAPSULES_ADMISSION_PROFILE, so #165's admission price rule stays off.
-CAPSULES_COMMIT=41e0d603772a2ce7becef5b7d3e0a713f43d7040
-CAPSULES_VERSION=0.1.10
-CAPSULES_SHA256_AMD64=332e07b28f94393d3442efba72b9c5357e69ea95a16d64d3f5957ccac7aad2ee
-CAPSULES_SHA256_ARM64=087c2e0556b43a0d7d4106f831c21acfb955f7fb1f10c853f9d578eecd39c81e
+CAPSULES_COMMIT=0c0f772321a07c83177f051f1181285225179445
+CAPSULES_VERSION=0.1.14
+CAPSULES_SHA256_AMD64=55e8e012589faa132ae9ef93506b2b4d9ccdbe9e75c5f8b3654b3a694d948433
+CAPSULES_SHA256_ARM64=baeb3cef0a3297ade452d3dd2547a5305a354c50f7732d22a3a57e064b28d476
 CAPSULES_REPO=https://github.com/Mesh-LLM/capsules-plugin
 RUST_TOOLCHAIN=1.97.1
 

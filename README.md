@@ -236,7 +236,7 @@ for both architectures, from the lab commit the demo nodes run, so its bytes are
 own; the capsules plugin is its published release file, checked by sha256, and the lexe-wallet
 plugin is built from commit `9f830c1` of `ethanyzhang/lexe-wallet-plugin` (compare by commit). The image
 labels name these commits (`dev.actionstate.mesh-llm` = `1aba71da6da562b259ad0696210d7fc7b932ac02`,
-`dev.actionstate.capsules` = `0.1.10 41e0d603772a2ce7becef5b7d3e0a713f43d7040`,
+`dev.actionstate.capsules` = `0.1.14 0c0f772321a07c83177f051f1181285225179445`,
 `dev.actionstate.lexe-wallet` = `v0.1.0 9f830c181b4042a81069df50752cf19d035a5047`), and
 `/opt/devcon8/MANIFEST` gives the sha256 of the image's own mesh-llm.
 
@@ -251,9 +251,9 @@ The image builds the same commit with the same recipes, but its bytes are its ow
 | | |
 |---|---|
 | mesh-llm | lab build `1aba71d` of `ethanyzhang/mesh-llm`: Mesh-LLM/mesh-llm main `000440f` plus open PRs [#2620](https://github.com/Mesh-LLM/mesh-llm/pull/2620), [#2649](https://github.com/Mesh-LLM/mesh-llm/pull/2649), [#2721](https://github.com/Mesh-LLM/mesh-llm/pull/2721), [#2741](https://github.com/Mesh-LLM/mesh-llm/pull/2741), [#2744](https://github.com/Mesh-LLM/mesh-llm/pull/2744), [#2748](https://github.com/Mesh-LLM/mesh-llm/pull/2748) and [#2760](https://github.com/Mesh-LLM/mesh-llm/pull/2760). CPU runtime |
-| capsules plugin | `v0.1.10` (carries capsule-viewer 0.9.0) |
+| capsules plugin | `v0.1.14` (the shared History view; referee split-margin threshold 0, the default) |
 | lexe-wallet plugin | built here from [lexe-wallet-plugin#7](https://github.com/Mesh-LLM/lexe-wallet-plugin/pull/7) (`feat/settled-preimage`, commit `9f830c1`), which reports a settled payment's preimage |
-| S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.10 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook v0.12.2 |
+| S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.14 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook v0.12.2 |
 | capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc32` releases (deal carries `capsulectl deal terms-leg` and seals a Lightning payment received) |
 | goose (built from its v1.57.0 commit plus `patches/`, aaif-goose/goose#13273), Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
 | evidencebook Go SDK | v0.12.2, Go 1.27 |
