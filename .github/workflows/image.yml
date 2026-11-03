@@ -17,7 +17,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: image-${{ github.ref }}
+  # A main run parked on the publish approval must not hold back later pushes: only PR runs share a group.
+  group: image-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -68,7 +69,6 @@ jobs:
     timeout-minutes: 240
     permissions:
       contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -180,7 +180,7 @@ jobs:
         with:
           name: image-${{ matrix.arch }}
           path: ${{ runner.temp }}/image-${{ matrix.arch }}.tar.gz
-          retention-days: 3
+          retention-days: 14
           compression-level: 0
 
   # The only job that writes to ghcr.io. It runs under the `image-release` environment, which has
@@ -191,6 +191,9 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     environment: image-release
+    concurrency:
+      group: image-release
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: write
@@ -206,12 +209,18 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           tag="${{ needs.meta.outputs.tag }}"
           if docker manifest inspect "$IMAGE:$tag" >/dev/null 2>&1; then echo "$IMAGE:$tag already exists"; exit 1; fi
+          # Load and check both images before pushing anything, so a bad artifact leaves nothing half-published.
           for arch in amd64 arm64; do
-            ref="$IMAGE:$tag-$arch"
-            if docker manifest inspect "$ref" >/dev/null 2>&1; then echo "$ref already exists"; exit 1; fi
             gzip -dc "$RUNNER_TEMP/images/image-$arch.tar.gz" | docker load
+            rm -f "$RUNNER_TEMP/images/image-$arch.tar.gz"
             got=$(docker image inspect "devcon-workshop:ci-$arch" --format '{{.Architecture}}')
             [ "$got" = "$arch" ] || { echo "devcon-workshop:ci-$arch is $got"; exit 1; }
+          done
+          # A per-arch tag left by an earlier attempt of this same run holds the same bytes (the tag is unique
+          # to the run), so a re-run skips it and finishes the manifest; only the multi-arch tag means "published".
+          for arch in amd64 arm64; do
+            ref="$IMAGE:$tag-$arch"
+            if docker manifest inspect "$ref" >/dev/null 2>&1; then echo "$ref already pushed"; continue; fi
             docker tag "devcon-workshop:ci-$arch" "$ref"
             docker push "$ref"
           done

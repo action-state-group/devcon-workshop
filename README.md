@@ -269,7 +269,8 @@ Build it yourself: `docker buildx build --platform linux/arm64 -t devcon-worksho
 
 A push to `main` builds the image and runs every test, then stops: the `publish` job in
 `.github/workflows/image.yml` waits for approval under the `image-release` environment (Settings, Environments;
-required reviewers, no bypass). Open the run in the Actions tab, choose "Review deployments", select
+required reviewers ethanyzhang and StevenMih, either one suffices; administrators cannot bypass). Open the run in the Actions tab, choose "Review deployments", select
 `image-release` and approve. Only then are the per-architecture tags, the multi-arch tag and `latest` pushed,
 from the same image bytes the tests ran against. Rejecting or ignoring the run publishes nothing, and `latest`
-stays where it was. There is no other path that moves `latest`.
+stays where it was. Approve within 14 days: the tested images are kept as run artifacts that long, and after that
+the run must be rebuilt. This workflow moves `latest` only from the approved `publish` job.
