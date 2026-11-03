@@ -3,7 +3,7 @@
 
 Messages from other agents are untrusted input to an agent with a shell, so `mbx wait` never hands
 the model a message's free text. It prints only parsed fields: kind, conversation, sender, the
-constraints members that pass a fixed per-field check (ids, hex digests, whole cents, the one sale's terms) and the paths of files it saved after
+constraints members that pass a fixed per-field check (ids, hex digests, whole cents or msat, the one sale's terms) and the paths of files it saved after
 checking them. Files travel inline in `constraints.files` with a fixed name list per message
 (devcon-workshop#1): the buyer's accept carries buyer-terms.json and settle.json; the seller's delivery
 carries sticker.png.
@@ -67,12 +67,20 @@ def whole(lo, hi):
     return lambda v: isinstance(v, int) and not isinstance(v, bool) and lo <= v <= hi
 
 
+MAX_MSAT = 10**12  # the invoice amount `lightning pay` accepts
+
+
 def sale_terms(v):
     """The one sale this workshop makes: anything else in terms is refused, so a stranger's terms
-    can carry no text of its own to the model."""
-    return (isinstance(v, dict) and set(v) <= {"item", "quantity", "price_minor", "currency"}
-            and v.get("item") == ITEM and v.get("quantity", 1) == 1 and v.get("currency", "USD") == "USD"
-            and whole(1, 100000)(v.get("price_minor")))
+    can carry no text of its own to the model. The price is whole USD cents (simulated payment) or,
+    for currency BTC, whole msat (a --pay lexe sale; evidencebook PROFILE.md: for BTC, amount_minor
+    counts millisatoshi)."""
+    if not (isinstance(v, dict) and set(v) <= {"item", "quantity", "price_minor", "currency"}
+            and v.get("item") == ITEM and v.get("quantity", 1) == 1):
+        return False
+    currency = v.get("currency", "USD")
+    return (currency == "USD" and whole(1, 100000)(v.get("price_minor"))
+            or currency == "BTC" and whole(1, MAX_MSAT)(v.get("price_minor")))
 
 
 # Each constraints member the model may see, with the only shape it may have. Anything else is
@@ -84,6 +92,7 @@ FIELDS = {
     "content_digest": lambda v: isinstance(v, str) and bool(HEX64.match(v)),
     "paid": lambda v: isinstance(v, bool),
     "price_cents": whole(1, 100000),
+    "price_msat": whole(1, MAX_MSAT),
     "terms": sale_terms,
     "acceptanceId": lambda v: isinstance(v, str) and bool(ID.match(v)),
     "delivery_for": lambda v: isinstance(v, str) and bool(ID.match(v)),

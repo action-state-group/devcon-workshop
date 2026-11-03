@@ -30,6 +30,19 @@ done
 for s in 'payment is REAL' 'lightning invoice <conversation>' 'lightning receive <conversation>'; do
   has "$sim" "$s" && fail "simulated prompt has lexe text: $s"
 done
+# Prices and receipts are in msat in a lexe run (currency BTC: price_minor counts millisatoshi), in USD cents otherwise.
+for s in 'price_msat' '"currency": "BTC"' 'Sell my digital fox sticker for PRICE msat' 'MAX msat at most'; do
+  has "$lexe" "$s" || fail "lexe prompt lacks: $s"
+done
+for s in '50 cents' 'price_cents' '"currency": "USD"'; do
+  has "$lexe" "$s" && fail "lexe prompt still states USD cents: $s"
+done
+for s in '50 cents' 'price_cents' '"currency": "USD"'; do
+  has "$sim" "$s" || fail "simulated prompt lacks: $s"
+done
+for s in 'price_msat' '"currency": "BTC"' 'PRICE msat'; do
+  has "$sim" "$s" && fail "simulated prompt has msat text: $s"
+done
 has "$buyer" 'Then start the purchase from shop@agentboxnanda.org' || fail "buyer prompt lacks its start line"
 has "$buyer" 'Your user asked you to buy from shop@agentboxnanda.org' || fail "buyer prompt lacks the shop address"
 has "$buyer" 'rail: lightning' || fail "lexe buyer prompt lacks the Lightning pay check"
