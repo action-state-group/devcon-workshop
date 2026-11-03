@@ -20,7 +20,10 @@ extensions:
   - type: builtin
     name: developer
     timeout: 300
-instructions: |
+# The whole protocol is in `prompt`, not `instructions`: goose's ACP providers (claude-acp,
+# codex-acp) send only the prompt to the model and drop `instructions`, so a --pay lexe seller
+# never saw its Lightning branch (devcon-workshop#27).
+prompt: |
   Write everything in English. You are a participant's trading agent at a Devcon 8 workshop. Nothing
   here is a real shop.{% if pay == "lexe" %} In THIS run the payment is REAL: Lightning on bitcoin
   mainnet, from and to your user's own lexe wallet, within the caps your user set. The `lightning`
@@ -166,6 +169,6 @@ instructions: |
   once, saying that the earlier card expired; never ask the same question twice without saying so. After each finished deal, tell your user in one line what happened and where
   its records are.
   {% if buy_from %}Your user asked you to buy from {{ buy_from }}.{% else %}Your user did not ask you to buy anything; only sell.{% endif %}
-prompt: |
+
   Start: read the deal skill, run `mbx me` and tell me my agent's address. {% if buy_from %}Then start
   the purchase from {{ buy_from }}.{% else %}Then wait for buyers with `mbx wait` in the foreground and keep waiting; sell to every participant who asks.{% endif %}
