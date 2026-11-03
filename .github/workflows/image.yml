@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/goose-approve.sh tests/sim-payment.sh tests/s08-ci.sh tests/mbx-net.sh tests/test_nanda.sh tests/test_trade_protocol.sh tests/sim-buyer.sh tests/sim-lightning.sh build/fetch.sh build/usb.sh
+        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/goose-approve.sh tests/sim-payment.sh tests/s08-ci.sh tests/mbx-net.sh tests/test_nanda.sh tests/test_trade_protocol.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/recipe-prompt.sh build/fetch.sh build/usb.sh
       - name: mbx unit tests
         run: python3 -I tests/test_mbx.py
       - name: lightning unit tests (fake wallet API, no money moves)
@@ -136,6 +136,9 @@ jobs:
 
       - name: Lightning payment against a fake wallet (caps, paused pay, payment_received, no preimage kept)
         run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-lightning.sh
+
+      - name: The recipe's protocol reaches the model, in the right payment mode (both modes rendered; sent through claude-acp)
+        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/recipe-prompt.sh
 
       - name: The published console port serves the management routes (the relay)
         run: |
