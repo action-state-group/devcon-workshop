@@ -36,7 +36,7 @@ You will:
 | first `docker run` | a few seconds | a shell prompt |
 | your node joining the mesh | 1–2 min | `devcon8 node log` scrolls |
 | your node loading its model (serving) | about 1 min | Network tab says `serving` when done |
-| `devcon8 s08 start` | **10–15 min** | one line per node, then minutes of silence |
+| `devcon8 s08 start` | **up to 15 min** | one line per node, then possibly minutes of silence |
 | each later S08 step | under 1 min | its output |
 
 ## 1. Get the image and start it
@@ -152,7 +152,7 @@ happened.
 
 ![Chat with the sealed line under the answer](docs/walkthrough/03-chat.png)
 
-The API works too, and you can pick which model answers. This one goes to a Q8_0 server on the
+The API works too, from the container's shell (port 9337 is not published to your laptop), and you can pick which model answers. This one goes to a Q8_0 server on the
 mesh, not to your own model:
 
 ```sh
@@ -191,7 +191,7 @@ four nodes are an honest node, a referee, a liar and an asker, all on the same m
 above. Each step is one command, safe to rerun:
 
 ```sh
-devcon8 s08 start      # 10-15 min: four nodes load. "honest started", then quiet for minutes, is normal
+devcon8 s08 start      # up to 15 min: four nodes load. "honest started", then quiet for minutes, is normal
 devcon8 s08 lie        # the liar swaps in the cheaper Q4 model and keeps claiming Q8
 devcon8 s08 twins      # the asker sends the honest node and the liar the same request
 devcon8 s08 referee    # the asker's plugin asks a referee; the referee signs a verdict
