@@ -216,8 +216,8 @@ jobs:
             got=$(docker image inspect "devcon-workshop:ci-$arch" --format '{{.Architecture}}')
             [ "$got" = "$arch" ] || { echo "devcon-workshop:ci-$arch is $got"; exit 1; }
           done
-          # A per-arch tag left by an earlier attempt of this same run holds the same bytes (the tag is unique
-          # to the run), so a re-run skips it and finishes the manifest; only the multi-arch tag means "published".
+          # A per-arch tag left by an earlier attempt of this same run was pushed after that attempt's tests passed,
+          # so a re-run skips it and finishes the manifest; only the multi-arch tag means "published".
           for arch in amd64 arm64; do
             ref="$IMAGE:$tag-$arch"
             if docker manifest inspect "$ref" >/dev/null 2>&1; then echo "$ref already pushed"; continue; fi
