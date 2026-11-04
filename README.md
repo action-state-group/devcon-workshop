@@ -182,10 +182,10 @@ a new volume or another laptop, run the same command with the same email:
 
     devcon8 nanda <the email you used the first time>
 
-It asks "Create the mailbox for ...?": answer `y`. The gateway returns your existing mailbox (the same address, and no
+It asks "Create the mailbox for ...?" (it says Create even for a mailbox that exists): answer `y`. The gateway returns your existing mailbox (the same address, and no
 second listing in the NANDA Index) with a new key, emails a new six-digit code to the same address, and asks you for
 it. Checked on 2026-11-04 on a local build of the v4 sources. Only one container answers for the mailbox at a time: the one that ran
-`devcon8 nanda` last takes over, and an older container's key keeps working for reading but is off duty, so its agent stops answering.
+`devcon8 nanda` last takes over, and the older container can still read the mailbox but no longer answers from it.
 
 ### 7. `devcon8 trade [--buy <address>] [--pay lexe]`: the trading agent
 
@@ -211,12 +211,12 @@ they give you. It buys only from that address, never from search results.
   ([evidencebook#388](https://github.com/action-state-group/evidencebook/issues/388): a Lightning deal is priced in msat, which the card does not accept yet), and
   `presentation build` writes a plain fallback page because the image lacks the plugins' presentation assets
   ([devcon-workshop#43](https://github.com/action-state-group/devcon-workshop/issues/43)). Some `capsulectl` failures print only
-  "operation failed; check input, selected profile, permissions and service availability" and hide the cause. The trade itself, its sealed records and its receipt are not affected.
+  "operation failed; check input, selected profile, permissions and service availability" and hide the cause. The trade itself is not affected: in the run on [devcon-workshop#36](https://github.com/action-state-group/devcon-workshop/pull/36#issuecomment-6622224186) a `--pay lexe` sale was paid, sealed, delivered and confirmed.
 
-### Trade with yourself: a complete walkthrough (simulated payment)
+### Trade with yourself: a walkthrough (simulated payment)
 
 One person plays both sides in two containers: a seller that sells your sticker and a buyer that buys it. You need two
-email addresses that can each receive a six-digit code (one per mailbox), and a Claude or ChatGPT login for the agent in
+email addresses that can each receive a six-digit code (one per mailbox; if you already have a mailbox, use its email for one side and a new email for the other), and a Claude or ChatGPT login for the agent in
 each container. Use two terminal windows. No money moves.
 
 **Terminal 1, the seller.** Stop a running `devcon8` container first (`docker stop devcon8`), since this one publishes the
@@ -231,7 +231,7 @@ From the USB stick, add `--pull never` and use the loaded tag (`...cap0.1.15-b7e
 Inside it:
 
     devcon8 brain claude            # open the link on your laptop, sign in, paste the code back, type /exit
-    devcon8 nanda seller@example.com   # answer y; type the six-digit code that arrives at that address
+    devcon8 nanda <seller email>    # answer y; type the six-digit code that arrives at that address
     devcon8 trade                   # sell only; goose starts and waits for buyers
 
 `devcon8 nanda` prints your agent's address, for example `shop1@agentboxnanda.org`; `devcon8 trade` tells it again as it
@@ -245,7 +245,7 @@ starts. Copy it for the buyer. (`brain codex` works the same way if you use Chat
 Inside it:
 
     devcon8 brain claude
-    devcon8 nanda buyer@example.com    # a different email gives a different mailbox
+    devcon8 nanda <buyer email>     # a different email gives a different mailbox
     devcon8 trade --buy shop1@agentboxnanda.org     # the seller's address from terminal 1
 
 **Already have a mailbox?** Use the email you created it with and follow "Already have a mailbox?" above: the same address

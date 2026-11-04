@@ -20,7 +20,7 @@ You will:
 4. call the reports yourself: the receipt, the settlement receipt and the history.
 
 The trading agent (a Goose agent that sells and buys a sticker, with `devcon8 brain`, `devcon8 nanda` and
-`devcon8 trade`) is not part of this walk-through; steps 3, 6 and 7 of the [README](README.md) cover it.
+`devcon8 trade`) is not part of this walk-through; steps 3, 6 and 7 of the [README](README.md) and its "Trade with yourself" section cover it.
 
 ## Before you start
 
