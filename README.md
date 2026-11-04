@@ -135,8 +135,9 @@ change your wallet policy away from free-only, `join` no longer sends its questi
 
 The trading agent runs in [goose](https://github.com/aaif-goose/goose). Pick its model:
 
-- `claude`: your Claude subscription. Claude Code prints a link; open it on your laptop, sign in, paste
-  the code back.
+- `claude`: your Claude subscription. It prints a link; open it on your laptop, sign in, paste the code
+  back, and it says whether login worked. Already logged in, it says so and keeps the login;
+  `devcon8 brain claude --relogin` signs in again.
 - `codex`: your ChatGPT subscription, by device login. Turn on device code login in ChatGPT's security
   settings first. **Codex login**: if that is not possible, copy your laptop's `~/.codex/auth.json` in,
   from a laptop terminal (this keeps it readable only by the container's user), then run
@@ -250,7 +251,7 @@ Remove old containers of these names from earlier tries (your volumes, logins an
 From the USB stick, add `--pull never` and use the loaded tag (`...cap0.1.15-b7e05594.139-arm64` or `-amd64`) in place of
 `:latest`, for both containers. Inside the container:
 
-    devcon8 brain claude          # open the link it prints, sign in, paste the code back, type /exit
+    devcon8 brain claude          # open the link it prints, sign in, paste the code back
     devcon8 nanda <seller email>  # answer y; type the six-digit code sent to that email
     devcon8 trade                 # sell only; goose waits for a buyer
 

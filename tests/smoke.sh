@@ -86,4 +86,27 @@ for b in mesh claude codex; do
   [ "$(grep '^GOOSE_TELEMETRY_ENABLED:' "$c")" = 'GOOSE_TELEMETRY_ENABLED: false' ] || fail "devcon8 brain $b leaves goose telemetry on"
 done
 rm -rf "$bt"; ok "devcon8 brain mesh|claude|codex: goose telemetry off"
+# brain claude uses `claude auth login` (no TUI) and checks `claude auth status`: logged in already skips
+# login unless --relogin; a login that leaves status failing is an error and does not switch the provider.
+bt=$(mktemp -d); mkdir "$bt/bin" "$bt/h"
+cat > "$bt/bin/claude" <<'STUB'
+#!/bin/sh
+case "$1 $2" in
+  "auth login") echo login >> "$STUB_LOG"; [ -z "${STUB_LOGIN_OK:-}" ] || touch "$STUB_STATE" ;;
+  "auth status") [ -e "$STUB_STATE" ] ;;
+  *) echo "unexpected claude $*" >&2; exit 2 ;;
+esac
+STUB
+chmod +x "$bt/bin/claude"
+bc() { PATH="$bt/bin:$PATH" HOME="$bt/h" STUB_LOG="$bt/log" STUB_STATE="$bt/state" devcon8 brain claude "$@" 2>&1 < /dev/null; }
+: > "$bt/log"
+out=$(bc || true); grep -q 'did not complete' <<<"$out" || fail "brain claude: failed login not reported"
+grep -q GOOSE_PROVIDER "$bt/h/.config/goose/config.yaml" && fail "brain claude: provider set after a failed login"
+out=$(STUB_LOGIN_OK=1 bc || true); grep -q 'login succeeded' <<<"$out" || fail "brain claude: successful login not reported"
+[ "$(grep -c login "$bt/log" || true)" = 2 ] || fail "brain claude: expected 2 logins so far"
+out=$(bc || true); grep -q 'already logged in' <<<"$out" || fail "brain claude: already-logged-in not reported"
+[ "$(grep -c login "$bt/log" || true)" = 2 ] || fail "brain claude: re-run forced a new login"
+bc --relogin >/dev/null || true
+[ "$(grep -c login "$bt/log" || true)" = 3 ] || fail "brain claude --relogin did not log in again"
+rm -rf "$bt"; ok "devcon8 brain claude: auth login + status, skip when logged in, --relogin"
 echo "smoke: all passed"
