@@ -307,9 +307,10 @@ Your agent sells your digital fox sticker for 50 cents (in a `--pay lexe` run, f
 they give you. It buys only from that address, never from search results.
 
 - Every trade, `--pay lexe` included, runs goose in auto mode, so mailbox waits and file reads do not each ask you (`DEVCON8_GOOSE_MODE=approve devcon8 trade` asks before every tool call). Before each offer, commitment and
-  payment the agent runs a final check; when the check pauses ("PAUSED FOR YOU"), the agent shows
-  you its card in the chat and seals your answer. Say no and it holds.
-- Ctrl-C: the first press interrupts the agent's turn; the second makes goose print "session closed", and within about a second the run ends and you are back at the shell prompt (exit code 130, no "Killed" line). If the prompt does not come back, press Ctrl-C once more; if it still hangs, close the terminal and use `docker start -ai devcon8`.
+  payment the agent runs a final check. Only when that check pauses ("PAUSED FOR YOU", always for a Lightning payment) does
+  the agent show you its card in the chat and seal your answer; say no and it holds. In the simulated trade the check can pass
+  silently, with no card.
+- Ctrl-C: the first press interrupts the agent's turn. If the agent is busy (for example waiting on the mailbox), the second press prints "Press Ctrl+C again to exit" and the third makes goose print "session closed"; otherwise the second one does. About a second after "session closed" you are back at the shell prompt (`$?` is 0 in the tested run; there is no "Killed" line). If it still hangs, close the terminal and use `docker start -ai devcon8`.
 - It keeps checking its mailbox while it waits for buyers. If it stops and goes quiet, tell it to
   keep waiting ("keep checking the mailbox").
 - **The payment is simulated** unless you add `--pay lexe`. It is an x402 payment recorded against Base
@@ -342,8 +343,8 @@ they give you. It buys only from that address, never from search results.
 One person plays both sides in two containers: a seller that sells your sticker and a buyer that buys it. You need two
 email addresses that can each receive a six-digit code (one per mailbox; if you already have a mailbox, use its email for
 one side and a new email for the other), and a Claude or ChatGPT login for the agent in each container. Use two terminal
-windows. No money moves. goose runs in auto mode: it does not ask before each tool call, but the agent still stops at a
-"PAUSED FOR YOU" card before an offer, a commitment and a payment, and you answer those in the chat.
+windows. No money moves. goose runs in auto mode: it does not ask before each tool call, but when the agent's final check pauses it shows a
+"PAUSED FOR YOU" card (always for a Lightning payment; the simulated trade may show none), and you answer those in the chat.
 
 **0. Get the image again.** Pull `latest` even if you pulled before, since an older local copy is an older image:
 
@@ -386,13 +387,13 @@ Create even when the mailbox exists), you answer `y`, and the gateway gives back
 six-digit code. Only the container that ran `devcon8 nanda` last answers for the mailbox, so do not give two containers the
 same mailbox at the same time.
 
-**3. During the trade.** Answer the "PAUSED FOR YOU" cards with yes or no (no holds the deal). The payment is the simulated
+**3. During the trade.** If a "PAUSED FOR YOU" card appears, answer yes or no (no holds the deal); the simulated trade may show none. The payment is the simulated
 50-cent x402 one; the settle response says "SIMULATED". The buyer opens the conversation, pays, receives the sticker, checks
 its sha256 and confirms; both agents close their deals.
 
 - If one side goes quiet, type: `keep checking the mailbox`
 - If both seem to wait, tell the buyer: `Buy one digital fox sticker from <seller address> now`
-- Ctrl-C: once interrupts the turn goose is on; a second makes goose print "session closed" and the run ends within about a second, back at your shell.
+- Ctrl-C: once interrupts the turn goose is on; when the agent is busy it takes three presses (the second prints "Press Ctrl+C again to exit", the third "session closed"), then you are back at your shell within about a second.
 
 **4. See the result.** Follow "Find your deals and make a receipt" below (seller: `devcon8`; buyer: `devcon8b`).
 
