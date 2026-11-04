@@ -105,11 +105,15 @@ jobs:
           # 40 GB or more exists, keep Docker's data there. Larger-disk runners (145 GB) skip this.
           mnt_gb=$(df --output=avail -BG /mnt 2>/dev/null | tail -1 | tr -dc 0-9)
           if mountpoint -q /mnt && [ "${mnt_gb:-0}" -ge 40 ]; then
-            sudo systemctl stop docker docker.socket
-            sudo mkdir -p /mnt/docker
-            echo '{"data-root": "/mnt/docker"}' | sudo tee /etc/docker/daemon.json >/dev/null
-            sudo systemctl start docker
-            docker info --format 'docker root: {{.DockerRootDir}}'
+            # Bind mounts cover both image stores (/var/lib/docker, and /var/lib/containerd with the
+            # containerd snapshotter) and leave the runner's daemon.json alone.
+            sudo systemctl stop docker docker.socket containerd
+            sudo mkdir -p /mnt/docker /mnt/containerd /var/lib/docker /var/lib/containerd
+            sudo mount --bind /mnt/docker /var/lib/docker
+            sudo mount --bind /mnt/containerd /var/lib/containerd
+            sudo systemctl start containerd docker
+            docker info --format 'docker root: {{.DockerRootDir}} ({{.Driver}})'
+            findmnt -n /var/lib/docker /var/lib/containerd
           fi
           df -h / /mnt
 
