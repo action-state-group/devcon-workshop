@@ -24,7 +24,9 @@ nanda_mail() { # SUBJECT_REGEX AFTER_SEQ: only mail after that seq, every page; 
 # inbox_seq: the newest seq now, so a later nanda_mail reads only mail sent after this point.
 inbox_seq() {
   local after=0 page
-  while page=$(curl -fsS "${auth[@]}" "$BASE/api/v1/inbox?after=$after&limit=50") && [ "$(jq '.messages | length' <<<"$page")" -gt 0 ]; do
+  while :; do
+    page=$(curl -fsS "${auth[@]}" "$BASE/api/v1/inbox?after=$after&limit=50") || return 1
+    [ "$(jq '.messages | length' <<<"$page")" -gt 0 ] || break
     after=$(jq '.messages[-1].seq' <<<"$page")
   done
   echo "$after"
@@ -115,7 +117,10 @@ fi
 # A mailbox joined from a new volume has history from earlier runs; `mbx wait` reads from its cursor
 # (0 when the file is missing) and would replay all of it into a trade. Start after the newest message.
 # An existing cursor (same volume) is left alone.
-[ -f "$A/cursor" ] || inbox_seq > "$A/cursor"
+if [ ! -f "$A/cursor" ]; then
+  seq=$(inbox_seq) || die "could not read the mailbox history; rerun 'devcon8 nanda $email'"
+  echo "$seq" > "$A/cursor"
+fi
 addr=$(jq -r .address "$A/mailbox.json")
 if [ "$(listed "$addr")" != active ]; then
   curl -fsS -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{"mode":"auto"}' "$BASE/api/agent/mailboxes/$id/nanda" >/dev/null || true

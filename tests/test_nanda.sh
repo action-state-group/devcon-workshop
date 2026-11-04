@@ -54,3 +54,15 @@ HOME=$N/home MBX_BASE="http://127.0.0.1:$port" NANDA_INDEX="http://127.0.0.1:$po
   bash "$here/../lib/nanda.sh" p@example.com < /dev/null >/dev/null 2>&1 || { echo "FAIL the same-volume rerun failed"; exit 1; }
 [ "$(cat "$N/home/.devcon8/agentbox/cursor")" = 3 ] || { echo "FAIL an existing cursor was changed"; exit 1; }
 echo "ok   nanda: the same volume keeps its cursor"
+kill "$srv"; wait "$srv" 2>/dev/null || true
+
+# A failed history read must not leave a cursor (a stored 0 would replay everything for good); the rerun can set it.
+F=$T/fail; mkdir -p "$F/home/.devcon8/agentbox"; : > "$F/requests.log"
+printf 'test-token\n' > "$F/home/.devcon8/agentbox/key"
+echo '{"id":"m1","address":"m1@agentboxnanda.org","existing":false}' > "$F/home/.devcon8/agentbox/mailbox.json"
+python3 -I "$here/fake_agentbox.py" "$port" "$F/requests.log" verified inbox500 & srv=$!
+for _ in $(seq 50); do curl -fs "http://127.0.0.1:$port/api/v1/me" >/dev/null 2>&1 && break; sleep 0.1; done
+if HOME=$F/home MBX_BASE="http://127.0.0.1:$port" NANDA_INDEX="http://127.0.0.1:$port" \
+  bash "$here/../lib/nanda.sh" p@example.com < /dev/null >/dev/null 2>&1; then echo "FAIL nanda succeeded with an unreadable inbox"; exit 1; fi
+[ ! -e "$F/home/.devcon8/agentbox/cursor" ] || { echo "FAIL a cursor was written after a failed history read"; exit 1; }
+echo "ok   nanda: a failed history read leaves no cursor and fails the step"
