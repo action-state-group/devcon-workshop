@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# brain.sh claude|codex|mesh: pick the model goose thinks with. Logins stay on the volume
+# brain.sh claude [--relogin]|codex|mesh: pick the model goose thinks with. Logins stay on the volume
 # (~/.claude, ~/.codex); nothing is printed back.
 set -euo pipefail
 . /opt/devcon8/lib/common.sh
@@ -20,8 +20,16 @@ set_provider() { # provider
 case "${1:-}" in claude|codex|mesh) telemetry_off ;; esac
 case "${1:-}" in
   claude)
-    echo "Claude Code prints a link: open it on your laptop, sign in, paste the code back here, then type /exit."
-    claude /login || true
+    # `claude auth login` prints the link, reads the pasted code and exits. The interactive
+    # `claude /login` TUI asks to trust the folder afterwards and loops back to login.
+    if [ "${2:-}" != --relogin ] && claude auth status >/dev/null 2>&1; then
+      echo "Claude is already logged in (devcon8 brain claude --relogin signs in again)."
+    else
+      echo "Claude Code prints a link: open it on your laptop, sign in, paste the code back here."
+      claude auth login || true
+      claude auth status >/dev/null 2>&1 || die "Claude login did not complete: run 'devcon8 brain claude' again"
+      echo "Claude login succeeded."
+    fi
     set_provider claude-acp ;;
   codex)
     echo "ChatGPT device login: first turn on device code login in ChatGPT > Settings > Security."
