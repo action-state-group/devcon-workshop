@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# terms <verb>: the Terms Pack Studio entry point (lint, test, run, compare, publish, ...), the
+# evidencebook-skills script at the commit pinned in /opt/devcon8/studio/versions.lock, run with the
+# layer's Python (PyYAML). One entry point, not a command per verb: a bare `test` on PATH would lose
+# to the shell builtin.
+set -euo pipefail
+S=/opt/devcon8/studio
+. "$S/versions.lock"
+# No .pyc next to the pinned scripts: the verbs write only under ~/studio.
+export PATH=$S/venv/bin:$PATH TERMS_PYTHON=$S/venv/bin/python PYTHONDONTWRITEBYTECODE=1
+exec "/usr/local/lib/capsulectl/plugins/terms-pack-studio/$STUDIO_TERMS_ENTRY" "$@"

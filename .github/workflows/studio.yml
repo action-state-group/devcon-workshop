@@ -1,0 +1,60 @@
+name: studio
+
+# The Terms Pack Studio layer's own checks (studio/README.md). Separate from image.yml: the layer is
+# an internal build on top of the published image and never touches its build, tags or publish gate.
+# The recipe test pulls the published image to render studio.yaml with its goose; it pushes nothing.
+
+on:
+  pull_request:
+    paths:
+      - studio/**
+      - agent/recipes/**
+      - tests/studio-*
+      - tests/test_build_recipe.py
+      - .github/workflows/studio.yml
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio
+      - name: the repo's trader.yaml is the pinned base's (studio.yaml runs on the base's tools)
+        run: |
+          . studio/versions.lock
+          docker run --rm --entrypoint cat "$STUDIO_BASE" /opt/devcon8/agent/recipes/trader.yaml | cmp - agent/recipes/trader.yaml
+      - name: studio.yaml is trader.yaml plus the Studio edits (generated file is current)
+        run: |
+          python3 -I studio/build-recipe.py --check
+          python3 -I tests/test_build_recipe.py
+      - name: studio.yaml renders in both payment modes (goose of the published image, recipe mounted in)
+        run: |
+          # The layer's pinned base (studio/versions.lock), not a moving tag: `latest` can briefly lack a platform.
+          . studio/versions.lock
+          docker run --rm \
+            -v "$PWD/agent/recipes/studio.yaml:/opt/devcon8/agent/recipes/studio.yaml:ro" \
+            -v "$PWD/tests/studio-recipe.sh:/opt/devcon8/tests/studio-recipe.sh:ro" \
+            "$STUDIO_BASE" /opt/devcon8/tests/studio-recipe.sh
+
+  # The layer itself, on the pinned base: build it, check its contents, then run demo steps 1-4 without a
+  # model against a replay of ten sticker trades. Built locally in the job; nothing is pushed.
+  layer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: build the layer
+        run: studio/build.sh
+      - name: layer contents
+        run: docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-layer.sh
+      - name: demo steps 1-4 (tests/studio-e2e.sh)
+        run: |
+          . studio/versions.lock
+          git clone --filter=blob:none "$STUDIO_DEAL_REPO" "$RUNNER_TEMP/deal"
+          git -C "$RUNNER_TEMP/deal" checkout --detach "$STUDIO_DEAL_COMMIT"
+          tar c -C "$RUNNER_TEMP/deal" scripts testdata \
+            | docker run -i --rm devcon-workshop-studio:dev \
+                bash -c 'mkdir /tmp/deal && tar x -C /tmp/deal && /opt/devcon8/tests/studio-e2e.sh /tmp/deal'

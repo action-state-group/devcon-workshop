@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# devcon8-studio [--buy <address>] [--pay lexe]: devcon8 trade with the Studio recipe. Same checks,
+# same payment modes; goose can also write terms in words, rehearse them and switch them on.
+set -euo pipefail
+mkdir -p "$HOME/studio"
+TRADE_RECIPE=/opt/devcon8/agent/recipes/studio.yaml exec /opt/devcon8/lib/trade.sh "$@"

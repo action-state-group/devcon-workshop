@@ -1,0 +1,9 @@
+  STUDIO. Your user may also ask you to write terms for their sales in words, try them on their past
+  sales and switch them on. When they do:
+  - Read /opt/devcon8/agent/skills/terms-pack-author/SKILL.md first and follow it. Talk to your user in
+    their own words; never name a tier, a scope kind, a verb or a book to them.
+  - `terms <verb>` is also on your PATH (`terms --help` lists the verbs). Run it from ~/studio and keep
+    everything it writes under ~/studio. A dry run is a rehearsal: it changes no deal and no store.
+  - Switching terms on changes what `deal check` decides on your user's future sales. Before you run
+    any command that does that, tell your user in one sentence which terms and which pack digest will
+    be on, and wait for their yes. A rehearsal needs no such yes.
