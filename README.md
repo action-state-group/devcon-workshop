@@ -46,6 +46,34 @@ the `docker run` in "Start".
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
 The console is on port 3141 because Buzz Desktop uses 3131. Inside the container a small relay (port 3132) hands the console its requests from the container's own loopback, which mesh-llm requires for the console's plugin routes (the Evidence tab). A client node hides the Configuration tab by mesh-llm's design. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then `docker pull` the image again and run the `docker run` above (a local copy of `latest` from before Nov 4 is an older image, and `docker run` does not update it); your `devcon8-home` volume keeps your state.
 
+### Containers, volumes and coming back
+
+Two different things hold your work:
+
+- The **container** (`devcon8`) is the running shell. Its name stays taken after you exit.
+- The **volume** (`devcon8-home`) holds everything you keep: logins, your Agent Box mailbox key, your node, your deals.
+
+What each command does:
+
+| You want to | Run | Logins, mailbox, deals |
+|---|---|---|
+| Come back after exiting | `docker start -ai devcon8` | kept |
+| Open a second shell in a running container | `docker exec -it devcon8 bash` | kept |
+| Stop a stuck or old container, get a fresh one | `docker rm -f devcon8`, then the `docker run` line | kept (they are in the volume) |
+| Start completely over | `docker rm -f devcon8 && docker volume rm devcon8-home` | **deleted** |
+
+Exiting the first shell (`exit`, or Ctrl-D) stops the container. `docker run` with a name that exists fails with
+"container name already in use": use `docker start -ai devcon8` or remove it first.
+
+**A local `latest` can be stale.** `docker run` never updates an image you already have, and a tag named `latest`
+on your laptop stays at whatever you pulled last. Pull again before every session, and check what you have against
+the registry's index digest (`sha256:4402db355ac5…` on Nov 4):
+
+    docker pull ghcr.io/action-state-group/devcon-workshop:latest
+    docker image inspect ghcr.io/action-state-group/devcon-workshop:latest --format '{{index .RepoDigests 0}}'
+
+A running container keeps the image it started from. To move to a newer image: `docker rm -f devcon8`, pull, `docker run` again.
+
 ### From the USB stick (no network)
 
 The stick holds these three files and one folder in its top folder:
@@ -122,6 +150,17 @@ them into your volume. From the stick, copy its `models` folder next to the tarb
     devcon8 models --from /tmp/models
 
 `devcon8 models` checks each file's sha256 and skips files it already has. Skip this if you only run the trade.
+
+### The slim `v4-goose` image (trade only, 631 MB)
+
+For the sticker trade alone there is a smaller image, `ghcr.io/action-state-group/devcon-workshop:v4-goose`. It is v4
+without the models, mesh-llm and its plugins, and S08.
+
+    docker run -it --name devcon8 -v devcon8-home:/home/participant ghcr.io/action-state-group/devcon-workshop:v4-goose
+
+- **Works** (run on the 2026-11-04 tag; `brain claude|codex` and `nanda` need a login or email code and were not run on it): `doctor`, `go-seal`, and `s02` (it serves on port 8080, so add `-p 127.0.0.1:8080:8080` to the run line to open it). `trade` starts only after `nanda`.
+- **Does not work:** `join` (it accepts an invite, then fails with `cat: /opt/devcon8/mesh/capsules.version: No such file or directory`), `node`, `wallet` ("your node is not running"), `s08` (`/opt/devcon8/lib/s08.sh: No such file or directory`), `brain mesh` (not offered), and the console on port 3141.
+- It is a derived tag of v4 (not rebuilt by CI) and does not move with `latest`. On Nov 4 its `devcon8 trade` script is the same as `latest`'s (auto mode, `DEVCON8_GOOSE_MODE`, goose run as a child for Ctrl-C); a later `latest` may get fixes it lacks.
 
 ### 1. `devcon8 doctor`
 
