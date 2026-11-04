@@ -294,7 +294,7 @@ they give you. It buys only from that address, never from search results.
 - Every trade, `--pay lexe` included, runs goose in auto mode, so mailbox waits and file reads do not each ask you (`DEVCON8_GOOSE_MODE=approve devcon8 trade` asks before every tool call). Before each offer, commitment and
   payment the agent runs a final check; when the check pauses ("PAUSED FOR YOU"), the agent shows
   you its card in the chat and seals your answer. Say no and it holds.
-- Ctrl-C interrupts the agent's turn; press it again (up to a few times) and the run ends and returns you to the shell.
+- Ctrl-C: the first press interrupts the agent's turn; the second makes goose print "session closed", and within about a second the run ends and you are back at the shell prompt (exit code 130, no "Killed" line). If the prompt does not come back, press Ctrl-C once more; if it still hangs, close the terminal and use `docker start -ai devcon8`.
 - It keeps checking its mailbox while it waits for buyers. If it stops and goes quiet, tell it to
   keep waiting ("keep checking the mailbox").
 - **The payment is simulated** unless you add `--pay lexe`. It is an x402 payment recorded against Base
@@ -377,7 +377,7 @@ its sha256 and confirms; both agents close their deals.
 
 - If one side goes quiet, type: `keep checking the mailbox`
 - If both seem to wait, tell the buyer: `Buy one digital fox sticker from <seller address> now`
-- Ctrl-C once interrupts the turn goose is on; a second Ctrl-C within 10 seconds ends the run.
+- Ctrl-C: once interrupts the turn goose is on; a second makes goose print "session closed" and the run ends within about a second, back at your shell.
 
 **4. See the result, from your Mac terminal.** List the deals; the columns are the id, the kind (`deal` or `sale`) and the state. A seller has one `sale` plus one `deal` per buyer; the receipt is per `deal`, and `deal report` refuses a `sale-...` id:
 
