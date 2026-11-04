@@ -16,22 +16,78 @@ the steps still work for anyone running them later). It lets you:
 
 New here? [WORKSHOP.md](WORKSHOP.md) walks through the workshop step by step, with screenshots.
 
-Inference runs on your CPU (Docker on a Mac has no GPU access). The image is about 3 GB (3.0 GiB on arm64, 3.1 GiB on amd64).
+Inference runs on your CPU (Docker on a Mac has no GPU access). The image is 0.74 GB to download and 2.1 GB on disk (arm64), plus 1.1 GB of model files you download only for S08.
 
 ## Before the workshop
 
 You need Docker (Docker Desktop on macOS or Windows, Docker Engine on Linux) with at least **8 GB of
-memory** for the container (Docker Desktop: Settings > Resources) and about 6 GB of free disk.
+memory** for the container (Docker Desktop: Settings > Resources) and enough free disk (see "Disk space" below).
 If you have both Colima and Docker Desktop: run `docker context ls`; if the starred context is colima, run `docker context use desktop-linux`.
-**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Docker picks the right one for `latest`, the tag and the digest below.
+**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Today `latest` and the digest below are arm64 only (Apple Silicon Macs). An amd64 build follows; until then, amd64 laptops should use an Apple Silicon Mac.
+
+### Disk space
+
+Docker keeps images, containers and volumes in one disk (Docker Desktop: a disk image; Colima: a VM disk), and it is the
+free space *inside* that disk that counts, not your laptop's. The image no longer carries the two S08 model files: `devcon8 models`
+downloads them into your volume. The final image (`sha256:65a0b8cd…`, built from main `006fb29`) was measured on arm64; amd64 follows. The "Nov 4 build with models" row is the older image, for comparison:
+
+| What | Download | On disk once loaded |
+|---|---|---|
+| Full image, Nov 4 build with models | 1.9 GB | 3.2 GB |
+| Final image, no models (arm64) | 0.74 GB | 2.1 GB |
+| Slim `v4-goose` | 0.63 GB | 1.9 GB |
+| S08 models (`devcon8 models`, only for S08 and the mesh steps) | 1.1 GB, once | 1.1 GB on the volume |
+| USB stick path | one tarball (size not measured yet; `docker save` does not compress), then `docker load` | tarball + loaded image; delete `~/devcon8-usb` afterwards |
+| Each container (shell, nothing built) | - | about 15 MB |
+| Each volume (`devcon8-home`, after node, trades and logins) | - | about 120 MB without models; grows with use |
+
+So keep **at least 10 GB free** in Docker's disk for the image plus the models (a second pull of a newer `latest` briefly holds two
+copies), or 5 GB for the slim one. Every extra volume (a second agent such as `devcon8b-home`) adds its own 120 MB.
+
+Check it:
+
+    docker system df          # images, containers, volumes, build cache; RECLAIMABLE is what a prune can free
+    docker info | grep -i "docker root dir"
+    df -h /                   # your laptop; on a Mac, Docker's disk file lives inside this space
+
+`devcon8 doctor` (inside the container) prints the free disk the container sees. Docker Desktop: Settings > Resources > Disk image
+size shows and raises the limit. Colima: `colima list` shows DISK; to raise it, `colima stop`, then `colima start --disk 100`
+(it can grow, not shrink).
+
+If the disk fills, `docker pull` or `docker load` fails with `no space left on device` (Docker's standard message), usually part way through a layer. Free space, then run the same command again.
+
+Clean up safely. These never touch a volume:
+
+    docker container prune     # removes stopped containers
+    docker image prune -a      # removes images no container uses (you pull again next time); keeps the ones a container uses
+    docker builder prune       # build cache (only if you built images yourself)
+
+**Do not run `docker volume prune -a`, or `docker volume prune` / `docker system prune --volumes` on a Docker older than 23.**
+Newer Docker's plain `volume prune` removes only anonymous volumes (`docker volume prune --help` says so; `devcon8-home` is
+named), but `-a` and older versions remove every volume no container uses, and that includes `devcon8-home` while its
+container is stopped or removed: your logins, mailbox key and deals go with it. Check `docker volume ls` before you remove one by name.
+
+**Start over, or free the volumes' disk.** `docker rm -f devcon8` removes only the container: the volume `devcon8-home` (your
+logins, mailbox key, deals, and any downloaded models) stays, and keeps taking disk. To remove both (and the second agent's):
+
+    docker rm -f devcon8 devcon8b
+    docker volume rm devcon8-home devcon8b-home
+    docker volume ls
+
+This **deletes** the logins, the mailbox key (you would run `devcon8 nanda <email>` again) and the deals. If `docker volume rm`
+answers `volume is in use`, a container, even a stopped one, still uses it: `docker ps -a --filter volume=devcon8-home` names it;
+`docker rm -f` that container, then remove the volume. (Checked with a throwaway volume: Docker 29.5.2 prints that error and the
+filter lists the container, also for one that was never started.)
 
 Pull the image ahead of time. Conference wifi is slow:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
 
-`latest` moves only when a maintainer approves a publish of a tested build from main; today it is v4. For a reproducible pull, use the immutable v4 tag (`20261104-ml1aba71d-cap0.1.15-b7e05594.139`) or its index digest:
+`latest` moves only when a maintainer approves a publish of a tested build from main. On Nov 4 it is the build from main `006fb29` with goose in auto mode and no models (arm64-only index digest `sha256:65a0b8cd…`; an amd64 build follows and will change the digest, see "Containers, volumes and coming back" to check what you have). For a reproducible pull, use the digest:
 
-    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:fde3ab1193e7446dd2d4cbc379fcf3a1b7424e14cb9f30d8164028ae13f31d7c
+    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:65a0b8cd7cec0c3b642a3106729924b7284c4779930398ea1eaf6db13497f7af
+
+(The first v4 build, `…b7e05594.139` / `sha256:fde3ab11…`, asks before every goose tool call and can hang on Ctrl-C; do not use it.)
 
 No network at the venue? Use the USB stick: "From the USB stick (no network)" below replaces this pull and
 the `docker run` in "Start".
@@ -46,12 +102,40 @@ the `docker run` in "Start".
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
 The console is on port 3141 because Buzz Desktop uses 3131. Inside the container a small relay (port 3132) hands the console its requests from the container's own loopback, which mesh-llm requires for the console's plugin routes (the Evidence tab). A client node hides the Configuration tab by mesh-llm's design. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then `docker pull` the image again and run the `docker run` above (a local copy of `latest` from before Nov 4 is an older image, and `docker run` does not update it); your `devcon8-home` volume keeps your state.
 
+### Containers, volumes and coming back
+
+Two different things hold your work:
+
+- The **container** (`devcon8`) is the running shell. Its name stays taken after you exit.
+- The **volume** (`devcon8-home`) holds everything you keep: logins, your Agent Box mailbox key, your node, your deals.
+
+What each command does:
+
+| You want to | Run | Logins, mailbox, deals |
+|---|---|---|
+| Come back after exiting | `docker start -ai devcon8` | kept |
+| Open a second shell in a running container | `docker exec -it devcon8 bash` | kept |
+| Stop a stuck or old container, get a fresh one | `docker rm -f devcon8`, then the `docker run` line | kept (they are in the volume) |
+| Start completely over | `docker rm -f devcon8 && docker volume rm devcon8-home` | **deleted** |
+
+Exiting the first shell (`exit`, or Ctrl-D) stops the container. `docker run` with a name that exists fails with
+"container name already in use": use `docker start -ai devcon8` or remove it first.
+
+**A local `latest` can be stale.** `docker run` never updates an image you already have, and a tag named `latest`
+on your laptop stays at whatever you pulled last. Pull again before every session, and check what you have against
+the registry's index digest (`sha256:65a0b8cd7cec…` on Nov 4, arm64 only). The two digests must match; the registry one comes from `docker buildx imagetools inspect ghcr.io/action-state-group/devcon-workshop:latest`. A stale tag also shows on start: the container prints `installed plugin capsules <version>`, and an older version than the one in "What is in the image" means an older image:
+
+    docker pull ghcr.io/action-state-group/devcon-workshop:latest
+    docker image inspect ghcr.io/action-state-group/devcon-workshop:latest --format '{{index .RepoDigests 0}}'
+
+A running container keeps the image it started from. To move to a newer image: `docker rm -f devcon8`, pull, `docker run` again.
+
 ### From the USB stick (no network)
 
-The stick holds these three files and one folder in its top folder:
+`<TAG>` below is the image tag in the file names on your stick (placeholder until the stick is made from the final image); use the name you see there. The stick holds these three files and one folder in its top folder:
 
-    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
-    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-amd64.tar    Windows and x86 Linux
+    devcon-workshop-<TAG>-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
+    devcon-workshop-<TAG>-amd64.tar    Windows and x86 Linux
     SHA256SUMS
     models/                                                                 the two S08 model files (1.1 GB, only for S08)
 
@@ -98,7 +182,7 @@ Not `OK` (or `False`): the copy is incomplete, copy it again.
     docker load -i devcon-workshop-*-$A.tar
 
 (PowerShell: `docker load -i (Get-ChildItem devcon-workshop-*-$A.tar).Name`.) It ends with
-`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64`
+`Loaded image: ghcr.io/action-state-group/devcon-workshop:<TAG>-arm64`
 (or `-amd64`). A loaded image is not called `latest`, so the run line below names this tag.
 
 **5. Start the container.** Pick the line for your arch (`--pull never` stops Docker from going to the network):
@@ -107,9 +191,9 @@ arm64:
 
     docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant \
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
-      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64
+      ghcr.io/action-state-group/devcon-workshop:<TAG>-arm64
 
-amd64: the same line ending in `...cap0.1.15-b7e05594.139-amd64`. In PowerShell write it on one line
+amd64: the same line ending in `<TAG>-amd64`. In PowerShell write it on one line
 (without the `\` line ends). Then run `devcon8 doctor` in the shell you get. `No such image` means the load
 in step 4 did not finish, or the arch suffix differs from the one it printed.
 
@@ -122,6 +206,17 @@ them into your volume. From the stick, copy its `models` folder next to the tarb
     devcon8 models --from /tmp/models
 
 `devcon8 models` checks each file's sha256 and skips files it already has. Skip this if you only run the trade.
+
+### The slim `v4-goose` image (trade only, 631 MB)
+
+For the sticker trade alone there is a smaller image, `ghcr.io/action-state-group/devcon-workshop:v4-goose`. It is v4
+without the models, mesh-llm and its plugins, and S08.
+
+    docker run -it --name devcon8 -v devcon8-home:/home/participant ghcr.io/action-state-group/devcon-workshop:v4-goose
+
+- **Works** (run on the 2026-11-04 tag; `brain claude|codex` and `nanda` need a login or email code and were not run on it): `doctor`, `go-seal`, and `s02` (it serves on port 8080, so add `-p 127.0.0.1:8080:8080` to the run line to open it). `trade` starts only after `nanda`.
+- **Does not work:** `join` (it accepts an invite, then fails with `cat: /opt/devcon8/mesh/capsules.version: No such file or directory`), `node`, `wallet` ("your node is not running"), `s08` (`/opt/devcon8/lib/s08.sh: No such file or directory`), `brain mesh` (not offered), and the console on port 3141.
+- It is a derived tag of v4 (not rebuilt by CI) and does not move with `latest`. On Nov 4 its `devcon8 trade` script is the same as `latest`'s (auto mode, `DEVCON8_GOOSE_MODE`, goose run as a child for Ctrl-C); a later `latest` may get fixes it lacks.
 
 ### 1. `devcon8 doctor`
 
@@ -171,7 +266,7 @@ Without them `devcon8 s08` says "run devcon8 models first".
 
 Four nodes on a private mesh inside your container (it never touches the demo mesh): an honest node, a
 referee, a liar and an asker, all on the same mesh-llm and capsules as the demo mesh. Steps, in order:
-`start` (a few minutes per node on a laptop CPU), `lie`, `twins`, `referee`, `show`, then the second hack,
+`setup` (once; it prints "S08 is set up in ~/s08-liar. Next: devcon8 s08 start"), `start` (a few minutes per node on a laptop CPU), `lie`, `twins`, `referee`, `show`, then the second hack,
 `omit` and `count`, then step 8, `ask`, the omission found by a signed evidence request; `stop` when done.
 The asker's Evidence page is http://127.0.0.1:9614/plugins/capsules/evidence. On an arm64 laptop the
 two models write the same ocean haiku, so `twins` asks "Name three colors." by default; pass another
@@ -210,9 +305,10 @@ Your agent sells your digital fox sticker for 50 cents (in a `--pay lexe` run, f
 they give you. It buys only from that address, never from search results.
 
 - Every trade, `--pay lexe` included, runs goose in auto mode, so mailbox waits and file reads do not each ask you (`DEVCON8_GOOSE_MODE=approve devcon8 trade` asks before every tool call). Before each offer, commitment and
-  payment the agent runs a final check; when the check pauses ("PAUSED FOR YOU"), the agent shows
-  you its card in the chat and seals your answer. Say no and it holds.
-- Ctrl-C interrupts the agent's turn; press it again (up to a few times) and the run ends and returns you to the shell.
+  payment the agent runs a final check. Only when that check pauses ("PAUSED FOR YOU", always for a Lightning payment) does
+  the agent show you its card in the chat and seal your answer; say no and it holds. In the simulated trade the check can pass
+  silently, with no card.
+- Ctrl-C: the first press interrupts the agent's turn. If the agent is busy (for example waiting on the mailbox), the second press prints "Press Ctrl+C again to exit" and the third makes goose print "session closed"; otherwise the second press ends the run. About a second after "session closed" you are back at the shell prompt. If it still hangs, close the terminal and use `docker start -ai devcon8`.
 - It keeps checking its mailbox while it waits for buyers. If it stops and goes quiet, tell it to
   keep waiting ("keep checking the mailbox").
 - **The payment is simulated** unless you add `--pay lexe`. It is an x402 payment recorded against Base
@@ -236,7 +332,7 @@ they give you. It buys only from that address, never from search results.
   ```
 
   If `card` says "the History card was not built: ...", the line names what to do (for example, run `deal tick` again, then ask again).
-  A Lightning (`--pay lexe`) deal is counted as BTC in msat. The workshop trade does not compare your record of a deal with the other side's, so every deal on your card shows "we couldn't tell". That means no comparison was made, not that the trade failed.
+  A Lightning (`--pay lexe`) deal is counted under BTC. The workshop trade does not compare your record of a deal with the other side's, so every deal on your card shows "we couldn't tell". That means no comparison was made, not that the trade failed.
   Some other `capsulectl` failures print only "operation failed; check input, selected profile, permissions and service availability" and
   hide the cause.
 
@@ -245,8 +341,8 @@ they give you. It buys only from that address, never from search results.
 One person plays both sides in two containers: a seller that sells your sticker and a buyer that buys it. You need two
 email addresses that can each receive a six-digit code (one per mailbox; if you already have a mailbox, use its email for
 one side and a new email for the other), and a Claude or ChatGPT login for the agent in each container. Use two terminal
-windows. No money moves. goose runs in auto mode: it does not ask before each tool call, but the agent still stops at a
-"PAUSED FOR YOU" card before an offer, a commitment and a payment, and you answer those in the chat.
+windows. No money moves. goose runs in auto mode: it does not ask before each tool call, but when the agent's final check pauses it shows a
+"PAUSED FOR YOU" card (always for a Lightning payment; the simulated trade may show none), and you answer those in the chat.
 
 **0. Get the image again.** Pull `latest` even if you pulled before, since an older local copy is an older image:
 
@@ -263,7 +359,7 @@ Remove old containers of these names from earlier tries (your volumes, logins an
 
     docker run -it --name devcon8 -v devcon8-home:/home/participant ghcr.io/action-state-group/devcon-workshop:latest
 
-From the USB stick, add `--pull never` and use the loaded tag (`...cap0.1.15-b7e05594.139-arm64` or `-amd64`) in place of
+From the USB stick, add `--pull never` and use the loaded tag (`<TAG>-arm64` or `-amd64`) in place of
 `:latest`, for both containers. Inside the container:
 
     devcon8 brain claude          # open the link it prints, sign in, paste the code back
@@ -289,25 +385,15 @@ Create even when the mailbox exists), you answer `y`, and the gateway gives back
 six-digit code. Only the container that ran `devcon8 nanda` last answers for the mailbox, so do not give two containers the
 same mailbox at the same time.
 
-**3. During the trade.** Answer the "PAUSED FOR YOU" cards with yes or no (no holds the deal). The payment is the simulated
+**3. During the trade.** If a "PAUSED FOR YOU" card appears, answer yes or no (no holds the deal); the simulated trade may show none. The payment is the simulated
 50-cent x402 one; the settle response says "SIMULATED". The buyer opens the conversation, pays, receives the sticker, checks
 its sha256 and confirms; both agents close their deals.
 
 - If one side goes quiet, type: `keep checking the mailbox`
 - If both seem to wait, tell the buyer: `Buy one digital fox sticker from <seller address> now`
-- Ctrl-C once interrupts the turn goose is on; a second Ctrl-C within 10 seconds ends the run.
+- Ctrl-C: once interrupts the turn goose is on; when the agent is busy it takes three presses (the second prints "Press Ctrl+C again to exit", the third "session closed"), then you are back at your shell within about a second.
 
-**4. See the result, from your Mac terminal.** List the deals; the columns are the id, the kind (`deal` or `sale`) and the state. A seller has one `sale` plus one `deal` per buyer; the receipt is per `deal`, and `deal report` refuses a `sale-...` id:
-
-    docker exec devcon8 bash -lc 'capsulectl --profile deal deal list'
-
-Write the receipt of the latest closed `deal` inside the container, copy it out, and open it (for the buyer use `devcon8b`
-in all three places):
-
-    docker exec devcon8 bash -lc 'id=$(capsulectl --profile deal deal list | awk "\$2==\"deal\" && \$3==\"closed\"{i=\$1} END{print i}"); capsulectl --profile deal deal report --deal "$id" --html ~/receipt.html >/dev/null' && docker cp devcon8:/home/participant/receipt.html . && open receipt.html
-
-The deals themselves are in `~/.local/share/capsule-deal` and the files in `~/deals/` inside each container; the buyer's
-`sticker.png` is there.
+**4. See the result.** Follow "Find your deals and make a receipt" below (seller: `devcon8`; buyer: `devcon8b`).
 
 **Going back to the other steps.** These containers publish no ports, so the console (3141), `devcon8 s02` (8080) and the S08
 Evidence pages are not reachable from them. To go back to those steps, run `docker rm -f devcon8` and start it again with the run
@@ -317,12 +403,83 @@ line in "Start"; the `devcon8-home` volume keeps your state.
 `docker start -ai devcon8` (or `devcon8b`); logins, mailbox and deals are on the volume. `docker exec -it devcon8 bash`
 opens another shell in a running container.
 
-**Known gaps.** See the note under step 7 (History card, presentation assets, masked errors).
+**History card and known gaps.** See "Your History card" under step 7.
 
-**Clean up.** `docker rm -f devcon8 devcon8b` removes the containers and keeps the volumes. To forget the logins, mailboxes and
-deals too, and to start over with different emails, also run `docker volume rm devcon8-home devcon8b-home`. If you listed a
-mailbox you will not use again, run `devcon8 nanda leave` inside its container before you remove the container (permanent; see
-"Leaving the NANDA Index").
+**Clean up.** `docker rm -f devcon8 devcon8b` removes the containers and keeps the volumes (and their disk). To forget the logins,
+mailboxes and deals too, and to start over with different emails, run:
+
+    docker rm -f devcon8 devcon8b
+    docker volume rm devcon8-home devcon8b-home
+
+This deletes the logins and the mailbox keys (you would run `devcon8 nanda` again) and the deals. `volume is in use` means a container,
+even a stopped one, still uses it: `docker ps -a --filter volume=devcon8-home` shows which; remove it first. `docker volume ls`
+lists what is left. If you listed a mailbox you will not use again, run `devcon8 nanda leave` inside its container before you remove the
+container (permanent; see "Leaving the NANDA Index").
+
+### Find your deals and make a receipt
+
+A receipt is a page for one closed deal. Everything is in the container that ran the trade; the page is copied to your Mac.
+Replace `devcon8` with `devcon8b` for the buyer. (`deal list` needs the deal plugin, which `devcon8 trade` installs: on a volume
+that never ran `trade` it answers "this needs the capsulectl-deal plugin, which is not installed".)
+
+**1. List the deals**, inside the container, or from the Mac with `docker exec devcon8 bash -lc '<the command>'`:
+
+    capsulectl --profile deal deal list
+
+One tab-separated line per deal (for example `deal-a47d93d583649482	deal	closed	…`), in the order
+`<id>  <kind>  <state>  <opened>  <last record>  <counterparty fingerprint>  <log id>`:
+
+- the id, `deal-...` or `sale-...`;
+- the kind, `deal` or `sale`;
+- the state, for example `open` or `closed`;
+- when it was opened and when its last record was written;
+- the other side's fingerprint, and the log id.
+
+**2. Deal or sale.** A seller has one `sale-...` for each listing and one `deal-...` for each buyer. A buyer has a `deal-...`.
+A receipt takes only a `deal-...` id; `deal report` refuses a `sale-...` id.
+
+**3. One receipt, by id.** Inside the container write it, then from your Mac terminal copy it out and open it:
+
+    capsulectl --profile deal deal report --deal <deal id> --html ~/receipt.html
+    docker cp devcon8:/home/participant/receipt.html . && open receipt.html
+
+**4. The latest closed deal in one command**, from your Mac terminal (it picks the last line whose kind is `deal` and state is `closed`):
+
+    docker exec devcon8 bash -lc 'id=$(capsulectl --profile deal deal list | awk "\$2==\"deal\" && \$3==\"closed\"{i=\$1} END{print i}"); capsulectl --profile deal deal report --deal "$id" --html ~/receipt.html >/dev/null' && docker cp devcon8:/home/participant/receipt.html . && open receipt.html
+
+The deals themselves are in `~/.local/share/capsule-deal` and the files in `~/deals/` inside each container (the buyer's `sticker.png` is there).
+
+### Make your History card
+
+Your History card counts your deals as of a checkpoint, with no deal's content. The commands are the ones in "Your History card" under
+step 7. Run them in the container that holds the deals (`devcon8`, or `devcon8b` for the buyer), after at least one deal has closed.
+
+**1. Once per profile**, inside the container, say who holds the card:
+
+    capsulectl --profile deal deal standard-history declare --holder-kind person
+
+**2. Each time you want a new card**, cut a checkpoint first (the card is as of your newest one), then write the card and its page.
+`card --out` and `presentation build --out` take a **new** file, so give each card its own name:
+
+    capsulectl --profile deal deal tick
+    capsulectl --profile deal deal standard-history card --out ~/deals/card1.bundle
+    capsulectl presentation build --bundle ~/deals/card1.bundle --out ~/deals/card1.html
+
+If `card` says "the History card was not built: ...", the line names what to do (for example run `deal tick`, then ask again).
+`presentation build` writes the page only when the bundle verifies as VALID.
+
+**3. From your Mac terminal**, all of that and the opening in one command (the file name uses the time, so each run is new):
+
+    docker exec devcon8 bash -lc 'f=~/deals/card-$(date +%s); capsulectl --profile deal deal tick >/dev/null && capsulectl --profile deal deal standard-history card --out $f.bundle && capsulectl presentation build --bundle $f.bundle --out $f.html >/dev/null && cp $f.html ~/history-card.html' && docker cp devcon8:/home/participant/history-card.html . && open history-card.html
+
+(The first time, run step 1 inside the container.)
+
+**4. Your copy and the copy you send.** The card above is your own copy: it holds the deal entries it counts. To hand the card to
+someone else, write the shared copy, which has the card, its policy and its anchor but not the deal entries:
+
+    capsulectl --profile deal deal standard-history card --shared --out ~/deals/card1-shared.bundle
+
+**5. What it shows.** A Lightning (`--pay lexe`) deal is counted under BTC. The workshop trade does not compare your record of a deal with the other side's, so every deal on your card shows "we couldn't tell". That means no comparison was made, not that the trade failed.
 
 ### 8. `devcon8 go-seal`: the Go SDK example
 
