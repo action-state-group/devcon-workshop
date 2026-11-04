@@ -75,6 +75,14 @@ thread=$(side open --sale "$sale" --input "$work/thread.json" | jq -r .deal_id)
 jq -n --argjson t "$terms_json" '{action:"offer",amount_minor:150,terms:($t+{handover:"shipped",price_minor:150}),recourse:{rail:"x402",refundable:false}}' >"$work/offer-check.json"
 offer=$(side check --deal "$thread" --input "$work/offer-check.json")
 [ "$(jq -r '.rules.status' <<<"$offer")" != not_evaluated ] || fail "the pinned rules were not evaluated: $(jq -c .rules <<<"$offer")"
+# The pinned rules pause the offer. The seller's answer is bound to the card it was shown (--shown-card), then the
+# offer act and the buyer's acceptance record; history entries come from act records.
+jq -r .approval_text <<<"$offer" >"$work/card.txt"
+side note --deal "$thread" --kind approval --check "$(jq -r .check_id <<<"$offer")" --choice proceed \
+  --said "yes, go ahead with this buyer" --shown-card "$work/card.txt" >/dev/null
+jq -n '{action:"offer",amount_minor:150}' >"$work/offer-act.json"
+[ "$(side note --deal "$thread" --kind act --input "$work/offer-act.json" | jq -r .unchecked)" = false ] || fail "the offer act was sealed unchecked"
+side note --deal "$thread" --kind acceptance --check "$(jq -r .check_id <<<"$offer")" --words "yes, 1.50 works" --channel marketplace >/dev/null
 jq -n --argjson t "$terms_json" '{action:"commit",amount_minor:175,terms:($t+{handover:"shipped",price_minor:175}),recourse:{rail:"x402",refundable:false}}' >"$work/commit-check.json"
 side check --deal "$thread" --input "$work/commit-check.json" >"$work/check.json"
 jq -e '.rules.ruleset_id' "$work/check.json" >/dev/null || fail "deal check carries no rules.ruleset_id: $(jq -c .rules "$work/check.json")"
