@@ -44,7 +44,7 @@ the `docker run` in "Start".
 
 (Or the v4 tag or `@sha256:fde3ab11…` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
-The console is on port 3141 because Buzz Desktop uses 3131. Inside the container a small relay (port 3132) hands the console its requests from the container's own loopback, which mesh-llm requires for the console's plugin routes (the Evidence tab). A client node hides the Configuration tab by mesh-llm's design. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then the `docker run` above; your `devcon8-home` volume keeps your state.
+The console is on port 3141 because Buzz Desktop uses 3131. Inside the container a small relay (port 3132) hands the console its requests from the container's own loopback, which mesh-llm requires for the console's plugin routes (the Evidence tab). A client node hides the Configuration tab by mesh-llm's design. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then `docker pull` the image again and run the `docker run` above (a local copy of `latest` from before Nov 4 is an older image, and `docker run` does not update it); your `devcon8-home` volume keeps your state.
 
 ### From the USB stick (no network)
 
@@ -219,11 +219,10 @@ One person plays both sides in two containers: a seller that sells your sticker 
 email addresses that can each receive a six-digit code (one per mailbox; if you already have a mailbox, use its email for one side and a new email for the other), and a Claude or ChatGPT login for the agent in
 each container. Use two terminal windows. No money moves.
 
-**Terminal 1, the seller.** Stop a running `devcon8` container first (`docker stop devcon8`), since this one publishes the
-same console port. Pull the image as in "Before the workshop", then start it:
+**Terminal 1, the seller.** Pull the image as in "Before the workshop", then start it (no published ports are needed for a
+trade between Agent Box mailboxes):
 
     docker run -it --name devcon8-seller -v devcon8-seller-home:/home/participant \
-      -p 127.0.0.1:3141:3132 \
       ghcr.io/action-state-group/devcon-workshop:latest
 
 From the USB stick, add `--pull never` and use the loaded tag (`...cap0.1.15-b7e05594.139-arm64` or `-amd64`) in place of `:latest`, for both containers.
@@ -260,8 +259,8 @@ checks its sha256 and confirms; both agents close their deals. If the seller goe
 "keep checking the mailbox".
 
 **Where the results are.** In each container, every deal is in `~/.local/share/capsule-deal` (list them with
-`capsulectl --profile deal deal list`) and the files are in `~/deals/`; the buyer's `sticker.png` is there. The seller's
-console is http://127.0.0.1:3141 only if you also ran `devcon8 join` there.
+`capsulectl --profile deal deal list`) and the files are in `~/deals/`; the buyer's `sticker.png` is there. The node console
+at http://127.0.0.1:3141 is for mesh-llm (`devcon8 join`) and shows nothing about a trade between mailboxes.
 
 **Known gaps.** See the note under step 7 (History card, presentation assets, masked errors).
 

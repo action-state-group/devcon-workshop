@@ -121,7 +121,7 @@ in step 4 did not finish, or the arch suffix differs from the one it printed.
 ### Start the container (with network)
 
 ```sh
-docker rm -f devcon8 ; docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 ghcr.io/action-state-group/devcon-workshop:latest
+docker pull ghcr.io/action-state-group/devcon-workshop:latest ; docker rm -f devcon8 ; docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 ghcr.io/action-state-group/devcon-workshop:latest
 ```
 
 - `--pull never` stops Docker from going to the network. If you get `No such image`, the image
