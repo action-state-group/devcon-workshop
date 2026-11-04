@@ -143,7 +143,7 @@ The trading agent runs in [goose](https://github.com/aaif-goose/goose). Pick its
   `devcon8 brain codex` again:
   `docker exec -i devcon8 sh -c 'mkdir -p ~/.codex && umask 077 && cat > ~/.codex/auth.json' < ~/.codex/auth.json`
 - `mesh`: chat with the mesh's own models through your node. A 0.5B model cannot run the trading
-  agent; use `claude` or `codex` for that. goose may ask once whether to share anonymous usage data; answer no.
+  agent; use `claude` or `codex` for that.
 
 ### 4. `devcon8 s02`: the settlement record
 
@@ -216,56 +216,79 @@ they give you. It buys only from that address, never from search results.
 ### Trade with yourself: a walkthrough (simulated payment)
 
 One person plays both sides in two containers: a seller that sells your sticker and a buyer that buys it. You need two
-email addresses that can each receive a six-digit code (one per mailbox; if you already have a mailbox, use its email for one side and a new email for the other), and a Claude or ChatGPT login for the agent in
-each container. Use two terminal windows. No money moves.
+email addresses that can each receive a six-digit code (one per mailbox; if you already have a mailbox, use its email for
+one side and a new email for the other), and a Claude or ChatGPT login for the agent in each container. Use two terminal
+windows. No money moves. goose runs in auto mode: it does not ask before each tool call, but the agent still stops at a
+"PAUSED FOR YOU" card before an offer, a commitment and a payment, and you answer those in the chat.
 
-**Terminal 1, the seller.** Pull the image as in "Before the workshop", then start it (no published ports are needed for a
-trade between Agent Box mailboxes):
+**0. Get the image again.** Pull `latest` even if you pulled before, since an older local copy is an older image:
 
-    docker run -it --name devcon8-seller -v devcon8-seller-home:/home/participant \
-      ghcr.io/action-state-group/devcon-workshop:latest
+    docker pull ghcr.io/action-state-group/devcon-workshop:latest
 
-From the USB stick, add `--pull never` and use the loaded tag (`...cap0.1.15-b7e05594.139-arm64` or `-amd64`) in place of `:latest`, for both containers.
+Remove old containers of these names from earlier tries (your volumes, logins and mailboxes are kept):
 
-Inside it:
+    docker rm -f devcon8 devcon8b
 
-    devcon8 brain claude            # open the link on your laptop, sign in, paste the code back, type /exit
-    devcon8 nanda <seller email>    # answer y; type the six-digit code that arrives at that address
-    devcon8 trade                   # sell only; goose starts and waits for buyers
+**1. The seller, terminal 1.** The trade runs over Agent Box mailboxes, not over mesh-llm, so neither container publishes a port
+(http://127.0.0.1:3141 is the mesh-llm node console and only has something after `devcon8 join`):
 
-`devcon8 nanda` prints your agent's address, for example `shop1@agentboxnanda.org`; `devcon8 trade` tells it again as it
-starts. Copy it for the buyer. (`brain codex` works the same way if you use ChatGPT.)
+    docker run -it --name devcon8 -v devcon8-home:/home/participant ghcr.io/action-state-group/devcon-workshop:latest
 
-**Terminal 2, the buyer.** A second container, with its own volume and no published ports:
+From the USB stick, add `--pull never` and use the loaded tag (`...cap0.1.15-b7e05594.139-arm64` or `-amd64`) in place of
+`:latest`, for both containers. Inside the container:
 
-    docker run -it --name devcon8-buyer -v devcon8-buyer-home:/home/participant \
-      ghcr.io/action-state-group/devcon-workshop:latest
+    devcon8 brain claude          # open the link it prints, sign in, paste the code back, type /exit
+    devcon8 nanda <seller email>  # answer y; type the six-digit code sent to that email
+    devcon8 trade                 # sell only; goose waits for a buyer
+
+`devcon8 nanda` prints the agent's address, for example `shop1@agentboxnanda.org`: that is the seller address. When it says
+"Registering in the NANDA Index (up to 10 minutes)...", you can press Ctrl-C: the mailbox is already ready. (`brain codex`
+works the same way if you use ChatGPT.)
+
+**2. The buyer, terminal 2.** A second container with its own volume:
+
+    docker run -it --name devcon8b -v devcon8b-home:/home/participant ghcr.io/action-state-group/devcon-workshop:latest
 
 Inside it:
 
     devcon8 brain claude
-    devcon8 nanda <buyer email>     # a different email gives a different mailbox
-    devcon8 trade --buy shop1@agentboxnanda.org     # the seller's address from terminal 1
+    devcon8 nanda <buyer email>              # a different email gives a different mailbox
+    devcon8 trade --buy <seller address>
 
-**Already have a mailbox?** Use the email you created it with and follow "Already have a mailbox?" above: the same address
-comes back and only the code is new. Only the container that ran `devcon8 nanda` last answers for it, so do not give two
-containers the same mailbox at the same time.
+**Already have a mailbox?** Use the email you created it with: `devcon8 nanda` asks "Create the mailbox for ...?" (it says
+Create even when the mailbox exists), you answer `y`, and the gateway gives back the same address with a new key and a fresh
+six-digit code. Only the container that ran `devcon8 nanda` last answers for the mailbox, so do not give two containers the
+same mailbox at the same time.
 
-**What you see.** goose asks before every tool call; approve each one. Before the seller's offer, the seller's
-commitment and the buyer's payment, the agent runs a final check; when it pauses ("PAUSED FOR YOU") it shows you its card in
-the chat, and you answer yes or no (no holds the deal). The payment is the simulated 50-cent x402 one: the buyer's card
-says 50 cents, and the settle response says "SIMULATED". The buyer opens the conversation, pays, receives the sticker,
-checks its sha256 and confirms; both agents close their deals. If the seller goes quiet while it waits, tell it
-"keep checking the mailbox".
+**3. During the trade.** Answer the "PAUSED FOR YOU" cards with yes or no (no holds the deal). The payment is the simulated
+50-cent x402 one; the settle response says "SIMULATED". The buyer opens the conversation, pays, receives the sticker, checks
+its sha256 and confirms; both agents close their deals.
 
-**Where the results are.** In each container, every deal is in `~/.local/share/capsule-deal` (list them with
-`capsulectl --profile deal deal list`) and the files are in `~/deals/`; the buyer's `sticker.png` is there. The node console
-at http://127.0.0.1:3141 is for mesh-llm (`devcon8 join`) and shows nothing about a trade between mailboxes.
+- If one side goes quiet, type: `keep checking the mailbox`
+- If both seem to wait, tell the buyer: `Buy one digital fox sticker from <seller address> now`
+- Ctrl-C once interrupts the turn goose is on; a second Ctrl-C within 10 seconds ends the run.
+
+**4. See the result, from your Mac terminal.** List the deals; column 1 is the id and column 3 the state:
+
+    docker exec devcon8 bash -lc 'capsulectl --profile deal deal list'
+
+Write the receipt of the latest closed deal inside the container, copy it out, and open it (for the buyer use `devcon8b`
+in all three places):
+
+    docker exec devcon8 bash -lc 'id=$(capsulectl --profile deal deal list | awk "\$3==\"closed\"{i=\$1} END{print i}"); capsulectl --profile deal deal report --deal "$id" --html ~/receipt.html' && docker cp devcon8:/home/participant/receipt.html . && open receipt.html
+
+The deals themselves are in `~/.local/share/capsule-deal` and the files in `~/deals/` inside each container; the buyer's
+`sticker.png` is there.
+
+**5. If a terminal closes.** Exiting a container's first shell stops the container. Bring it back with
+`docker start -ai devcon8` (or `devcon8b`); logins, mailbox and deals are on the volume. `docker exec -it devcon8 bash`
+opens another shell in a running container.
 
 **Known gaps.** See the note under step 7 (History card, presentation assets, masked errors).
 
-**Clean up.** `docker rm -f devcon8-seller devcon8-buyer && docker volume rm devcon8-seller-home devcon8-buyer-home`.
-If you listed a mailbox you will not use again, run `devcon8 nanda leave` first (permanent; see "Leaving the NANDA Index").
+**Clean up.** `docker rm -f devcon8 devcon8b` removes the containers and keeps the volumes. To forget the logins, mailboxes and
+deals too, and to start over with different emails, also run `docker volume rm devcon8-home devcon8b-home`. If you listed a
+mailbox you will not use again, run `devcon8 nanda leave` first (permanent; see "Leaving the NANDA Index").
 
 ### 8. `devcon8 go-seal`: the Go SDK example
 
