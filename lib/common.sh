@@ -32,8 +32,9 @@ plugins_sync() {
 # may replace that directory's contents, so copy them after every install as well as at start.
 plugin_assets_sync() {
   local r=$HOME/.local/lib/capsulectl/plugins
-  mkdir -p "$r" && cp -a "$D/plugin-assets/." "$r/" \
-    || warn "could not copy the plugin presentation assets into $r"
+  if ! { mkdir -p "$r" && cp -a "$D/plugin-assets/." "$r/"; }; then
+    warn "could not copy the plugin presentation assets into $r"
+  fi
 }
 plugin_ensure() { # name version archive
   local have want mark=$ST/plugin-$1.sha256

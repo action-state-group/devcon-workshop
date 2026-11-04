@@ -54,13 +54,13 @@ command -v claude-agent-acp >/dev/null || fail "claude-agent-acp"; command -v co
 capsulectl --version >/dev/null 2>&1 || capsulectl version >/dev/null || fail "capsulectl"
 ok "goose $(goose --version | head -1), claude, codex, both ACP adapters, capsulectl"
 
-# The plugins' presentation assets are shipped, so `presentation build` carries their modules.
-[ -f "$D/plugin-assets/capsulectl-deal.d/deal-view.js" ] && [ -f "$D/plugin-assets/standard-history-module/standard_history_card.js" ] \
-  || fail "plugin presentation assets missing"
-# The entrypoint copied them beside the plugin binaries (what presentation build resolves them from).
-r=$HOME/.local/lib/capsulectl/plugins
-[ -f "$r/capsulectl-deal.d/deal-view.js" ] && [ -f "$r/standard-history-module/standard_history_card.js" ] \
-  || fail "plugin presentation assets not copied into $r"; ok "plugin presentation assets present"
+# The plugins' presentation assets are shipped, and the entrypoint copied them beside the plugin binaries
+# (what `presentation build` resolves them from), so it carries their modules.
+for f in capsulectl-deal.d/deal-view.js standard-history-module/standard_history_card.js; do
+  [ -f "$D/plugin-assets/$f" ] || fail "plugin presentation asset $f missing from the image"
+  [ -f ~/.local/lib/capsulectl/plugins/"$f" ] || fail "plugin presentation asset $f not copied beside the plugins"
+done
+ok "plugin presentation assets present"
 
 # The trader recipe reads the deal skill from here.
 [ -f "$D/agent/skills/deal/SKILL.md" ] || fail "deal skill missing"; ok "deal skill present"
