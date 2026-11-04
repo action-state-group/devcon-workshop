@@ -3,6 +3,14 @@
 D=${D:-/opt/devcon8}
 ST=${ST:-$HOME/.devcon8}
 MESH=$D/mesh/bin/mesh-llm
+# The S08 models are not in the image; `devcon8 models` puts them in the volume.
+MODELS=$ST/models
+need_models() { # FILE...
+  local f
+  for f in "$@"; do
+    [ -f "$MODELS/$f" ] || die "model $f is not on this volume: run devcon8 models first"
+  done
+}
 warn() { echo "warning: $*" >&2; }
 die() { echo "devcon8: $*" >&2; exit 1; }
 triple() { case $(uname -m) in x86_64) echo x86_64-unknown-linux-gnu;; aarch64) echo aarch64-unknown-linux-gnu;; *) die "unsupported arch $(uname -m)";; esac; }

@@ -48,11 +48,12 @@ The console is on port 3141 because Buzz Desktop uses 3131. Inside the container
 
 ### From the USB stick (no network)
 
-The stick holds these three files in its top folder (no subfolders):
+The stick holds these three files and one folder in its top folder:
 
     devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
     devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-amd64.tar    Windows and x86 Linux
     SHA256SUMS
+    models/                                                                 the two S08 model files (1.1 GB, only for S08)
 
 `docker run` cannot read a tarball: copy the one file for your laptop, check it, `docker load` it, then
 run the loaded tag. Each tarball is about 1.9 GB; loading takes 1 to 3 minutes and may print nothing until
@@ -112,6 +113,16 @@ amd64: the same line ending in `...cap0.1.15-b7e05594.139-amd64`. In PowerShell 
 (without the `\` line ends). Then run `devcon8 doctor` in the shell you get. `No such image` means the load
 in step 4 did not finish, or the arch suffix differs from the one it printed.
 
+**S08 needs two model files** (1.1 GB). They are not in the image. With a network, `devcon8 models` downloads
+them into your volume. From the stick, copy its `models` folder next to the tarball in step 2
+(`cp -r "/Volumes/STICKNAME/models" ~/devcon8-usb/` on macOS), then, with the container running
+(`docker run` above, in another terminal), hand it to the container and load it:
+
+    docker cp ~/devcon8-usb/models devcon8:/tmp/
+    devcon8 models --from /tmp/models
+
+`devcon8 models` checks each file's sha256 and skips files it already has. Skip this if you only run the trade.
+
 ### 1. `devcon8 doctor`
 
 Shows your architecture, CPUs, memory, free disk and the versions in the image, and warns when Docker
@@ -153,6 +164,10 @@ signed halves under two keys, checked in your browser, offline. `/opt/devcon8/de
 on the command line.
 
 ### 5. `devcon8 s08 <step>`: catch a lying node
+
+First `devcon8 models` (once): it downloads the two Qwen2.5-0.5B model files, 1.1 GB, into `~/.devcon8/models`
+on your volume, checks their sha256 and skips what it already has; interrupted, run it again to resume.
+Without them `devcon8 s08` says "run devcon8 models first".
 
 Four nodes on a private mesh inside your container (it never touches the demo mesh): an honest node, a
 referee, a liar and an asker, all on the same mesh-llm and capsules as the demo mesh. Steps, in order:
@@ -434,7 +449,7 @@ The image builds the same commit with the same recipes, but its bytes are its ow
 | capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc34` releases (deal carries `capsulectl deal terms-leg`, seals a Lightning payment received and states it in msat) |
 | goose (built from its v1.57.0 commit plus `patches/`, aaif-goose/goose#13273), Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
 | evidencebook Go SDK | v0.12.2, Go 1.27 |
-| models | Qwen2.5-0.5B-Instruct GGUF, Q8_0 and Q4_K_M |
+| models (not in the image; `devcon8 models` downloads them) | Qwen2.5-0.5B-Instruct GGUF, Q8_0 and Q4_K_M, pinned in `versions.lock` |
 
 The buyer's signed terms leg is written by `capsulectl deal terms-leg`
 ([evidencebook-deal#70](https://github.com/action-state-group/evidencebook-deal/issues/70)), signed with

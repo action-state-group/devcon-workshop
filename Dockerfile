@@ -22,7 +22,7 @@ RUN mkdir /pins && cd /pins \
     && grep -E '^GOOSE_' /src/versions.lock > goose.lock \
     && wc -l *.lock
 
-# --- release assets, models, Go and Node: downloaded and sha256-checked ---------------------------
+# --- release assets, Go and Node: downloaded and sha256-checked ---------------------------
 FROM ${BASE} AS fetch
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
@@ -155,7 +155,6 @@ COPY --from=fetch /fetch/opt/node/ $D/node/
 COPY --from=fetch /fetch/opt/go/ $D/go/
 COPY --from=fetch /fetch/opt/mesh/plugins/ $D/mesh/plugins/
 COPY --from=lexe /out/ $D/mesh/plugins/
-COPY --from=fetch /fetch/opt/models/ $D/models/
 COPY --from=mesh /out/bin/ $D/mesh/bin/
 COPY --from=fetch /fetch/opt/mesh/capsules.version $D/mesh/capsules.version
 COPY --from=redteam /out/ $D/s08/dist/

@@ -30,12 +30,9 @@ get "$gh/action-state-group/evidencebook/releases/download/capsulectl/$BOOK_VERS
 get "https://go.dev/dl/go$GO_VERSION.linux-$GOARCH.tar.gz" "$(pin GO)" go.tar.gz
 get "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$NODEARCH.tar.xz" "$(pin NODE)" node.tar.xz
 get "$gh/Mesh-LLM/capsules-plugin/releases/download/v$CAPSULES_VERSION/capsules-$CAPSULES_VERSION-$TRIPLE.tar.gz" "$(pin CAPSULES)" "capsules-$CAPSULES_VERSION-$TRIPLE.tar.gz"
-hf="https://huggingface.co/$HF_REPO/resolve/$HF_REV"
-get "$hf/$Q8_FILE" "$Q8_SHA256" "$Q8_FILE"
-get "$hf/$Q4_FILE" "$Q4_SHA256" "$Q4_FILE"
 
 # Unpack into /opt/devcon8 layout fragments.
-rm -rf opt && mkdir -p opt/bin opt/mesh/plugins opt/models opt/agent
+rm -rf opt && mkdir -p opt/bin opt/mesh/plugins opt/agent
 install -m 0755 dl/capsulectl opt/bin/capsulectl
 install -m 0755 dl/capsulectl-deal opt/bin/capsulectl-deal
 install -m 0755 dl/capsulectl-book opt/bin/capsulectl-book
@@ -44,5 +41,4 @@ mkdir -p opt/plugin-assets && tar -xzf dl/deal-view.tar.gz -C opt/plugin-assets 
 mkdir -p opt/go && tar -xzf dl/go.tar.gz -C opt/go --strip-components=1
 mkdir -p opt/node && tar -xJf dl/node.tar.xz -C opt/node --strip-components=1
 cp "dl/capsules-$CAPSULES_VERSION-$TRIPLE.tar.gz" opt/mesh/plugins/ && echo "$CAPSULES_VERSION" > opt/mesh/capsules.version
-cp "dl/$Q8_FILE" "dl/$Q4_FILE" opt/models/
 echo "fetch: $ARCH ok"

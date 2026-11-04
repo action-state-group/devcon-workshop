@@ -54,11 +54,12 @@ Docker picks `arm64` or `amd64` for your machine by itself.
 
 ### From a USB stick (no network)
 
-The stick holds these three files in its top folder (no subfolders):
+The stick holds these three files and one folder in its top folder:
 
     devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
     devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-amd64.tar    Windows and x86 Linux
     SHA256SUMS
+    models/                                                                 the two S08 model files (1.1 GB, only for S08)
 
 `docker run` cannot read a tarball: copy the one file for your laptop, check it, `docker load` it, then
 run the loaded tag. Each tarball is about 1.9 GB; loading takes 1 to 3 minutes and may print nothing until
@@ -118,6 +119,16 @@ amd64: the same line ending in `...cap0.1.15-b7e05594.139-amd64`. In PowerShell 
 (without the `\` line ends). You are then in the container's shell: skip "Start the container" below and go to `devcon8 doctor` there. `No such image` means the load
 in step 4 did not finish, or the arch suffix differs from the one it printed.
 
+**S08 needs two model files** (1.1 GB). They are not in the image. With a network, `devcon8 models` downloads
+them into your volume. From the stick, copy its `models` folder next to the tarball in step 2
+(`cp -r "/Volumes/STICKNAME/models" ~/devcon8-usb/` on macOS), then, with the container running
+(`docker run` above, in another terminal), hand it to the container and load it:
+
+    docker cp ~/devcon8-usb/models devcon8:/tmp/
+    devcon8 models --from /tmp/models
+
+`devcon8 models` checks each file's sha256 and skips files it already has. Skip this if you only run the trade.
+
 ### Start the container (with network)
 
 ```sh
@@ -155,9 +166,10 @@ current one.
 
 `devcon8 join` starts a **client** node. A client borrows answers from the mesh and has no identity
 of its own across restarts. For this walk-through you **serve** instead: your node runs the 0.5B
-Qwen2.5 model that ships in the image and answers other people's requests. Inside the container:
+Qwen2.5 model (not in the image: `devcon8 models` downloads it first) and answers other people's requests. Inside the container:
 
 ```sh
+devcon8 models
 devcon8 join
 ```
 
@@ -167,7 +179,7 @@ starts and sends one question. Then switch the node to serving:
 ```sh
 devcon8 node stop
 . /opt/devcon8/lib/common.sh && mesh_config && plugins_sync
-nohup mesh-llm serve --join-file ~/.devcon8/join.txt --gguf /opt/devcon8/models/qwen2.5-0.5b-instruct-q4_k_m.gguf --port 9337 --console 3131 --listen-all > ~/.devcon8/serve.log 2>&1 &
+nohup mesh-llm serve --join-file ~/.devcon8/join.txt --gguf ~/.devcon8/models/qwen2.5-0.5b-instruct-q4_k_m.gguf --port 9337 --console 3131 --listen-all > ~/.devcon8/serve.log 2>&1 &
 nohup python3 /opt/devcon8/lib/console-relay.py 3132 3131 > ~/.devcon8/relay.log 2>&1 &
 ```
 
@@ -239,7 +251,7 @@ reports in section 4.
 
 ## 3. S08: catch a lying node on a local four-node mesh
 
-S08 runs four nodes on a **private** mesh inside your container. It never touches the demo mesh. The
+S08 needs the two model files first: run `devcon8 models` once (1.1 GB, checked by sha256). S08 runs four nodes on a **private** mesh inside your container. It never touches the demo mesh. The
 four nodes are an honest node, a referee, a liar and an asker, all on the same mesh-llm and capsules as
 above. Each step is one command, safe to rerun:
 
