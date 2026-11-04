@@ -38,12 +38,16 @@ open_wallet() {
   if lexe_ready; then lexe_up; return; fi
   consent
   mkdir -p "$LEXE"; chmod 700 "$LEXE"
+  lexe_lock
+  # Another terminal may have finished opening it while this one was asked.
+  if lexe_ready; then lexe_unlock; lexe_up; return; fi
   [ -s "$LEXE/root_seed" ] || (umask 077; openssl rand -hex 32 > "$LEXE/root_seed.tmp" && mv "$LEXE/root_seed.tmp" "$LEXE/root_seed")
   lexe_up
   lexe_call PUT /v2/node/signup '{}' >/dev/null || die "Lexe sign-up failed; see $LEXE/sidecar.log, then run 'devcon8 wallet' again"
   touch "$LEXE/signed_up"
   lexe_call PUT /v2/node/provision >/dev/null || die "the lexe wallet could not be provisioned; see $LEXE/sidecar.log, then run 'devcon8 wallet' again"
   echo "wallet registered with Lexe"
+  lexe_unlock
 }
 
 balance() {

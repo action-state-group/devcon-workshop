@@ -279,9 +279,15 @@ def wallet(command, timeout=30, refused_ok=False):
     if name == "send":
         return _tx(sidecar("POST", "/v2/node/pay_invoice", {"invoice": command["invoice"]}, timeout=timeout,
                            refused_ok=refused_ok, paying=True))
-    if name == "transactions":
-        r = sidecar("GET", "/v2/node/list_payments", query={"filter": "all", "order": "desc", "limit": command.get("limit", 200)})
-        return [_tx(p) for p in r.get("payments", []) if p.get("hash")] if isinstance(r, dict) else []
+    if name == "payment":
+        # By payment id, which syncs with the node first (list_payments reads a local copy that can be behind).
+        try:
+            r = sidecar("GET", "/v2/node/payment_by_id", query={"id": "ln_" + command["hash"]}, refused_ok=True)
+        except Refused as e:
+            if str(e).startswith("HTTP 404"):
+                return None
+            die(f"the wallet refused the payment lookup: {e}")
+        return _tx(r) if isinstance(r, dict) else None
     die(f"unknown wallet operation {name}", 2)
 
 
@@ -454,8 +460,9 @@ def cmd_pay(conv, msat, digest):
         # A refused send may still have a definite outcome in the wallet (a payment it tried and
         # failed, such as no route): read it, so a failure releases the reservation and a success
         # is not lost. With no record, the outcome is unknown and the reservation stays.
-        txs = wallet({"command": "transactions", "limit": 200})
-        tx = next((t for t in txs if isinstance(t, dict) and t.get("payment_hash") == h and not t.get("inbound")), None) if isinstance(txs, list) else None
+        tx = wallet({"command": "payment", "hash": h})
+        if tx is not None and tx.get("inbound"):
+            tx = None
         if tx is None or tx.get("status") not in ("succeeded", "failed"):
             die(f"the wallet refused 'send' ({refused}) and has no settled record of it; the outcome is unknown, so "
                 "this payment stays counted against your caps. Look at 'devcon8 wallet'")
@@ -494,8 +501,9 @@ def cmd_receive(conv, h, wait_s=120):
         die("that payment hash is not the invoice you issued in this conversation: refusing to treat it as paid")
     end = time.time() + wait_s
     while True:
-        txs = wallet({"command": "transactions", "limit": 200})
-        tx = next((t for t in txs if isinstance(t, dict) and t.get("payment_hash") == h and t.get("inbound")), None) if isinstance(txs, list) else None
+        tx = wallet({"command": "payment", "hash": h})
+        if tx is not None and not tx.get("inbound"):
+            tx = None
         if tx and tx.get("status") in ("succeeded", "failed"):
             break
         if time.time() >= end:

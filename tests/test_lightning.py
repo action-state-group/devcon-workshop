@@ -320,7 +320,7 @@ class Lightning(unittest.TestCase):
         self.saved_invoice()
         Wallet.script["pay_invoice"] = lambda b: (400, {"error": "Lightning payment failed"})
         failed = dict(payment(status="failed"), status_msg="could not find usable route to send payment over")
-        Wallet.script["list_payments"] = lambda b: (200, {"payments": [failed]})
+        Wallet.script["payment_by_id"] = lambda b: (200, failed)
         code, _, err = self.run_ln("pay", "conv_1", "500000", DIGEST)
         self.assertNotEqual(code, 0)
         self.assertIn("could not find usable route", err)
@@ -331,7 +331,7 @@ class Lightning(unittest.TestCase):
     def test_a_refused_send_the_wallet_completed_counts_as_paid(self):
         self.saved_invoice()
         Wallet.script["pay_invoice"] = lambda b: (500, {"error": "timeout waiting for the provider"})
-        Wallet.script["list_payments"] = lambda b: (200, {"payments": [payment()]})
+        Wallet.script["payment_by_id"] = lambda b: (200, payment())
         code, out, err = self.run_ln("pay", "conv_1", "500000", DIGEST)
         self.assertEqual(code, 0, err)
         self.assertTrue(json.loads(out)["paid"])
@@ -382,14 +382,14 @@ class Lightning(unittest.TestCase):
 
     def test_receive_waits_for_settlement(self):
         self.run_ln("invoice", "conv_9")
-        Wallet.script["list_payments"] = lambda b: (200, {"payments": [payment(status="pending", inbound=True)]})
+        Wallet.script["payment_by_id"] = lambda b: (200, payment(status="pending", inbound=True))
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as e:
             ln.cmd_receive("conv_9", HASH, wait_s=0)
         self.assertEqual(e.exception.code, 3)
         self.assertIn("not reported that payment settled", err.getvalue())
         # An outbound payment with the same hash is not a receipt.
-        Wallet.script["list_payments"] = lambda b: (200, {"payments": [payment(inbound=False)]})
+        Wallet.script["payment_by_id"] = lambda b: (200, payment(inbound=False))
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as e:
             ln.cmd_receive("conv_9", HASH, wait_s=0)
         self.assertEqual(e.exception.code, 3)
@@ -414,6 +414,15 @@ class Lightning(unittest.TestCase):
         self.assertIsNone(ln.decode_invoice(INVOICE.replace("lnbc5000000p", "lnbc5000001p", 1)))
         self.assertEqual(ln.decode_invoice(make_invoice(None))["amount_msat"], None)
         self.assertEqual(ln.decode_invoice(make_invoice(12_345))["amount_msat"], 12_345)
+
+    def test_a_missing_payment_is_not_a_receipt_and_the_lookup_is_by_id(self):
+        self.run_ln("invoice", "conv_9")
+        Wallet.payments = []
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as e:
+            ln.cmd_receive("conv_9", HASH, wait_s=0)
+        self.assertEqual(e.exception.code, 3)
+        self.assertEqual(Wallet.calls[-1][1:], ("payment_by_id", {"id": "ln_" + HASH}))
 
     def test_wallet_down_says_how_to_open_it(self):
         self.saved_invoice()

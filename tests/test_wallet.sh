@@ -39,6 +39,15 @@ asked no > "$T/out" 2>&1 || true
 grep -q "privacy-policy" "$T/out" || fail "the consent text does not name Lexe's policy"
 grep -q "Removing the volume" "$T/out" || fail "the consent text has no backup reminder"
 
+# Two terminals answering yes together make one wallet.
+asked yes > "$T/out1" 2>&1 & p1=$!
+asked yes > "$T/out2" 2>&1 & p2=$!
+wait $p1 || true; wait $p2 || true
+[ "$(grep -c '^signup$' "$T/fake.log")" = 1 ] || { cat "$T/out1" "$T/out2"; fail "two concurrent opens signed up $(grep -c '^signup$' "$T/fake.log") times"; }
+seed1=$(cat "$ST/lexe/root_seed")
+w stop >/dev/null 2>&1
+rm -rf "$ST/lexe" "$T/fake.log"
+
 # Answering yes: seed, sign-up, provision, balance.
 asked yes > "$T/out" 2>&1 || { cat "$T/out"; fail "yes did not open the wallet"; }
 seed=$ST/lexe/root_seed
@@ -50,6 +59,17 @@ grep -qx provision "$T/fake.log" || fail "provision not called"
 [ -e "$ST/lexe/signed_up" ] || fail "no sign-up record"
 grep -q '"balance_sats"' "$T/out" || fail "no balance"
 grep -qF "$(cat "$seed")" "$T/out" && fail "the seed was printed by 'devcon8 wallet'"
+
+# A failed provision is retried by the next open, which the error tells the person to run.
+w stop >/dev/null 2>&1
+touch "$T/provfail"; export FAKE_PROVISION_FAIL=$T/provfail
+if w > "$T/out" 2>&1 < /dev/null; then fail "open succeeded while provisioning failed"; fi
+grep -q "could not be provisioned" "$T/out" || { cat "$T/out"; fail "provision failure text"; }
+w > "$T/out" 2>&1 < /dev/null || { cat "$T/out"; fail "the retry after a failed provision failed"; }
+grep -q '"balance_sats"' "$T/out" || fail "no balance after the retry"
+w > /dev/null 2>&1 < /dev/null
+w stop >/dev/null 2>&1
+w > "$T/out" 2>&1 < /dev/null || fail "reopen"
 
 # Opening again asks nothing and signs up nothing.
 w > "$T/out" 2>&1 < /dev/null || { cat "$T/out"; fail "reopening failed"; }

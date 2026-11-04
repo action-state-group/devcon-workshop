@@ -1,7 +1,7 @@
 """fake_sidecar.py PORT LOG: a stand-in for lexe-sidecar's local HTTP API, for tests/sim-lightning.sh
 and tests/test_lightning.py. `create_invoice` issues a real, signed mainnet BOLT11 invoice (made here
 with a test key) and records it received (495 of its sats credited, 5 sats of fee); `pay_invoice`
-pays any invoice and `list_payments` reports both. Its answers carry the preimage, as a real
+pays any invoice and `payment_by_id` reports both. Its answers carry the preimage, as a real
 sidecar's do, so the tests can check that none is kept. No wallet is opened and no money moves. Each
 request's path is appended to LOG.
 
@@ -119,14 +119,29 @@ def _pay_invoice(body):
     return 200, p
 
 
+def _provision(body):
+    # A file named by FAKE_PROVISION_FAIL makes the next provision fail once, as a Lexe outage would.
+    flag = os.environ.get("FAKE_PROVISION_FAIL")
+    if flag and os.path.exists(flag):
+        os.remove(flag)
+        return 503, {"error": "node unavailable"}
+    return 200, {}
+
+
+def _payment_by_id(q):
+    h = q["id"].removeprefix("ln_")
+    found = [p for p in Handler.payments if p["hash"] == h]
+    return (200, found[-1]) if found else (404, {"error": "Payment not found"})
+
+
 DEFAULTS = {
     "health": lambda b: (200, {"status": "ok"}),
     "signup": lambda b: (200, {}),
-    "provision": lambda b: (200, {}),
+    "provision": _provision,
     "node_info": lambda b: (200, {"balance": "100000", "lightning_sendable_balance": "100000", "num_usable_channels": 1}),
     "create_invoice": _create_invoice,
     "pay_invoice": _pay_invoice,
-    "list_payments": lambda b: (200, {"payments": list(reversed(Handler.payments)), "next_index": None}),
+    "payment_by_id": _payment_by_id,
 }
 
 if __name__ == "__main__":
