@@ -12,5 +12,5 @@ Your node stays free-only until you change its policy. To pay for mesh inference
   mesh-llm wallet fund-wallet --amount-sats N                        a mainnet invoice to pay from another wallet
   mesh-llm wallet policy --mode automatic --daily-budget-sats N      pay automatically, at most N sats a day
   mesh-llm wallet policy --mode free-only                            back to free-only
-With a funded wallet, run agents with GOOSE_MODE=approve so each tool call asks you first.
+With a funded wallet, 'devcon8 trade --pay lexe' still stops for your answer before every payment; set DEVCON8_GOOSE_MODE=approve to be asked before every tool call too.
 TXT

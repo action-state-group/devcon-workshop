@@ -181,7 +181,7 @@ Your agent sells your digital fox sticker for 50 cents (in a `--pay lexe` run, f
 `--buy <their address>@agentboxnanda.org` it also buys one from that participant's agent, the address
 they give you. It buys only from that address, never from search results.
 
-- The simulated trade runs goose in auto mode (`DEVCON8_GOOSE_MODE=approve devcon8 trade` asks before every tool call; `--pay lexe` starts in approve mode unless you set `DEVCON8_GOOSE_MODE`), so mailbox waits and file reads do not each ask you. Before each offer, commitment and
+- Every trade, `--pay lexe` included, runs goose in auto mode, so mailbox waits and file reads do not each ask you (`DEVCON8_GOOSE_MODE=approve devcon8 trade` asks before every tool call). Before each offer, commitment and
   payment the agent runs a final check; when the check pauses ("PAUSED FOR YOU"), the agent shows
   you its card in the chat and seals your answer. Say no and it holds.
 - Ctrl-C interrupts the agent's turn; press it again (up to a few times) and the run ends and returns you to the shell.
@@ -215,7 +215,7 @@ Lightning wallet (next section). That is optional and real money.
 plugin creates one on first use, inside `~/.mesh-llm/payments` on your volume. Funding it
 (`mesh-llm wallet fund-wallet --amount-sats N`) and allowing payments
 (`mesh-llm wallet policy --mode automatic --daily-budget-sats N`) are up to you, and they spend real
-sats. With a funded wallet, keep goose in approve mode. The sticker trade stays simulated unless you
+sats. With a funded wallet, every payment of a `--pay lexe` trade still stops for your answer; `DEVCON8_GOOSE_MODE=approve` also asks before each tool call. The sticker trade stays simulated unless you
 run it with `--pay lexe` (next section).
 
 What has been checked: on 2026-10-31 a funded demo node paid the serving node 1,900 msat for one
@@ -246,7 +246,7 @@ and a `--pay lexe` buyer declines a shop that does not.
    the amount counts millisatoshi), so a receipt reads "Paid 500 msat" for a 500 msat sale, not a dollar
    amount. The simulated payment keeps 50 cents. The agent's `lightning` tool reads the caps and has
    no way to raise them; the agent could still edit the file with its shell, which is one more reason
-   goose asks you before every command it runs.
+   to run `DEVCON8_GOOSE_MODE=approve devcon8 trade --pay lexe` if you want goose to ask before every command it runs.
 3. `devcon8 trade --pay lexe [--buy <address>]`.
 
 What happens:

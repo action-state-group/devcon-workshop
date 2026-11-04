@@ -2,9 +2,9 @@
 # trade.sh [--buy <address>] [--pay lexe]: run your trading agent in goose. It sells your fox sticker
 # to any participant's agent that asks and, with --buy, buys one from that address. Payment is
 # simulated; with --pay lexe it is REAL Lightning from your own lexe wallet, within the caps you set
-# with 'devcon8 lightning'. goose runs in auto mode for the simulated trade (the deal plugin's own
-# PAUSED FOR YOU cards still gate offers, commitments and payments) and in approve mode for --pay lexe
-# (real money). DEVCON8_GOOSE_MODE overrides.
+# with 'devcon8 lightning'. goose runs in auto mode (the deal plugin's own
+# PAUSED FOR YOU cards still gate offers, commitments and payments, the real Lightning pay included).
+# DEVCON8_GOOSE_MODE overrides.
 set -euo pipefail
 . /opt/devcon8/lib/common.sh
 buy="" pay=simulated
@@ -46,13 +46,11 @@ cd "$HOME"
 if [ "$pay" = lexe ]; then
   echo "Payment in this run is REAL Lightning from your own lexe wallet (bitcoin mainnet), within your caps:"
   "$D/agent/bin/lightning" caps
-  mode=${DEVCON8_GOOSE_MODE:-approve}
-  [ "$mode" = approve ] && echo "goose asks before each tool call, and every payment shows you a card first; answer in the chat." \
-    || echo "goose runs in $mode mode (DEVCON8_GOOSE_MODE); every payment still shows you a card first."
+  echo "Every payment stops for your answer in the chat first."
 else
-  mode=${DEVCON8_GOOSE_MODE:-auto}
   echo "Payment in this run is SIMULATED: no money moves. Offers, commitments and payments still stop for your answer in the chat."
 fi
+mode=${DEVCON8_GOOSE_MODE:-auto}
 echo "Ctrl-C interrupts a turn; press it again and the run ends."
 args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive --params "pay=$pay")
 [ -n "$buy" ] && args+=(--params "buy_from=$buy")
