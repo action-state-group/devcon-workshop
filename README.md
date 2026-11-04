@@ -21,9 +21,49 @@ Inference runs on your CPU (Docker on a Mac has no GPU access). The image is abo
 ## Before the workshop
 
 You need Docker (Docker Desktop on macOS or Windows, Docker Engine on Linux) with at least **8 GB of
-memory** for the container (Docker Desktop: Settings > Resources) and about 6 GB of free disk.
+memory** for the container (Docker Desktop: Settings > Resources) and enough free disk (see "Disk space" below).
 If you have both Colima and Docker Desktop: run `docker context ls`; if the starred context is colima, run `docker context use desktop-linux`.
 **Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Docker picks the right one for `latest`, the tag and the digest below.
+
+### Disk space
+
+Docker keeps images, containers and volumes in one disk (Docker Desktop: a disk image; Colima: a VM disk), and it is the
+free space *inside* that disk that counts, not your laptop's. Plan for these (measured on the Nov 4 images, `latest`
+`sha256:4402db35…`; the models download that is planned will change the first row):
+
+| What | Download | On disk once loaded |
+|---|---|---|
+| Full image (`latest`) | 1.9 GB | 3.2 GB |
+| Slim `v4-goose` | 0.64 GB | 1.9 GB |
+| USB stick path | 1.9 GB copy of the tarball on your laptop, then `docker load` | 1.9 GB tarball + 3.2 GB loaded; delete `~/devcon8-usb` afterwards |
+| Each container (shell, nothing built) | - | about 15 MB |
+| Each volume (`devcon8-home`, after node, trades and logins) | - | about 120 MB; grows with use |
+
+So keep **at least 10 GB free** in Docker's disk for the full image (a second pull of a newer `latest` briefly holds two
+copies), or 5 GB for the slim one. Every extra volume (a second agent such as `devcon8b-home`) adds its own 120 MB.
+
+Check it:
+
+    docker system df          # images, containers, volumes, build cache; RECLAIMABLE is what a prune can free
+    docker info | grep -i "docker root dir"
+    df -h /                   # your laptop; on a Mac, Docker's disk file lives inside this space
+
+`devcon8 doctor` (inside the container) prints the free disk the container sees. Docker Desktop: Settings > Resources > Disk image
+size shows and raises the limit. Colima: `colima list` shows DISK; to raise it, `colima stop`, then `colima start --disk 100`
+(it can grow, not shrink; not run here).
+
+If the disk fills, `docker pull` or `docker load` fails with `no space left on device` (Docker's standard message; not
+reproduced here), usually part way through a layer. Free space, then run the same command again.
+
+Clean up safely. These never touch a volume:
+
+    docker container prune     # removes stopped containers
+    docker image prune -a      # removes images no container uses (you pull again next time); keeps the ones a container uses
+    docker builder prune       # build cache (only if you built images yourself)
+
+**Do not run `docker volume prune` or `docker system prune --volumes`.** They delete any volume no running container uses,
+and that includes `devcon8-home` while its container is stopped: your logins, mailbox key and deals go with it. Check
+`docker volume ls` before you remove one by name.
 
 Pull the image ahead of time. Conference wifi is slow:
 
