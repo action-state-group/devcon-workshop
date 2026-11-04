@@ -268,14 +268,14 @@ its sha256 and confirms; both agents close their deals.
 - If both seem to wait, tell the buyer: `Buy one digital fox sticker from <seller address> now`
 - Ctrl-C once interrupts the turn goose is on; a second Ctrl-C within 10 seconds ends the run.
 
-**4. See the result, from your Mac terminal.** List the deals; column 1 is the id and column 3 the state:
+**4. See the result, from your Mac terminal.** List the deals; the columns are the id, the kind (`deal` or `sale`) and the state. A seller has one `sale` plus one `deal` per buyer; the receipt is per `deal`, and `deal report` refuses a `sale-...` id:
 
     docker exec devcon8 bash -lc 'capsulectl --profile deal deal list'
 
-Write the receipt of the latest closed deal inside the container, copy it out, and open it (for the buyer use `devcon8b`
+Write the receipt of the latest closed `deal` inside the container, copy it out, and open it (for the buyer use `devcon8b`
 in all three places):
 
-    docker exec devcon8 bash -lc 'id=$(capsulectl --profile deal deal list | awk "\$3==\"closed\"{i=\$1} END{print i}"); capsulectl --profile deal deal report --deal "$id" --html ~/receipt.html' && docker cp devcon8:/home/participant/receipt.html . && open receipt.html
+    docker exec devcon8 bash -lc 'id=$(capsulectl --profile deal deal list | awk "\$2==\"deal\" && \$3==\"closed\"{i=\$1} END{print i}"); capsulectl --profile deal deal report --deal "$id" --html ~/receipt.html >/dev/null' && docker cp devcon8:/home/participant/receipt.html . && open receipt.html
 
 The deals themselves are in `~/.local/share/capsule-deal` and the files in `~/deals/` inside each container; the buyer's
 `sticker.png` is there.
