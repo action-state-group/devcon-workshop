@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # devcon8-studio [--buy <address>] [--pay lexe]: devcon8 trade with the Studio recipe. Same checks,
 # same payment modes; goose can also write terms in words, rehearse them and switch them on.
-# devcon8-studio replay: once, before the first rehearsal, put ten past sticker sales in ~/studio/replay.
+# devcon8-studio replay: once, before the first rehearsal, put ten sample sticker sales in ~/studio/replay.
 set -euo pipefail
 D=/opt/devcon8
 mkdir -p "$HOME/studio"
@@ -11,14 +11,14 @@ if [ "${1:-}" = replay ]; then
   if [ -d "$home/seller" ]; then
     n=$(XDG_CONFIG_HOME=$home/seller capsulectl --profile deal deal list --json 2>/dev/null | jq '[.[] | select(.kind == "deal")] | length' 2>/dev/null || echo 0)
     [ "$n" -ge 10 ] || { echo "devcon8-studio: $home holds $n past sales, not ten; move it aside and run replay again" >&2; exit 1; }
-    echo "The ten past sticker sales are already in $home/seller; nothing to do."
+    echo "The ten sample sticker sales are already in $home/seller; nothing to do."
     exit 0
   fi
   capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
   mkdir -p "$home"
   bash "$D/studio/replay/scripts/studio-replay.sh" "$D/studio/replay/testdata/studio/sticker-trades.json" \
     "$home/seller" "$home/buyer" >"$home/replay.log" || { echo "devcon8-studio: the replay failed; see $home/replay.log" >&2; exit 1; }
-  echo "Ten past sticker sales are in $home/seller (the buyer's side is in $home/buyer)."
+  echo "Ten sample sticker sales are in $home/seller (the buyer's side is in $home/buyer)."
   exit 0
 fi
 TRADE_RECIPE=$D/agent/recipes/studio.yaml exec "$D/lib/trade.sh" "$@"
