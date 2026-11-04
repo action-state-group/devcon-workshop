@@ -56,7 +56,11 @@ ok "goose $(goose --version | head -1), claude, codex, both ACP adapters, capsul
 
 # The plugins' presentation assets are shipped, so `presentation build` carries their modules.
 [ -f "$D/plugin-assets/capsulectl-deal.d/deal-view.js" ] && [ -f "$D/plugin-assets/standard-history-module/standard_history_card.js" ] \
-  || fail "plugin presentation assets missing"; ok "plugin presentation assets present"
+  || fail "plugin presentation assets missing"
+# The entrypoint copied them beside the plugin binaries (what presentation build resolves them from).
+r=$HOME/.local/lib/capsulectl/plugins
+[ -f "$r/capsulectl-deal.d/deal-view.js" ] && [ -f "$r/standard-history-module/standard_history_card.js" ] \
+  || fail "plugin presentation assets not copied into $r"; ok "plugin presentation assets present"
 
 # The trader recipe reads the deal skill from here.
 [ -f "$D/agent/skills/deal/SKILL.md" ] || fail "deal skill missing"; ok "deal skill present"
