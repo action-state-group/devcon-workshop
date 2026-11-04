@@ -7,9 +7,10 @@ mesh-llm natively. The [README](README.md) remains the reference for every `devc
 **What you are running.** The image's `latest` tag, a **pre-release lab build** of
 [mesh-llm](https://github.com/Mesh-LLM/mesh-llm) ahead of the next release (0.79). It prints
 `mesh-llm 0.78.0`; the latest official release is 0.78.1. It is lab commit `1aba71d` with
-the [capsules](https://github.com/Mesh-LLM/capsules-plugin) evidence plugin v0.1.14 and the lexe-wallet
-plugin. `devcon8 doctor` prints the exact build. The screenshots below were taken on an Apple-silicon
-laptop on 2026-11-03 with image revision `80ed6c66`.
+the [capsules](https://github.com/Mesh-LLM/capsules-plugin) evidence plugin v0.1.15 and the lexe-wallet
+plugin v0.1.0. `devcon8 doctor` prints the exact build (image revision `168c6fed` for the current
+`latest`). The screenshots below were taken on an Apple-silicon laptop on 2026-11-03 with the
+earlier image revision `80ed6c66` (capsules v0.1.14).
 
 You will:
 
@@ -248,16 +249,11 @@ devcon8 s08 referee    # the asker's plugin asks a referee; the referee signs a 
 devcon8 s08 show       # the lie and the verdict, as files
 devcon8 s08 omit       # second hack: the liar answers everything but logs only every second exchange
 devcon8 s08 count      # the asker sends the liar 6 requests
+devcon8 s08 ask        # step 8: the asker sends the liar a signed evidence request
 ```
 
 Watch it on the asker's Evidence page: **http://127.0.0.1:9614/plugins/capsules/evidence**.
 When you are done: `devcon8 s08 stop`.
-
-> **Known issue on this image** ([#29](https://github.com/action-state-group/devcon-workshop/issues/29)):
-> `count` ends with "the asker has not sealed its own 6 halves after 60 s", and `devcon8 s08 ask`
-> (step 8) then refuses to run. The asker *has* sealed them. The scripts look for a ledger file that
-> capsules 0.1.14 no longer writes. The 6 requests were still sent and the liar still dropped half
-> of its records, so do step 8 on the Evidence page instead (below).
 
 ### Lie 1: the swapped model
 
@@ -313,7 +309,7 @@ anyone runs on the log alone.
 After `count`, the asker's Exchanges tab shows the gap. Each of the 6 exchanges has the asker's own
 sealed half, but only some have "Theirs ● confirmed". Every other row has no other side.
 
-**Step 8 on the Evidence page.** On a row with no other side, click **Ask for their record**. The
+**Step 8, on the Evidence page** (or `devcon8 s08 ask`). On a row with no other side, click **Ask for their record**. The
 asker sends the liar a signed evidence request for that one exchange, naming the request and answer
 digests from its own half. The liar has two choices, and both are signed: hand over a record it
 never made, or say it has none. It says:
