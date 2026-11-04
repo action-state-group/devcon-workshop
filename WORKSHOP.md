@@ -56,8 +56,8 @@ Docker picks `arm64` or `amd64` for your machine by itself.
 
 The stick holds these three files and one folder in its top folder:
 
-    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
-    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-amd64.tar    Windows and x86 Linux
+    devcon-workshop-<TAG>-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
+    devcon-workshop-<TAG>-amd64.tar    Windows and x86 Linux
     SHA256SUMS
     models/                                                                 the two S08 model files (1.1 GB, only for S08)
 
@@ -104,7 +104,7 @@ Not `OK` (or `False`): the copy is incomplete, copy it again.
     docker load -i devcon-workshop-*-$A.tar
 
 (PowerShell: `docker load -i (Get-ChildItem devcon-workshop-*-$A.tar).Name`.) It ends with
-`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64`
+`Loaded image: ghcr.io/action-state-group/devcon-workshop:<TAG>-arm64`
 (or `-amd64`). A loaded image is not called `latest`, so the run line below names this tag.
 
 **5. Start the container.** Pick the line for your arch (`--pull never` stops Docker from going to the network):
@@ -113,9 +113,9 @@ arm64:
 
     docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant \
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
-      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64
+      ghcr.io/action-state-group/devcon-workshop:<TAG>-arm64
 
-amd64: the same line ending in `...cap0.1.15-b7e05594.139-amd64`. In PowerShell write it on one line
+amd64: the same line ending in `<TAG>-amd64`. In PowerShell write it on one line
 (without the `\` line ends). You are then in the container's shell: skip "Start the container" below and go to `devcon8 doctor` there. `No such image` means the load
 in step 4 did not finish, or the arch suffix differs from the one it printed.
 

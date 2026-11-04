@@ -74,7 +74,7 @@ Pull the image ahead of time. Conference wifi is slow:
 
     docker pull ghcr.io/action-state-group/devcon-workshop@sha256:4402db355ac5700999896876e1b97ef04b8c71a87e62b1af9f47f6df6bdc80b9
 
-(The first v4 build, `…b7e05594.139` / `sha256:fde3ab11…`, asks before every goose tool call and can hang on Ctrl-C; the USB steps below still name that tag.)
+(The first v4 build, `…b7e05594.139` / `sha256:fde3ab11…`, asks before every goose tool call and can hang on Ctrl-C;)
 
 No network at the venue? Use the USB stick: "From the USB stick (no network)" below replaces this pull and
 the `docker run` in "Start".
@@ -110,7 +110,7 @@ Exiting the first shell (`exit`, or Ctrl-D) stops the container. `docker run` wi
 
 **A local `latest` can be stale.** `docker run` never updates an image you already have, and a tag named `latest`
 on your laptop stays at whatever you pulled last. Pull again before every session, and check what you have against
-the registry's index digest (`sha256:4402db355ac5…` on Nov 4):
+the registry's index digest (`sha256:4402db355ac5…` on Nov 4). The two digests must match; the registry one comes from `docker buildx imagetools inspect ghcr.io/action-state-group/devcon-workshop:latest`. A stale tag also shows on start: the container prints `installed plugin capsules <version>`, and an older version than the one in "What is in the image" means an older image:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
     docker image inspect ghcr.io/action-state-group/devcon-workshop:latest --format '{{index .RepoDigests 0}}'
@@ -119,10 +119,10 @@ A running container keeps the image it started from. To move to a newer image: `
 
 ### From the USB stick (no network)
 
-The stick holds these three files and one folder in its top folder:
+`<TAG>` below is the image tag in the file names on your stick (placeholder until the stick is made from the final image); use the name you see there. The stick holds these three files and one folder in its top folder:
 
-    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
-    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-amd64.tar    Windows and x86 Linux
+    devcon-workshop-<TAG>-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
+    devcon-workshop-<TAG>-amd64.tar    Windows and x86 Linux
     SHA256SUMS
     models/                                                                 the two S08 model files (1.1 GB, only for S08)
 
@@ -169,7 +169,7 @@ Not `OK` (or `False`): the copy is incomplete, copy it again.
     docker load -i devcon-workshop-*-$A.tar
 
 (PowerShell: `docker load -i (Get-ChildItem devcon-workshop-*-$A.tar).Name`.) It ends with
-`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64`
+`Loaded image: ghcr.io/action-state-group/devcon-workshop:<TAG>-arm64`
 (or `-amd64`). A loaded image is not called `latest`, so the run line below names this tag.
 
 **5. Start the container.** Pick the line for your arch (`--pull never` stops Docker from going to the network):
@@ -178,9 +178,9 @@ arm64:
 
     docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant \
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
-      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64
+      ghcr.io/action-state-group/devcon-workshop:<TAG>-arm64
 
-amd64: the same line ending in `...cap0.1.15-b7e05594.139-amd64`. In PowerShell write it on one line
+amd64: the same line ending in `<TAG>-amd64`. In PowerShell write it on one line
 (without the `\` line ends). Then run `devcon8 doctor` in the shell you get. `No such image` means the load
 in step 4 did not finish, or the arch suffix differs from the one it printed.
 
@@ -345,7 +345,7 @@ Remove old containers of these names from earlier tries (your volumes, logins an
 
     docker run -it --name devcon8 -v devcon8-home:/home/participant ghcr.io/action-state-group/devcon-workshop:latest
 
-From the USB stick, add `--pull never` and use the loaded tag (`...cap0.1.15-b7e05594.139-arm64` or `-amd64`) in place of
+From the USB stick, add `--pull never` and use the loaded tag (`<TAG>-arm64` or `-amd64`) in place of
 `:latest`, for both containers. Inside the container:
 
     devcon8 brain claude          # open the link it prints, sign in, paste the code back
