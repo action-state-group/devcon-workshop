@@ -27,6 +27,7 @@ fi
 # an image upgrade the volume must not keep an older plugin beside the new capsulectl (install replaces it).
 capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
 capsulectl plugin install "$D/bin/capsulectl-book" >/dev/null
+plugin_assets_sync
 # A --pay lexe seller seals what its wallet received with `deal note --ln-invoice`; a deal plugin
 # without it could take real money and record none, so the run refuses instead.
 if [ "$pay" = lexe ] && ! capsulectl deal note --help 2>/dev/null | grep -q -- '--ln-invoice'; then

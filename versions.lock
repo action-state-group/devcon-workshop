@@ -44,9 +44,13 @@ DEAL_VERSION=v0.1.0-rc33
 DEAL_SHA256_AMD64=d74ffd1e4c27f7cb08019c12381c8e079fcd143f2e29f6f645b2eeb6ccc3aed7
 DEAL_SHA256_ARM64=d7e8c109b8ebc6d40ad17d90d33859f783b6c3245d1f6e06b507a4c5d0d92722
 DEAL_SKILL_SHA256=56ded02c8ff10c8e58d8588b7385ebd077703165317fdf6673839cb3c294d673
+# The plugins' presentation assets (capsulectl-deal.d/, standard-history-module/), unpacked beside the binaries; without
+# them `presentation build` refuses both modules and writes the generic page. One archive each, same for both architectures.
+DEAL_VIEW_SHA256=3afbbfa816799abc57af67e8322f2527b5601e5c81a67e807f90c6cd1ef59f0d
 BOOK_VERSION=v0.1.0-rc33
 BOOK_SHA256_AMD64=d794ddc4f97ca6ece02d6d4d161d2e06c8cc0c6f89392be31872f52c8ba93cfe
 BOOK_SHA256_ARM64=e4cf742c3d59726361cae99456313495ed542bf879c4554228c3cdae333ae26d
+BOOK_HISTORY_SHA256=ed3a42d0876748017e0a1d9cf2fc5da1ac1ee5818b45f1b73e1f5075a47557a1
 
 # goose: built from source at the v1.57.0 commit plus patches/goose-acp-approval-card-once.patch
 # (aaif-goose/goose#13273: in approve mode an ACP provider's approval card came back after the turn and

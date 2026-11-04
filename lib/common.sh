@@ -28,6 +28,13 @@ plugins_sync() {
   plugin_ensure capsules "$capver" "$D/mesh/plugins/capsules-$capver-$t.tar.gz"
   plugin_ensure lexe-wallet 0.1.0 "$D/mesh/plugins/lexe-wallet-v0.1.0-$t.tar.gz"
 }
+# The capsulectl plugins' presentation assets live beside their binaries in the volume; a plugin install
+# may replace that directory's contents, so copy them after every install as well as at start.
+plugin_assets_sync() {
+  local r=$HOME/.local/lib/capsulectl/plugins
+  mkdir -p "$r" && cp -a "$D/plugin-assets/." "$r/" \
+    || warn "could not copy the plugin presentation assets into $r"
+}
 plugin_ensure() { # name version archive
   local have want mark=$ST/plugin-$1.sha256
   have=$("$MESH" plugins info "$1" 2>/dev/null | sed -n 's/^[[:space:]"]*version[":=[:space:]]*"\{0,1\}\([^",[:space:]]*\).*/\1/p' | head -1 || true)

@@ -164,6 +164,7 @@ COPY --from=npm /opt/devcon8/npm/ $D/npm/
 COPY --from=gobuild /src/examples/go-seal/ $D/examples/go-seal/
 COPY --from=gobuild /out/go-seal $D/bin/go-seal
 COPY --from=fetch /fetch/opt/agent/ $D/agent/
+COPY --from=fetch /fetch/opt/plugin-assets/ $D/plugin-assets/
 COPY versions.lock $D/versions.lock
 COPY bin/ $D/bin/
 COPY lib/ $D/lib/
