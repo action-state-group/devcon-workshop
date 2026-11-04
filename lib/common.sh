@@ -111,3 +111,46 @@ wait_model() {
   done
   return 1
 }
+
+# --- your own lexe wallet: lexe-sidecar (Lexe's local HTTP API), no mesh-llm node needed -------------
+# The wallet's root seed is $LEXE/root_seed on the volume: whoever has that file holds the wallet's
+# sats. `devcon8 wallet` makes it (after asking), `devcon8 trade --pay lexe` and `lightning` use it.
+LEXE=$ST/lexe
+LEXE_API=${DEVCON8_LEXE_API:-http://127.0.0.1:5393}
+lexe_pid() { # the recorded pid, only while it is still this sidecar
+  local p; p=$(cat "$LEXE/sidecar.pid" 2>/dev/null) || return 1
+  kill -0 "$p" 2>/dev/null || return 1
+  tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -qF lexe-sidecar || return 1
+  echo "$p"
+}
+lexe_call() { # METHOD PATH [JSON]
+  curl -fsS -m "${LEXE_TIMEOUT:-60}" --noproxy '*' -X "$1" -H 'Content-Type: application/json' ${3:+-d "$3"} "$LEXE_API$2"
+}
+lexe_ready() { [ -s "$LEXE/root_seed" ] && [ -e "$LEXE/signed_up" ]; }
+# Start the sidecar when it is not running, and wait until it answers. Sets lexe_started=1 when this
+# call started it (so a trade run stops what it started). Needs the seed; a registered wallet is
+# also provisioned (Lexe's sign-up record is $LEXE/signed_up).
+lexe_up() {
+  [ -s "$LEXE/root_seed" ] || die "no lexe wallet on this volume yet: 'devcon8 wallet' opens one"
+  lexe_pid >/dev/null && return 0
+  (cd "$LEXE" && umask 077 && exec env LEXE_ROOT_SEED_PATH="$LEXE/root_seed" LEXE_DATA_DIR="$LEXE" LISTEN_ADDR="${LEXE_API#http://}" \
+     nohup "$D/bin/lexe-sidecar") > "$LEXE/sidecar.log" 2>&1 < /dev/null &
+  echo $! > "$LEXE/sidecar.pid"
+  # shellcheck disable=SC2034 # read by trade.sh
+  lexe_started=1
+  for _ in $(seq 60); do
+    lexe_call GET /v2/health >/dev/null 2>&1 && break
+    lexe_pid >/dev/null || die "the lexe wallet did not start; see $LEXE/sidecar.log"
+    sleep 0.5
+  done
+  lexe_call GET /v2/health >/dev/null 2>&1 || die "the lexe wallet does not answer; see $LEXE/sidecar.log"
+  [ -e "$LEXE/signed_up" ] || return 0
+  # Idempotent: brings the wallet's node up to Lexe's current release.
+  lexe_call PUT /v2/node/provision >/dev/null || die "the lexe wallet could not be provisioned; see $LEXE/sidecar.log"
+}
+lexe_stop() {
+  local p; p=$(lexe_pid) || { rm -f "$LEXE/sidecar.pid"; return 0; }
+  kill -TERM "$p"; for _ in $(seq 20); do kill -0 "$p" 2>/dev/null || break; sleep 0.5; done
+  kill -0 "$p" 2>/dev/null && kill -KILL "$p"
+  rm -f "$LEXE/sidecar.pid"
+}

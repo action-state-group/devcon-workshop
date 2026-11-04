@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # trade.sh [--buy <address>] [--pay lexe]: run your trading agent in goose. It sells your fox sticker
 # to any participant's agent that asks and, with --buy, buys one from that address. Payment is
-# simulated; with --pay lexe it is REAL Lightning from your own lexe wallet, within the caps you set
+# simulated; with --pay lexe it is REAL Lightning from your own lexe wallet (devcon8 wallet), within the caps you set
 # with 'devcon8 lightning'. goose runs in auto mode (the deal plugin's own
 # PAUSED FOR YOU cards still gate offers, commitments and payments, the real Lightning pay included).
 # DEVCON8_GOOSE_MODE overrides.
@@ -17,7 +17,10 @@ while [ $# -gt 0 ]; do
 done
 if [ "$pay" = lexe ]; then
   [ -s "$ST/lightning.json" ] || die "--pay lexe needs your caps first: devcon8 lightning --price-sats P --per-payment-sats N --total-sats T"
-  node_pid >/dev/null || die "--pay lexe pays from your node's wallet: 'devcon8 join' first, then 'devcon8 wallet'"
+  lexe_ready || die "--pay lexe pays from your own lexe wallet: 'devcon8 wallet' opens it, 'devcon8 wallet fund --sats N' funds it"
+  lexe_started=""
+  lexe_up
+  [ -z "$lexe_started" ] || trap lexe_stop EXIT
 fi
 [ -s "$ST/agentbox/key" ] || die "no mailbox yet: run 'devcon8 nanda <your email>' first"
 grep -qE '^GOOSE_PROVIDER: (claude|codex)-acp' "$HOME/.config/goose/config.yaml" 2>/dev/null \
@@ -61,7 +64,7 @@ args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive --params "pay=$p
 # as the log shows "session closed", so one Ctrl-C (goose's own exit prompt) is enough.
 # shellcheck disable=SC2317,SC2329 # called from the trap and the watcher
 tree() { local p; for p in $(pgrep -P "$1" 2>/dev/null); do tree "$p"; done; echo "$1"; }
-log=$(mktemp); trap 'rm -f "$log"' EXIT
+log=$(mktemp); trap 'rm -f "$log"; [ -z "${lexe_started:-}" ] || lexe_stop' EXIT
 cmd=$(printf '%q ' env "GOOSE_MODE=$mode" goose "${args[@]}")
 script -qefc "$cmd" "$log" <&0 &
 gp=$!

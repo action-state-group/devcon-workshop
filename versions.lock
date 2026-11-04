@@ -78,3 +78,10 @@ Q8_FILE=qwen2.5-0.5b-instruct-q8_0.gguf
 Q8_SHA256=ca59ca7f13d0e15a8cfa77bd17e65d24f6844b554a7b6c12e07a5f89ff76844e
 Q4_FILE=qwen2.5-0.5b-instruct-q4_k_m.gguf
 Q4_SHA256=74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db
+
+# lexe-sidecar: Lexe's own local HTTP API for a Lexe node (lexe-app/lexe-public, release
+# lexe-sidecar-v0.4.27), what `devcon8 trade --pay lexe` pays and is paid through, with a root seed on
+# the participant's volume (no mesh-llm node). The release zip holds the one binary.
+LEXE_SIDECAR_VERSION=0.4.27
+LEXE_SIDECAR_SHA256_AMD64=436a790ea322edd06e56f59e07911eca6e8ac9d4f30153b40997066dd5f6e807
+LEXE_SIDECAR_SHA256_ARM64=8758923e43061d1825e06b15d94b6fcb66161e967cf41c45493743ed812629df

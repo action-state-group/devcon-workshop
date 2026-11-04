@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # sim-lightning.sh: one sticker sale paid over Lightning (`devcon8 trade --pay lexe`), both halves
-# scripted in two throwaway HOMEs against a fake wallet API (tests/fake_wallet.py): no wallet is
+# scripted in two throwaway HOMEs against a fake lexe-sidecar (tests/fake_sidecar.py): no wallet is
 # opened and no money moves. The buyer's `lightning pay` writes its terms leg; the seller's
 # `lightning receive` writes what `deal note --kind payment_received --ln-invoice --ln-transaction`
 # seals, the preimage included. Fails if a preimage is kept or printed anywhere but the seller's
@@ -15,16 +15,16 @@ unset CAPSULE_PROFILE CAPSULECTL_PLUGIN_ROOTS CAPSULE_DEAL_CHECK_URL XDG_DATA_HO
 fail() { echo "FAIL $*" >&2; exit 1; }
 deal() { capsulectl --profile deal deal "$@"; }
 port=$(python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
-python3 -I "$here/fake_wallet.py" "$port" "$T/wallet.log" & wpid=$!
+python3 -I "$here/fake_sidecar.py" "$port" "$T/wallet.log" & wpid=$!
 trap 'kill $wpid 2>/dev/null || true' EXIT
-export DEVCON8_WALLET_API=http://127.0.0.1:$port/api/wallet
-for _ in $(seq 50); do curl -fsS -o /dev/null -d '{"command":"fund"}' "$DEVCON8_WALLET_API" 2>/dev/null && break; sleep 0.1; done
+export DEVCON8_LEXE_API=http://127.0.0.1:$port
+for _ in $(seq 50); do curl -fsS -o /dev/null "$DEVCON8_LEXE_API/v2/health" 2>/dev/null && break; sleep 0.1; done
 : > "$T/wallet.log"
 STICKER=$D/agent/fixtures/sticker.png
 DIGEST=$(sha256sum "$STICKER" | cut -d' ' -f1)
 PREIMAGE=$(printf '9e%.0s' $(seq 32))
 HASH=$(python3 -I -c 'import hashlib,sys; print(hashlib.sha256(bytes.fromhex(sys.argv[1])).hexdigest())' "$PREIMAGE")
-PAYEE=02$(printf 'ab%.0s' $(seq 32))
+PAYEE=$(python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import fake_sidecar; print(fake_sidecar.PAYEE)' "$here")
 CONV=conv-ln
 home() { # name: a participant's HOME with its deal store
   export HOME=$T/$1; mkdir -p "$HOME/.devcon8"; cd "$HOME"
@@ -51,7 +51,7 @@ home buyer; mkdir -p "deals/$CONV"; printf '%s\n' "$bolt11" > "deals/$CONV/invoi
 caps 1 400 1000
 if "$D/agent/bin/lightning" pay "$CONV" 500000 "$DIGEST" 2>err.txt; then fail "paid over the per-payment cap"; fi
 grep -q 'over your per-payment cap' err.txt || { cat err.txt; fail "no per-payment refusal"; }
-grep -q '^send$' "$T/wallet.log" && fail "a send reached the wallet over the cap"
+grep -q '^pay_invoice$' "$T/wallet.log" && fail "a send reached the wallet over the cap"
 caps 1 600 1000
 "$D/agent/bin/lightning" pay "$CONV" 500000 "$DIGEST" > pay.out 2> pay.err
 [ "$(jq -r .payment_hash pay.out)" = "$HASH" ] || { cat pay.out pay.err; fail "lightning pay did not pay"; }

@@ -27,7 +27,7 @@ prompt: |
   Write everything in English. You are a participant's trading agent at a Devcon 8 workshop. Nothing
   here is a real shop.{% if pay == "lexe" %} In THIS run the payment is REAL: Lightning on bitcoin
   mainnet, from and to your user's own lexe wallet, within the caps your user set. The `lightning`
-  tool enforces those caps; never try to change them, and never run `mesh-llm wallet` yourself.{% else %}
+  tool enforces those caps; never try to change them, and never run `mesh-llm wallet`, call the wallet's local API or read its key yourself.{% else %}
   No money moves: the payment is a simulated x402 payment on a test network.{% endif %}
 
   Read the deal skill first: /opt/devcon8/agent/skills/deal/SKILL.md ("Sale" for selling, "Purchase"

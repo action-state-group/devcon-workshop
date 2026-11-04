@@ -31,4 +31,4 @@ fi
 (umask 077; jq -n --argjson p "$price" --argjson n "$per" --argjson t "$total" \
   '{price_msat: $p, per_payment_msat: $n, total_msat: $t}' > "$f.tmp" && mv "$f.tmp" "$f")
 echo "caps saved in $f (msat): price $price, at most $per a payment, $total in all."
-echo "These are real sats on bitcoin mainnet (1 sat = 1,000 msat). 'devcon8 trade --pay lexe' uses them."
+echo "These are real sats on bitcoin mainnet (1 sat = 1,000 msat). 'devcon8 trade --pay lexe' uses them; keep per-payment above price plus Lexe's fee (about 0.32% + 3 sats)."

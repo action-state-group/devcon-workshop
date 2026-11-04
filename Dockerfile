@@ -25,7 +25,7 @@ RUN mkdir /pins && cd /pins \
 # --- release assets, Go and Node: downloaded and sha256-checked ---------------------------
 FROM ${BASE} AS fetch
 ARG TARGETARCH
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils unzip \
     && rm -rf /var/lib/apt/lists/*
 COPY versions.lock /src/versions.lock
 COPY build/fetch.sh /src/build/fetch.sh
@@ -91,7 +91,7 @@ RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.carg
     && (cd /pkg && tar --sort=name --format=ustar --owner=0 --group=0 --numeric-owner -cf - capsules) \
        | gzip -n -9 > "/out/capsules-$CAPSULES_VERSION-selective-log-$triple.tar.gz"
 
-# --- lexe-wallet plugin, built from the settled-preimage branch (Mesh-LLM/lexe-wallet-plugin#7) ----
+# --- lexe-wallet plugin (mesh-llm paid inference only; `--pay lexe` uses lexe-sidecar from fetch), built from the settled-preimage branch (Mesh-LLM/lexe-wallet-plugin#7) ----
 FROM toolchain AS lexe
 ARG TARGETARCH
 COPY --from=pins /pins/lexe.lock /src/versions.lock
@@ -174,7 +174,7 @@ COPY agent/fixtures/sticker.png $D/agent/fixtures/sticker.png
 COPY agent/fixtures/x402/ $D/agent/fixtures/x402/
 COPY README.md $D/README.md
 COPY tests/goose-approve/ $D/tests/goose-approve/
-COPY tests/smoke.sh tests/console-relay-serve.sh tests/goose-approve.sh tests/sim-payment.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/fake_wallet.py tests/s08-ci.sh tests/mbx-net.sh tests/recipe-prompt.sh $D/tests/
+COPY tests/smoke.sh tests/console-relay-serve.sh tests/goose-approve.sh tests/sim-payment.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/fake_sidecar.py tests/test_wallet.sh tests/s08-ci.sh tests/mbx-net.sh tests/recipe-prompt.sh $D/tests/
 # claude: the Claude Code CLI that claude-agent-acp's SDK bundles, so it ships once (package.json).
 RUN case "$TARGETARCH" in amd64) a=x64;; arm64) a=arm64;; esac \
     && ln -s "$D/npm/node_modules/@anthropic-ai/claude-agent-sdk-linux-$a/claude" $D/bin/claude
