@@ -70,9 +70,11 @@ Pull the image ahead of time. Conference wifi is slow:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
 
-`latest` moves only when a maintainer approves a publish of a tested build from main; today it is v4. For a reproducible pull, use the immutable v4 tag (`20261104-ml1aba71d-cap0.1.15-b7e05594.139`) or its index digest:
+`latest` moves only when a maintainer approves a publish of a tested build from main. On Nov 4 it is the v4 build with goose in auto mode (index digest `sha256:4402db35…`, see "Containers, volumes and coming back" to check what you have). For a reproducible pull, use the digest:
 
-    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:fde3ab1193e7446dd2d4cbc379fcf3a1b7424e14cb9f30d8164028ae13f31d7c
+    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:4402db355ac5700999896876e1b97ef04b8c71a87e62b1af9f47f6df6bdc80b9
+
+(The first v4 build, `…b7e05594.139` / `sha256:fde3ab11…`, asks before every goose tool call and can hang on Ctrl-C; the USB steps below still name that tag.)
 
 No network at the venue? Use the USB stick: "From the USB stick (no network)" below replaces this pull and
 the `docker run` in "Start".
