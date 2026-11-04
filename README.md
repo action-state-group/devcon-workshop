@@ -148,7 +148,7 @@ The trading agent runs in [goose](https://github.com/aaif-goose/goose). Pick its
 ### 4. `devcon8 s02`: the settlement record
 
 Open http://127.0.0.1:8080/settlement-record.html. One Lightning payment between two demo nodes, as two
-signed halves under two keys, checked in your browser, offline. `demos/s02/README.md` has the same check
+signed halves under two keys, checked in your browser, offline. `/opt/devcon8/demos/s02/README.md` (inside the container) has the same check
 on the command line.
 
 ### 5. `devcon8 s08 <step>`: catch a lying node
