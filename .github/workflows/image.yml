@@ -45,8 +45,27 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      build: ${{ steps.changes.outputs.build }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # The two image builds take about 80 minutes each. A pull request that changes only docs (README.md,
+      # WORKSHOP.md, docs/) skips them: the README is copied into the image but no test reads it, and the
+      # push to main that follows always builds. Anything else, including demos/**.md, still builds.
+      - name: Does this change need an image build?
+        id: changes
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          build=true
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            files=$(git diff --name-only "$BASE" "$GITHUB_SHA")
+            echo "$files"
+            if ! echo "$files" | grep -qv -E '^(README\.md|WORKSHOP\.md|docs/.*)$'; then build=false; fi
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "build: $build"
       - name: Tag (one value for both architectures)
         id: tag
         run: |
@@ -57,6 +76,7 @@ jobs:
 
   build:
     needs: [unit, meta]
+    if: needs.meta.outputs.build == 'true'
     strategy:
       fail-fast: false
       matrix:
