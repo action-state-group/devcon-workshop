@@ -16,7 +16,7 @@ the steps still work for anyone running them later). It lets you:
 
 New here? [WORKSHOP.md](WORKSHOP.md) walks through the workshop step by step, with screenshots.
 
-Inference runs on your CPU (Docker on a Mac has no GPU access). The image is about 3 GB (3.0 GiB on arm64, 3.1 GiB on amd64).
+Inference runs on your CPU (Docker on a Mac has no GPU access). The image is about 2 GB, plus 1.1 GB of model files you download only for S08 (sizes being re-measured on the final image).
 
 ## Before the workshop
 
@@ -28,18 +28,21 @@ If you have both Colima and Docker Desktop: run `docker context ls`; if the star
 ### Disk space
 
 Docker keeps images, containers and volumes in one disk (Docker Desktop: a disk image; Colima: a VM disk), and it is the
-free space *inside* that disk that counts, not your laptop's. Plan for these (measured on the Nov 4 images, `latest`
-`sha256:4402db35…`; the models download that is planned will change the first row):
+free space *inside* that disk that counts, not your laptop's. The image no longer carries the two S08 model files: `devcon8 models`
+downloads them into your volume. The image rows below are **sizes of the Nov 4 image that still had the models** (`latest`
+`sha256:4402db35…`) and are being re-measured for the final image, which is about 1.1 GB smaller (an estimate, not yet measured):
 
 | What | Download | On disk once loaded |
 |---|---|---|
-| Full image (`latest`) | 1.9 GB | 3.2 GB |
+| Full image, Nov 4 build with models | 1.9 GB | 3.2 GB |
+| Final image, no models | to be measured | to be measured |
 | Slim `v4-goose` | 0.64 GB | 1.9 GB |
-| USB stick path | 1.9 GB copy of the tarball on your laptop, then `docker load` | 1.9 GB tarball + 3.2 GB loaded; delete `~/devcon8-usb` afterwards |
+| S08 models (`devcon8 models`, only for S08 and the mesh steps) | 1.1 GB, once | 1.1 GB on the volume |
+| USB stick path | one tarball (about 1.9 GB on the Nov 4 build), then `docker load` | tarball + loaded image; delete `~/devcon8-usb` afterwards |
 | Each container (shell, nothing built) | - | about 15 MB |
-| Each volume (`devcon8-home`, after node, trades and logins) | - | about 120 MB; grows with use |
+| Each volume (`devcon8-home`, after node, trades and logins) | - | about 120 MB without models; grows with use |
 
-So keep **at least 10 GB free** in Docker's disk for the full image (a second pull of a newer `latest` briefly holds two
+So keep **at least 10 GB free** in Docker's disk for the image plus the models (a second pull of a newer `latest` briefly holds two
 copies), or 5 GB for the slim one. Every extra volume (a second agent such as `devcon8b-home`) adds its own 120 MB.
 
 Check it:
