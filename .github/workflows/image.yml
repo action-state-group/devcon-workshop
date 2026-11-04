@@ -45,8 +45,27 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      build: ${{ steps.changes.outputs.build }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # The two image builds take about 80 minutes each. A pull request that changes only docs (README.md,
+      # WORKSHOP.md, docs/) skips them: the README is copied into the image but no test reads it, and the
+      # push to main that follows always builds. Anything else, including demos/**.md, still builds.
+      - name: Does this change need an image build?
+        id: changes
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          build=true
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            files=$(git diff --name-only "$BASE" "$GITHUB_SHA")
+            echo "$files"
+            if ! echo "$files" | grep -qv -E '^(README\.md|WORKSHOP\.md|docs/.*)$'; then build=false; fi
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "build: $build"
       - name: Tag (one value for both architectures)
         id: tag
         run: |
@@ -57,6 +76,7 @@ jobs:
 
   build:
     needs: [unit, meta]
+    if: needs.meta.outputs.build == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -72,11 +92,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Free disk (the Rust builds and a 2.5 GB image do not fit the default runner disk)
+      - name: Free disk (the Rust builds and a 3+ GB image do not fit the default runner disk)
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
-          sudo docker image prune --all --force >/dev/null
           df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost /usr/share/swift \
+            /opt/hostedtoolcache /usr/local/.ghcup /usr/local/julia* /usr/lib/jvm /usr/share/miniconda /usr/lib/google-cloud-sdk \
+            /opt/microsoft /usr/local/share/chromium /usr/local/lib/node_modules
+          sudo docker image prune --all --force >/dev/null
+          # BuildKit's cache, the exported tarball and the imported image all live under Docker's data root.
+          # Some amd64 runners have a 72 GB root disk with 34 GB free after the removals above (run 41746304076
+          # filled it at `importing to docker`); the build peaks at about 45 GB. When a separate /mnt disk of
+          # 40 GB or more exists, keep Docker's data there. Larger-disk runners (145 GB) skip this.
+          mnt_gb=$(df --output=avail -BG /mnt 2>/dev/null | tail -1 | tr -dc 0-9)
+          if mountpoint -q /mnt && [ "${mnt_gb:-0}" -ge 40 ]; then
+            # Bind mounts cover both image stores (/var/lib/docker, and /var/lib/containerd with the
+            # containerd snapshotter) and leave the runner's daemon.json alone.
+            sudo systemctl stop docker docker.socket containerd
+            sudo mkdir -p /mnt/docker /mnt/containerd /var/lib/docker /var/lib/containerd
+            sudo mount --bind /mnt/docker /var/lib/docker
+            sudo mount --bind /mnt/containerd /var/lib/containerd
+            sudo systemctl start containerd docker
+            docker info --format 'docker root: {{.DockerRootDir}} ({{.Driver}})'
+            findmnt -n -M /var/lib/docker
+            findmnt -n -M /var/lib/containerd
+          fi
+          df -h / /mnt
 
       - name: Pins for the image labels
         id: lock
@@ -103,6 +143,7 @@ jobs:
 
       - name: Size
         run: |
+          df -h / /mnt
           bytes=$(docker image inspect devcon-workshop:ci --format '{{.Size}}')
           echo "uncompressed: $(( bytes / 1024 / 1024 )) MiB"
           # Reviewed 2026-10-31 at 3.3 GiB (design section 4 asks for review over 3 GB): models 1.1G, the
