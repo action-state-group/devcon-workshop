@@ -10,4 +10,4 @@ STUDIO_BASE=
 STUDIO_SKILLS_REPO=https://github.com/action-state-group/evidencebook-skills
 STUDIO_SKILLS_COMMIT=
 # Path of the `terms <verb>` entry point inside that checkout.
-STUDIO_TERMS_ENTRY=
+STUDIO_TERMS_ENTRY=scripts/studio/terms
