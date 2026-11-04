@@ -4,12 +4,11 @@ This walk-through runs the workshop from the Docker image, step by step, with wh
 each step. It replaces the older "Mesh-LLM evidence demo: join the mesh" Google doc, which installed
 mesh-llm natively. The [README](README.md) remains the reference for every `devcon8` command.
 
-**What you are running.** The image's `latest` tag, a **pre-release lab build** of
+**What you are running.** The v4 image, a **pre-release lab build** of
 [mesh-llm](https://github.com/Mesh-LLM/mesh-llm) ahead of the next release (0.79). It prints
 `mesh-llm 0.78.0`; the latest official release is 0.78.1. It is lab commit `1aba71d` with
 the [capsules](https://github.com/Mesh-LLM/capsules-plugin) evidence plugin v0.1.15 and the lexe-wallet
-plugin v0.1.0. `devcon8 doctor` prints the exact build (image revision `168c6fed` for the current
-`latest`). The screenshots below were taken on an Apple-silicon laptop on 2026-11-03 with the
+plugin v0.1.0. `devcon8 doctor` prints the exact build (image revision `7e055946` for v4). The screenshots below were taken on an Apple-silicon laptop on 2026-11-03 with the
 earlier image revision `80ed6c66` (capsules v0.1.14).
 
 You will:
@@ -19,6 +18,9 @@ You will:
 3. run S08 on a private four-node mesh inside your container, where a node lies about its model and
    then hides exchanges, and watch both lies get caught;
 4. call the reports yourself: the receipt, the settlement receipt and the history.
+
+The trading agent (a Goose agent that sells and buys a sticker, with `devcon8 brain`, `devcon8 nanda` and
+`devcon8 trade`) is not part of this walk-through; steps 3, 6 and 7 of the [README](README.md) and its "Trade with yourself" section cover it.
 
 ## Before you start
 
@@ -32,12 +34,12 @@ You will:
 
 | Step | Time on a laptop | What you see meanwhile |
 |---|---|---|
-| `docker pull` (3 GB) | 5–20 min on conference wifi | layer progress bars |
+| `docker pull` (about 1.7 GiB download) | 5–20 min on conference wifi | layer progress bars |
 | `docker load` from a USB stick | 1–3 min | little or nothing, until one `Loaded image:` line |
 | first `docker run` | a few seconds | a shell prompt |
-| your node joining the mesh | 1–2 min | `devcon8 node log` scrolls |
+| your node joining the mesh | about 20 s to 2 min (`devcon8 join` waits for the mesh's models, then asks one question) | `devcon8 node log` scrolls |
 | your node loading its model (serving) | about 1 min | Network tab says `serving` when done |
-| `devcon8 s08 start` | **up to 15 min** | one line per node, then possibly minutes of silence |
+| `devcon8 s08 start` | about 1 min on a fast laptop, **up to 15 min** on a slow one | one line per node, then possibly minutes of silence |
 | each later S08 step | under 1 min | its output |
 
 ## 1. Get the image and start it
@@ -54,8 +56,8 @@ Docker picks `arm64` or `amd64` for your machine by itself.
 
 The stick holds these three files in its top folder (no subfolders):
 
-    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
-    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-amd64.tar    Windows and x86 Linux
+    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
+    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-amd64.tar    Windows and x86 Linux
     SHA256SUMS
 
 `docker run` cannot read a tarball: copy the one file for your laptop, check it, `docker load` it, then
@@ -101,7 +103,7 @@ Not `OK` (or `False`): the copy is incomplete, copy it again.
     docker load -i devcon-workshop-*-$A.tar
 
 (PowerShell: `docker load -i (Get-ChildItem devcon-workshop-*-$A.tar).Name`.) It ends with
-`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64`
+`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64`
 (or `-amd64`). A loaded image is not called `latest`, so the run line below names this tag.
 
 **5. Start the container.** Pick the line for your arch (`--pull never` stops Docker from going to the network):
@@ -110,16 +112,16 @@ arm64:
 
     docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant \
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
-      ghcr.io/action-state-group/devcon-workshop:20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64
+      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64
 
-amd64: the same line ending in `...cap0.1.15-b168c6fe.local-amd64`. In PowerShell write it on one line
+amd64: the same line ending in `...cap0.1.15-b7e05594.139-amd64`. In PowerShell write it on one line
 (without the `\` line ends). You are then in the container's shell: skip "Start the container" below and go to `devcon8 doctor` there. `No such image` means the load
 in step 4 did not finish, or the arch suffix differs from the one it printed.
 
 ### Start the container (with network)
 
 ```sh
-docker rm -f devcon8 ; docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 ghcr.io/action-state-group/devcon-workshop:latest
+docker pull ghcr.io/action-state-group/devcon-workshop:latest ; docker rm -f devcon8 ; docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 ghcr.io/action-state-group/devcon-workshop:latest
 ```
 
 - `--pull never` stops Docker from going to the network. If you get `No such image`, the image

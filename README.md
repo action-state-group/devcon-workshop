@@ -1,7 +1,7 @@
 # Devcon 8 workshop image
 
-One container you run on your own laptop for the Devcon 8 S08 workshop (Tue Nov 3, 09:30 UTC). It
-lets you:
+One container you run on your own laptop for the Devcon 8 S08 workshop (held on Tue Nov 3, 15:00-16:00 IST, 09:30-10:30 UTC;
+the steps still work for anyone running them later). It lets you:
 
 - run a node on the workshop's demo mesh, on the lab build of [mesh-llm](https://github.com/Mesh-LLM/mesh-llm) the demo nodes run
   with the capsules (evidence) and lexe-wallet plugins;
@@ -23,15 +23,15 @@ Inference runs on your CPU (Docker on a Mac has no GPU access). The image is abo
 You need Docker (Docker Desktop on macOS or Windows, Docker Engine on Linux) with at least **8 GB of
 memory** for the container (Docker Desktop: Settings > Resources) and about 6 GB of free disk.
 If you have both Colima and Docker Desktop: run `docker context ls`; if the starred context is colima, run `docker context use desktop-linux`.
-**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Docker picks the right one for `latest` and for the digest below.
+**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Docker picks the right one for `latest`, the tag and the digest below.
 
 Pull the image ahead of time. Conference wifi is slow:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
 
-`latest` moves only when a maintainer approves a publish of a tested build from main. For a reproducible pull, use the immutable tag and digest announced for the workshop:
+`latest` moves only when a maintainer approves a publish of a tested build from main; today it is v4. For a reproducible pull, use the immutable v4 tag (`20261104-ml1aba71d-cap0.1.15-b7e05594.139`) or its index digest:
 
-    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:<digest>
+    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:fde3ab1193e7446dd2d4cbc379fcf3a1b7424e14cb9f30d8164028ae13f31d7c
 
 No network at the venue? Use the USB stick: "From the USB stick (no network)" below replaces this pull and
 the `docker run` in "Start".
@@ -42,16 +42,16 @@ the `docker run` in "Start".
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
       ghcr.io/action-state-group/devcon-workshop:latest
 
-(Or the `@sha256:<digest>` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
+(Or the v4 tag or `@sha256:fde3ab11…` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
-The console is on port 3141 because Buzz Desktop uses 3131. Inside the container a small relay (port 3132) hands the console its requests from the container's own loopback, which mesh-llm requires for the console's plugin routes (the Evidence tab). A client node hides the Configuration tab by mesh-llm's design. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then the `docker run` above; your `devcon8-home` volume keeps your state.
+The console is on port 3141 because Buzz Desktop uses 3131. Inside the container a small relay (port 3132) hands the console its requests from the container's own loopback, which mesh-llm requires for the console's plugin routes (the Evidence tab). A client node hides the Configuration tab by mesh-llm's design. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then `docker pull` the image again and run the `docker run` above (a local copy of `latest` from before Nov 4 is an older image, and `docker run` does not update it); your `devcon8-home` volume keeps your state.
 
 ### From the USB stick (no network)
 
 The stick holds these three files in its top folder (no subfolders):
 
-    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
-    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-amd64.tar    Windows and x86 Linux
+    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
+    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-amd64.tar    Windows and x86 Linux
     SHA256SUMS
 
 `docker run` cannot read a tarball: copy the one file for your laptop, check it, `docker load` it, then
@@ -97,7 +97,7 @@ Not `OK` (or `False`): the copy is incomplete, copy it again.
     docker load -i devcon-workshop-*-$A.tar
 
 (PowerShell: `docker load -i (Get-ChildItem devcon-workshop-*-$A.tar).Name`.) It ends with
-`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64`
+`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64`
 (or `-amd64`). A loaded image is not called `latest`, so the run line below names this tag.
 
 **5. Start the container.** Pick the line for your arch (`--pull never` stops Docker from going to the network):
@@ -106,9 +106,9 @@ arm64:
 
     docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant \
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
-      ghcr.io/action-state-group/devcon-workshop:20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64
+      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64
 
-amd64: the same line ending in `...cap0.1.15-b168c6fe.local-amd64`. In PowerShell write it on one line
+amd64: the same line ending in `...cap0.1.15-b7e05594.139-amd64`. In PowerShell write it on one line
 (without the `\` line ends). Then run `devcon8 doctor` in the shell you get. `No such image` means the load
 in step 4 did not finish, or the arch suffix differs from the one it printed.
 
@@ -148,7 +148,7 @@ The trading agent runs in [goose](https://github.com/aaif-goose/goose). Pick its
 ### 4. `devcon8 s02`: the settlement record
 
 Open http://127.0.0.1:8080/settlement-record.html. One Lightning payment between two demo nodes, as two
-signed halves under two keys, checked in your browser, offline. `demos/s02/README.md` has the same check
+signed halves under two keys, checked in your browser, offline. `/opt/devcon8/demos/s02/README.md` (inside the container) has the same check
 on the command line.
 
 ### 5. `devcon8 s08 <step>`: catch a lying node
@@ -175,6 +175,18 @@ Index. The NANDA Index works with ARD and AI Catalog. Read this first:
 
 The mailbox key is kept in `~/.devcon8/agentbox/key` (mode 0600) and is never printed.
 
+**Already have a mailbox?** On the same `devcon8-home` volume the key is already there: if no other container has run
+`devcon8 nanda` for this mailbox since, there is nothing to do. If one has, this container is off duty and `devcon8 trade`
+starts but the agent does not answer; run `devcon8 nanda <email>` again and it takes the mailbox back. On a new container,
+a new volume or another laptop, run the same command with the same email:
+
+    devcon8 nanda <the email you used the first time>
+
+It asks "Create the mailbox for ...?" (it says Create even for a mailbox that exists): answer `y`. The gateway returns your existing mailbox (the same address, and no
+second listing in the NANDA Index) with a new key, emails a new six-digit code to the same address, and asks you for
+it. Checked on 2026-11-04 on a local build of the v4 sources. Only one container answers for the mailbox at a time: the one that ran
+`devcon8 nanda` last takes over, and the older container can still read the mailbox but no longer answers from it.
+
 ### 7. `devcon8 trade [--buy <address>] [--pay lexe]`: the trading agent
 
 Your agent sells your digital fox sticker for 50 cents (in a `--pay lexe` run, for your Lightning price in msat) to any participant's agent that asks. With
@@ -195,6 +207,95 @@ they give you. It buys only from that address, never from search results.
   attachments (`buyer-terms.json`, `settle.json`, `sticker.png`). In a `--pay lexe` run a proposal also
   carries the shop's Lightning invoice, which is saved for the payment and not shown to the agent.
 - Each sale or purchase is one deal in `~/.local/share/capsule-deal`; files are in `~/deals/`.
+- **Known gaps in this image.** After a `--pay lexe` sale, `capsulectl deal standard-history card` refuses the deal
+  ([evidencebook#388](https://github.com/action-state-group/evidencebook/issues/388): a Lightning deal is priced in msat, which the card does not accept yet), and
+  `presentation build` writes a plain fallback page because the image lacks the plugins' presentation assets
+  ([devcon-workshop#43](https://github.com/action-state-group/devcon-workshop/issues/43)). Some `capsulectl` failures print only
+  "operation failed; check input, selected profile, permissions and service availability" and hide the cause. The trade itself is not affected: in the run on [devcon-workshop#36](https://github.com/action-state-group/devcon-workshop/pull/36#issuecomment-6622224186) a `--pay lexe` sale was paid, sealed, delivered and confirmed.
+
+### Trade with yourself: a walkthrough (simulated payment)
+
+One person plays both sides in two containers: a seller that sells your sticker and a buyer that buys it. You need two
+email addresses that can each receive a six-digit code (one per mailbox; if you already have a mailbox, use its email for
+one side and a new email for the other), and a Claude or ChatGPT login for the agent in each container. Use two terminal
+windows. No money moves. goose runs in auto mode: it does not ask before each tool call, but the agent still stops at a
+"PAUSED FOR YOU" card before an offer, a commitment and a payment, and you answer those in the chat.
+
+**0. Get the image again.** Pull `latest` even if you pulled before, since an older local copy is an older image:
+
+    docker pull ghcr.io/action-state-group/devcon-workshop:latest
+
+Remove old containers of these names from earlier tries (your volumes, logins and mailboxes are kept):
+
+    docker rm -f devcon8 devcon8b
+
+(On a first try it prints "No such container"; that is fine.)
+
+**1. The seller, terminal 1.** The trade runs over Agent Box mailboxes, not over mesh-llm, so neither container publishes a port
+(port 3141 in the steps above is the mesh-llm node console, which this trade does not use):
+
+    docker run -it --name devcon8 -v devcon8-home:/home/participant ghcr.io/action-state-group/devcon-workshop:latest
+
+From the USB stick, add `--pull never` and use the loaded tag (`...cap0.1.15-b7e05594.139-arm64` or `-amd64`) in place of
+`:latest`, for both containers. Inside the container:
+
+    devcon8 brain claude          # open the link it prints, sign in, paste the code back, type /exit
+    devcon8 nanda <seller email>  # answer y; type the six-digit code sent to that email
+    devcon8 trade                 # sell only; goose waits for a buyer
+
+`devcon8 nanda` prints the agent's address, for example `shop1@agentboxnanda.org`: that is the seller address. When it says
+"Registering in the NANDA Index (up to 10 minutes)...", you can press Ctrl-C: the mailbox is already ready. (`brain codex`
+works the same way if you use ChatGPT.)
+
+**2. The buyer, terminal 2.** A second container with its own volume:
+
+    docker run -it --name devcon8b -v devcon8b-home:/home/participant ghcr.io/action-state-group/devcon-workshop:latest
+
+Inside it:
+
+    devcon8 brain claude
+    devcon8 nanda <buyer email>              # a different email gives a different mailbox
+    devcon8 trade --buy <seller address>
+
+**Already have a mailbox?** Use the email you created it with: `devcon8 nanda` asks "Create the mailbox for ...?" (it says
+Create even when the mailbox exists), you answer `y`, and the gateway gives back the same address with a new key and a fresh
+six-digit code. Only the container that ran `devcon8 nanda` last answers for the mailbox, so do not give two containers the
+same mailbox at the same time.
+
+**3. During the trade.** Answer the "PAUSED FOR YOU" cards with yes or no (no holds the deal). The payment is the simulated
+50-cent x402 one; the settle response says "SIMULATED". The buyer opens the conversation, pays, receives the sticker, checks
+its sha256 and confirms; both agents close their deals.
+
+- If one side goes quiet, type: `keep checking the mailbox`
+- If both seem to wait, tell the buyer: `Buy one digital fox sticker from <seller address> now`
+- Ctrl-C once interrupts the turn goose is on; a second Ctrl-C within 10 seconds ends the run.
+
+**4. See the result, from your Mac terminal.** List the deals; the columns are the id, the kind (`deal` or `sale`) and the state. A seller has one `sale` plus one `deal` per buyer; the receipt is per `deal`, and `deal report` refuses a `sale-...` id:
+
+    docker exec devcon8 bash -lc 'capsulectl --profile deal deal list'
+
+Write the receipt of the latest closed `deal` inside the container, copy it out, and open it (for the buyer use `devcon8b`
+in all three places):
+
+    docker exec devcon8 bash -lc 'id=$(capsulectl --profile deal deal list | awk "\$2==\"deal\" && \$3==\"closed\"{i=\$1} END{print i}"); capsulectl --profile deal deal report --deal "$id" --html ~/receipt.html >/dev/null' && docker cp devcon8:/home/participant/receipt.html . && open receipt.html
+
+The deals themselves are in `~/.local/share/capsule-deal` and the files in `~/deals/` inside each container; the buyer's
+`sticker.png` is there.
+
+**Going back to the other steps.** These containers publish no ports, so the console (3141), `devcon8 s02` (8080) and the S08
+Evidence pages are not reachable from them. To go back to those steps, run `docker rm -f devcon8` and start it again with the run
+line in "Start"; the `devcon8-home` volume keeps your state.
+
+**5. If a terminal closes.** Exiting a container's first shell stops the container. Bring it back with
+`docker start -ai devcon8` (or `devcon8b`); logins, mailbox and deals are on the volume. `docker exec -it devcon8 bash`
+opens another shell in a running container.
+
+**Known gaps.** See the note under step 7 (History card, presentation assets, masked errors).
+
+**Clean up.** `docker rm -f devcon8 devcon8b` removes the containers and keeps the volumes. To forget the logins, mailboxes and
+deals too, and to start over with different emails, also run `docker volume rm devcon8-home devcon8b-home`. If you listed a
+mailbox you will not use again, run `devcon8 nanda leave` inside its container before you remove the container (permanent; see
+"Leaving the NANDA Index").
 
 ### 8. `devcon8 go-seal`: the Go SDK example
 
