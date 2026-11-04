@@ -220,7 +220,7 @@ they give you. It buys only from that address, never from search results.
   ```
 
   If `card` says "the History card was not built: ...", the line names what to do (for example, run `deal tick` again, then ask again).
-  A Lightning (`--pay lexe`) deal is counted as BTC in msat. A deal with no reconcile Result counts as "we couldn't tell".
+  A Lightning (`--pay lexe`) deal is counted as BTC in msat. The workshop trade does not compare your record of a deal with the other side's, so every deal on your card shows "we couldn't tell". That means no comparison was made, not that the trade failed.
   Some other `capsulectl` failures print only "operation failed; check input, selected profile, permissions and service availability" and
   hide the cause.
 
