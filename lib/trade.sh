@@ -47,12 +47,13 @@ if [ "$pay" = lexe ]; then
   echo "Payment in this run is REAL Lightning from your own lexe wallet (bitcoin mainnet), within your caps:"
   "$D/agent/bin/lightning" caps
   mode=${DEVCON8_GOOSE_MODE:-approve}
-  echo "goose asks before each tool call, and every payment shows you a card first; answer in the chat."
+  [ "$mode" = approve ] && echo "goose asks before each tool call, and every payment shows you a card first; answer in the chat." \
+    || echo "goose runs in $mode mode (DEVCON8_GOOSE_MODE); every payment still shows you a card first."
 else
   mode=${DEVCON8_GOOSE_MODE:-auto}
   echo "Payment in this run is SIMULATED: no money moves. Offers, commitments and payments still stop for your answer in the chat."
 fi
-echo "Ctrl-C ends the run."
+echo "Ctrl-C interrupts a turn; press it again and the run ends."
 args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive --params "pay=$pay")
 [ -n "$buy" ] && args+=(--params "buy_from=$buy")
 # goose is a child, not exec'd: after "session closed" it can stay alive waiting on claude-agent-acp,
@@ -60,14 +61,16 @@ args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive --params "pay=$p
 # on v4). The first Ctrl-C is goose's own (it interrupts the turn); a second one that reaches this
 # script, which happens only when goose is not reading keys, ends goose and everything under it.
 tree() { local p; for p in $(pgrep -P "$1" 2>/dev/null); do tree "$p"; done; echo "$1"; }
-ints=0 forced=
-GOOSE_MODE=$mode goose "${args[@]}" <&0 &
+ints=0 last=0 forced=
+# A background job ignores SIGINT; the subshell restores it so goose and its children see Ctrl-C as before.
+(trap - INT QUIT; exec env GOOSE_MODE=$mode goose "${args[@]}") <&0 &
 gp=$!
-trap 'ints=$((ints+1)); [ $ints -lt 2 ] || { forced=1; kill -KILL $(tree $gp) 2>/dev/null; }' INT
+trap 'if [ $((SECONDS-last)) -gt 10 ]; then ints=0; fi; last=$SECONDS; ints=$((ints+1)); [ $ints -lt 2 ] || { forced=1; kill -KILL $(tree $gp) 2>/dev/null; }' INT
 trap 'forced=1; kill -KILL $(tree $gp) 2>/dev/null' TERM HUP
 rc=0
-while kill -0 $gp 2>/dev/null; do wait $gp && rc=0 || rc=$?; done
+wait $gp && rc=0 || rc=$?
+while [ $rc -gt 128 ] && kill -0 $gp 2>/dev/null; do wait $gp && rc=0 || rc=$?; done
 trap - INT TERM HUP
-[ -t 0 ] && stty sane 2>/dev/null
+if [ -t 0 ]; then stty sane 2>/dev/null || true; fi
 [ -z "$forced" ] || rc=130
 exit $rc

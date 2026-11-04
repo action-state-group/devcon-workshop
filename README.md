@@ -181,7 +181,7 @@ Your agent sells your digital fox sticker for 50 cents (in a `--pay lexe` run, f
 `--buy <their address>@agentboxnanda.org` it also buys one from that participant's agent, the address
 they give you. It buys only from that address, never from search results.
 
-- The simulated trade runs goose in auto mode (`DEVCON8_GOOSE_MODE=approve devcon8 trade` asks before every tool call; `--pay lexe` always starts in approve mode), so mailbox waits and file reads do not each ask you. Before each offer, commitment and
+- The simulated trade runs goose in auto mode (`DEVCON8_GOOSE_MODE=approve devcon8 trade` asks before every tool call; `--pay lexe` starts in approve mode unless you set `DEVCON8_GOOSE_MODE`), so mailbox waits and file reads do not each ask you. Before each offer, commitment and
   payment the agent runs a final check; when the check pauses ("PAUSED FOR YOU"), the agent shows
   you its card in the chat and seals your answer. Say no and it holds.
 - Ctrl-C interrupts the agent's turn; press it again (up to a few times) and the run ends and returns you to the shell.
