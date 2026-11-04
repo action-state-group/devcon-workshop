@@ -23,7 +23,7 @@ Inference runs on your CPU (Docker on a Mac has no GPU access). The image is 0.7
 You need Docker (Docker Desktop on macOS or Windows, Docker Engine on Linux) with at least **8 GB of
 memory** for the container (Docker Desktop: Settings > Resources) and enough free disk (see "Disk space" below).
 If you have both Colima and Docker Desktop: run `docker context ls`; if the starred context is colima, run `docker context use desktop-linux`.
-**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Docker picks the right one for `latest`, the tag and the digest below.
+**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Today `latest` and the digest below are arm64 only (Apple Silicon Macs). An amd64 build follows; until then, amd64 laptops should use an Apple Silicon Mac.
 
 ### Disk space
 
@@ -83,7 +83,7 @@ Pull the image ahead of time. Conference wifi is slow:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
 
-`latest` moves only when a maintainer approves a publish of a tested build from main. On Nov 4 it is the build from main `006fb29` with goose in auto mode and no models (arm64 index digest `sha256:65a0b8cd…`; the amd64 build follows and will change the index digest, see "Containers, volumes and coming back" to check what you have). For a reproducible pull, use the digest:
+`latest` moves only when a maintainer approves a publish of a tested build from main. On Nov 4 it is the build from main `006fb29` with goose in auto mode and no models (arm64-only index digest `sha256:65a0b8cd…`; an amd64 build follows and will change the digest, see "Containers, volumes and coming back" to check what you have). For a reproducible pull, use the digest:
 
     docker pull ghcr.io/action-state-group/devcon-workshop@sha256:65a0b8cd7cec0c3b642a3106729924b7284c4779930398ea1eaf6db13497f7af
 
