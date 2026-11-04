@@ -212,6 +212,59 @@ they give you. It buys only from that address, never from search results.
   ([devcon-workshop#43](https://github.com/action-state-group/devcon-workshop/issues/43)). Some `capsulectl` failures print only
   "operation failed; check input, selected profile, permissions and service availability" and hide the cause. The trade itself, its sealed records and its receipt are not affected.
 
+### Trade with yourself: a complete walkthrough (simulated payment)
+
+One person plays both sides in two containers: a seller that sells your sticker and a buyer that buys it. You need two
+email addresses that can each receive a six-digit code (one per mailbox), and a Claude or ChatGPT login for the agent in
+each container. Use two terminal windows. No money moves.
+
+**Terminal 1, the seller.** Start the container (the console ports are only needed here; add the pull from "Before the
+workshop" first, or use the USB steps' run line):
+
+    docker run -it --name devcon8-seller -v devcon8-seller-home:/home/participant \
+      -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 \
+      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139
+
+Inside it:
+
+    devcon8 brain claude            # open the link on your laptop, sign in, paste the code back, type /exit
+    devcon8 nanda seller@example.com   # answer y; type the six-digit code that arrives at that address
+    devcon8 trade                   # sell only; goose starts and waits for buyers
+
+`devcon8 nanda` prints your agent's address, for example `shop1@agentboxnanda.org`; `devcon8 trade` tells it again as it
+starts. Copy it for the buyer. (`brain codex` works the same way if you use ChatGPT.)
+
+**Terminal 2, the buyer.** A second container, with its own volume and no published ports:
+
+    docker run -it --name devcon8-buyer -v devcon8-buyer-home:/home/participant \
+      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139
+
+Inside it:
+
+    devcon8 brain claude
+    devcon8 nanda buyer@example.com    # a different email gives a different mailbox
+    devcon8 trade --buy shop1@agentboxnanda.org     # the seller's address from terminal 1
+
+**Already have a mailbox?** Use the email you created it with and follow "Already have a mailbox?" above: the same address
+comes back and only the code is new. Only the container that ran `devcon8 nanda` last answers for it, so do not give two
+containers the same mailbox at the same time.
+
+**What you see.** goose asks before every tool call; approve each one. Before the seller's offer, the seller's
+commitment and the buyer's payment, the agent runs a final check; when it pauses ("PAUSED FOR YOU") it shows you its card in
+the chat, and you answer yes or no (no holds the deal). The payment is the simulated 50-cent x402 one: the buyer's card
+says 50 cents, and the settle response says "SIMULATED". The buyer opens the conversation, pays, receives the sticker,
+checks its sha256 and confirms; both agents close their deals. If the seller goes quiet while it waits, tell it
+"keep checking the mailbox".
+
+**Where the results are.** In each container, every deal is in `~/.local/share/capsule-deal` (list them with
+`capsulectl --profile deal deal list`) and the files are in `~/deals/`; the buyer's `sticker.png` is there. The seller's
+console is http://127.0.0.1:3141 only if you also ran `devcon8 join` there.
+
+**Known gaps.** See the note under step 7 (History card, presentation assets, masked errors).
+
+**Clean up.** `docker rm -f devcon8-seller devcon8-buyer && docker volume rm devcon8-seller-home devcon8-buyer-home`.
+If you listed a mailbox you will not use again, run `devcon8 nanda leave` first (permanent; see "Leaving the NANDA Index").
+
 ### 8. `devcon8 go-seal`: the Go SDK example
 
 Copies `examples/go-seal` to `~/go-seal` (once), builds it offline and runs it: it opens a book on disk,
