@@ -32,26 +32,27 @@ LEXE_VERSION=v0.1.0
 LEXE_REPO=https://github.com/ethanyzhang/lexe-wallet-plugin
 LEXE_COMMIT=9f830c181b4042a81069df50752cf19d035a5047
 
-# capsulectl, the deal plugin and the book plugin: the paired rc34 releases (capsule-cli
-# v0.1.0-rc34, evidencebook-deal v0.1.0-rc34, evidencebook tag capsulectl/v0.1.0-rc34; the plugins' handshake
+# capsulectl, the deal plugin and the book plugin: the paired rc35 releases (capsule-cli
+# v0.1.0-rc35, evidencebook-deal v0.1.0-rc35, evidencebook tag capsulectl/v0.1.0-rc35; the plugins' handshake
 # core_version must equal the core's). Since rc29 the deal plugin seals a Lightning payment_received with its preimage (evidencebook-deal#90, on evidencebook
 # v0.12.1), which `devcon8 trade --pay lexe` needs; it carries `deal terms-leg` (evidencebook-deal#70). Since rc33 a Lightning
 # deal's receipt reads in msat (terms currency BTC, amount_minor in msat: evidencebook-deal#133). Since rc34 (evidencebook v0.13.5)
-# `deal standard-history card` prices such a deal as BTC at assetScale 11 instead of refusing it (evidencebook#388).
-CAPSULECTL_VERSION=v0.1.0-rc34
-CAPSULECTL_SHA256_AMD64=ff547ffe2affe4c7d5db5d27b5d03e398e8bbac6d7a22d9c130eb61d484ff4d7
-CAPSULECTL_SHA256_ARM64=9f660fe58d0a41587c0d7dc5676aad1ca5538cf4deb355cdd145826315e13d1f
-DEAL_VERSION=v0.1.0-rc34
-DEAL_SHA256_AMD64=dca50c25b100b134a1964820e163008fa794fa3bfb26056a073066b1ec56edc9
-DEAL_SHA256_ARM64=1d157c87388a68fea4281e4b7279f7e83da8020532fa31a8d51fce6f4ce916dd
+# `deal standard-history card` prices such a deal as BTC at assetScale 11 instead of refusing it (evidencebook#388). Since rc35 the book plugin's History card module is capsule-viewer 0.18.2
+# (the "Everything on the card" fold-out has a gap under the card: capsule-viewer#283).
+CAPSULECTL_VERSION=v0.1.0-rc35
+CAPSULECTL_SHA256_AMD64=7d9a6a318d16eb29da566bcc5a46a455e5c2390e99759e71dcb52110b91b5874
+CAPSULECTL_SHA256_ARM64=788efa7ffe769c31e1761eb6547257f23009f0d5cb42cfbe9127bdb0ea37034c
+DEAL_VERSION=v0.1.0-rc35
+DEAL_SHA256_AMD64=df137883a960672d919cf3430bf251f3ff43521af18eb010d3e23c511d3ae23c
+DEAL_SHA256_ARM64=978cf9500fb89d05c997c39a7c8b1e87849ce133e209018375c2ebc5ad35d00c
 DEAL_SKILL_SHA256=56ded02c8ff10c8e58d8588b7385ebd077703165317fdf6673839cb3c294d673
 # The plugins' presentation assets (capsulectl-deal.d/, standard-history-module/), unpacked beside the binaries; without
 # them `presentation build` refuses both modules and writes the generic page. One archive each, same for both architectures.
 DEAL_VIEW_SHA256=3afbbfa816799abc57af67e8322f2527b5601e5c81a67e807f90c6cd1ef59f0d
-BOOK_VERSION=v0.1.0-rc34
-BOOK_SHA256_AMD64=b2e6be44288499ad70301efceb938d10006d83de1fd8bcd5dc1aba71f1f2ebe7
-BOOK_SHA256_ARM64=68ba7b74d63409bb26547eafda61ef5bd258814dad04f218ed3a65d61f398a5b
-BOOK_HISTORY_SHA256=ed3a42d0876748017e0a1d9cf2fc5da1ac1ee5818b45f1b73e1f5075a47557a1
+BOOK_VERSION=v0.1.0-rc35
+BOOK_SHA256_AMD64=02b38f361671e3f687a81d1a8472051c4c1cd2fdcaab580510e4610350a2535f
+BOOK_SHA256_ARM64=e53d60970bb33dfeb960048f0069e11dcba8be82534a4cb42b5ff600171e6d29
+BOOK_HISTORY_SHA256=3c0edca28e78e3bb1ef9603669afc731b1f816d271aaa4d41b64d8b40cab53ab
 
 # goose: built from source at the v1.57.0 commit plus patches/goose-acp-approval-card-once.patch
 # (aaif-goose/goose#13273: in approve mode an ACP provider's approval card came back after the turn and
