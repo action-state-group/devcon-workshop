@@ -175,6 +175,17 @@ Index. The NANDA Index works with ARD and AI Catalog. Read this first:
 
 The mailbox key is kept in `~/.devcon8/agentbox/key` (mode 0600) and is never printed.
 
+**Already have a mailbox?** On the same `devcon8-home` volume there is nothing to do: the key is already there, and
+`devcon8 nanda <email>` just checks the listing. On a new container, a new volume or another laptop, run the same
+command with the same email:
+
+    devcon8 nanda <the email you used the first time>
+
+It asks "Create the mailbox for ...?": answer `y`. The gateway returns your existing mailbox (the same address, and no
+second listing in the NANDA Index) with a new key, emails a new six-digit code to the same address, and asks you for
+it. Checked on 2026-11-04 on the v4 image. Only one container answers for the mailbox at a time: the one that ran
+`devcon8 nanda` last takes over, and an older container's key keeps working for reading but is off duty, so its agent stops answering.
+
 ### 7. `devcon8 trade [--buy <address>] [--pay lexe]`: the trading agent
 
 Your agent sells your digital fox sticker for 50 cents (in a `--pay lexe` run, for your Lightning price in msat) to any participant's agent that asks. With
