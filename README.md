@@ -66,6 +66,18 @@ Newer Docker's plain `volume prune` removes only anonymous volumes (`docker volu
 named), but `-a` and older versions remove every volume no container uses, and that includes `devcon8-home` while its
 container is stopped or removed: your logins, mailbox key and deals go with it. Check `docker volume ls` before you remove one by name.
 
+**Start over, or free the volumes' disk.** `docker rm -f devcon8` removes only the container: the volume `devcon8-home` (your
+logins, mailbox key, deals, and any downloaded models) stays, and keeps taking disk. To remove both (and the second agent's):
+
+    docker rm -f devcon8 devcon8b
+    docker volume rm devcon8-home devcon8b-home
+    docker volume ls
+
+This **deletes** the logins, the mailbox key (you would run `devcon8 nanda <email>` again) and the deals. If `docker volume rm`
+answers `volume is in use`, a container, even a stopped one, still uses it: `docker ps -a --filter volume=devcon8-home` names it;
+`docker rm -f` that container, then remove the volume. (Checked with a throwaway volume: Docker 29.5.2 prints that error and the
+filter lists the container, also for one that was never started.)
+
 Pull the image ahead of time. Conference wifi is slow:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
@@ -401,10 +413,16 @@ opens another shell in a running container.
 
 **Known gaps.** See the note under step 7 (History card, presentation assets, masked errors).
 
-**Clean up.** `docker rm -f devcon8 devcon8b` removes the containers and keeps the volumes. To forget the logins, mailboxes and
-deals too, and to start over with different emails, also run `docker volume rm devcon8-home devcon8b-home`. If you listed a
-mailbox you will not use again, run `devcon8 nanda leave` inside its container before you remove the container (permanent; see
-"Leaving the NANDA Index").
+**Clean up.** `docker rm -f devcon8 devcon8b` removes the containers and keeps the volumes (and their disk). To forget the logins,
+mailboxes and deals too, and to start over with different emails, run:
+
+    docker rm -f devcon8 devcon8b
+    docker volume rm devcon8-home devcon8b-home
+
+This deletes the logins and the mailbox keys (you would run `devcon8 nanda` again) and the deals. `volume is in use` means a container,
+even a stopped one, still uses it: `docker ps -a --filter volume=devcon8-home` shows which; remove it first. `docker volume ls`
+lists what is left. If you listed a mailbox you will not use again, run `devcon8 nanda leave` inside its container before you remove the
+container (permanent; see "Leaving the NANDA Index").
 
 ### 8. `devcon8 go-seal`: the Go SDK example
 
