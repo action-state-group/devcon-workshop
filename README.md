@@ -391,17 +391,7 @@ its sha256 and confirms; both agents close their deals.
 - If both seem to wait, tell the buyer: `Buy one digital fox sticker from <seller address> now`
 - Ctrl-C: once interrupts the turn goose is on; a second makes goose print "session closed" and the run ends within about a second, back at your shell.
 
-**4. See the result, from your Mac terminal.** List the deals; the columns are the id, the kind (`deal` or `sale`) and the state. A seller has one `sale` plus one `deal` per buyer; the receipt is per `deal`, and `deal report` refuses a `sale-...` id:
-
-    docker exec devcon8 bash -lc 'capsulectl --profile deal deal list'
-
-Write the receipt of the latest closed `deal` inside the container, copy it out, and open it (for the buyer use `devcon8b`
-in all three places):
-
-    docker exec devcon8 bash -lc 'id=$(capsulectl --profile deal deal list | awk "\$2==\"deal\" && \$3==\"closed\"{i=\$1} END{print i}"); capsulectl --profile deal deal report --deal "$id" --html ~/receipt.html >/dev/null' && docker cp devcon8:/home/participant/receipt.html . && open receipt.html
-
-The deals themselves are in `~/.local/share/capsule-deal` and the files in `~/deals/` inside each container; the buyer's
-`sticker.png` is there.
+**4. See the result.** Follow "Find your deals and make a receipt" below (seller: `devcon8`; buyer: `devcon8b`).
 
 **Going back to the other steps.** These containers publish no ports, so the console (3141), `devcon8 s02` (8080) and the S08
 Evidence pages are not reachable from them. To go back to those steps, run `docker rm -f devcon8` and start it again with the run
@@ -423,6 +413,39 @@ This deletes the logins and the mailbox keys (you would run `devcon8 nanda` agai
 even a stopped one, still uses it: `docker ps -a --filter volume=devcon8-home` shows which; remove it first. `docker volume ls`
 lists what is left. If you listed a mailbox you will not use again, run `devcon8 nanda leave` inside its container before you remove the
 container (permanent; see "Leaving the NANDA Index").
+
+### Find your deals and make a receipt
+
+A receipt is a page for one closed deal. Everything is in the container that ran the trade; the page is copied to your Mac.
+Replace `devcon8` with `devcon8b` for the buyer. (`deal list` needs the deal plugin, which `devcon8 trade` installs: on a volume
+that never ran `trade` it answers "this needs the capsulectl-deal plugin, which is not installed".)
+
+**1. List the deals**, inside the container, or from the Mac with `docker exec devcon8 bash -lc '<the command>'`:
+
+    capsulectl --profile deal deal list
+
+One tab-separated line per deal (checked in `deal list --help`; no real output captured here yet), in the order
+`<id>  <kind>  <state>  <opened>  <last record>  <counterparty fingerprint>  <log id>`:
+
+- the id, `deal-...` or `sale-...`;
+- the kind, `deal` or `sale`;
+- the state, for example `open` or `closed`;
+- when it was opened and when its last record was written;
+- the other side's fingerprint, and the log id.
+
+**2. Deal or sale.** A seller has one `sale-...` for each listing and one `deal-...` for each buyer. A buyer has a `deal-...`.
+A receipt takes only a `deal-...` id; `deal report` refuses a `sale-...` id.
+
+**3. One receipt, by id.** Inside the container write it, then from your Mac terminal copy it out and open it:
+
+    capsulectl --profile deal deal report --deal <deal id> --html ~/receipt.html
+    docker cp devcon8:/home/participant/receipt.html . && open receipt.html
+
+**4. The latest closed deal in one command**, from your Mac terminal (it picks the last line whose kind is `deal` and state is `closed`):
+
+    docker exec devcon8 bash -lc 'id=$(capsulectl --profile deal deal list | awk "\$2==\"deal\" && \$3==\"closed\"{i=\$1} END{print i}"); capsulectl --profile deal deal report --deal "$id" --html ~/receipt.html >/dev/null' && docker cp devcon8:/home/participant/receipt.html . && open receipt.html
+
+The deals themselves are in `~/.local/share/capsule-deal` and the files in `~/deals/` inside each container (the buyer's `sticker.png` is there).
 
 ### 8. `devcon8 go-seal`: the Go SDK example
 
