@@ -40,6 +40,11 @@ class H(BaseHTTPRequestHandler):
             return self.reply(200 if ok else 404, {"entry": {"extensions": {"org.projectnanda": {"status": "active"}}}} if ok else {"error": "not_found"})
         if self.path == "/api/agent/mailboxes/m1":
             return self.reply(200, {"mailbox": {"id": "m1", "verified": True}, "discovery": {"orgId": "o1", "status": "indexed"}})
+        if self.path.startswith("/api/v1/inbox"):
+            # Seven messages of history from an earlier run, paged like the gateway: after=<seq>&limit=<n>.
+            q = dict(kv.split("=") for kv in self.path.split("?", 1)[1].split("&"))
+            after, limit = int(q.get("after", 0)), int(q.get("limit", 10))
+            return self.reply(200, {"messages": [{"seq": n, "kind": "general"} for n in range(1, 8) if n > after][:limit]})
         if self.path == "/api/v1/me":
             return self.reply(200, {"onDuty": state["on_duty"]})
         self.reply(404, {"error": "no route"})

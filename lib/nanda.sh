@@ -112,6 +112,10 @@ if [ "$(curl -fsS "${auth[@]}" "$BASE/api/v1/me" | jq -r '.onDuty | tostring')" 
     || die "could not take over the mailbox from its other assistant; rerun 'devcon8 nanda $email'"
   echo "This agent now answers for $(jq -r .address "$A/mailbox.json")."
 fi
+# A mailbox joined from a new volume has history from earlier runs; `mbx wait` reads from its cursor
+# (0 when the file is missing) and would replay all of it into a trade. Start after the newest message.
+# An existing cursor (same volume) is left alone.
+[ -f "$A/cursor" ] || inbox_seq > "$A/cursor"
 addr=$(jq -r .address "$A/mailbox.json")
 if [ "$(listed "$addr")" != active ]; then
   curl -fsS -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{"mode":"auto"}' "$BASE/api/agent/mailboxes/$id/nanda" >/dev/null || true
