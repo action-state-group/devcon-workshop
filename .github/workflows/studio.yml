@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: shellcheck -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio
+        run: shellcheck -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio
       - name: studio.yaml is trader.yaml plus the Studio edits (generated file is current)
         run: |
           python3 -I studio/build-recipe.py --check

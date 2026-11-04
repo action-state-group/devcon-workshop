@@ -11,3 +11,8 @@ STUDIO_SKILLS_REPO=https://github.com/action-state-group/evidencebook-skills
 STUDIO_SKILLS_COMMIT=bd81b76cde49e163ee2d352b70b7adbdc4acf4ae
 # Path of the `terms <verb>` entry point inside that checkout.
 STUDIO_TERMS_ENTRY=scripts/studio/terms
+
+# Test only (tests/studio-e2e.sh, not in the image): the evidencebook-deal checkout that holds the
+# ten-sticker-trade replay (scripts/studio-replay.sh, testdata/studio/sticker-trades.json).
+STUDIO_DEAL_REPO=https://github.com/action-state-group/evidencebook-deal
+STUDIO_DEAL_COMMIT=c2746fc963730217b13c01d0adf23df6e1840daa

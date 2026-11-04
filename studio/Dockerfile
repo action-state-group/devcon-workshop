@@ -16,12 +16,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3-venv \
     && python3 -m venv /opt/devcon8/studio/venv \
     && /opt/devcon8/studio/venv/bin/pip install --no-cache-dir -r /tmp/studio-requirements.txt \
     && rm /tmp/studio-requirements.txt
-RUN git clone --filter=blob:none "$STUDIO_SKILLS_REPO" /opt/devcon8/studio/skills-src \
-    && git -C /opt/devcon8/studio/skills-src checkout --detach "$STUDIO_SKILLS_COMMIT" \
-    && rm -rf /opt/devcon8/studio/skills-src/.git \
-    && test -x "/opt/devcon8/studio/skills-src/$STUDIO_TERMS_ENTRY" \
+# The checkout sits under capsulectl's trusted plugin root: `capsulectl profile update --rules-checker`
+# refuses a checker anywhere else, and `terms publish` pins scripts/studio/terms-checker from here.
+RUN mkdir -p /usr/local/lib/capsulectl/plugins \
+    && git clone --filter=blob:none "$STUDIO_SKILLS_REPO" /usr/local/lib/capsulectl/plugins/terms-pack-studio \
+    && git -C /usr/local/lib/capsulectl/plugins/terms-pack-studio checkout --detach "$STUDIO_SKILLS_COMMIT" \
+    && rm -rf /usr/local/lib/capsulectl/plugins/terms-pack-studio/.git \
+    && test -x "/usr/local/lib/capsulectl/plugins/terms-pack-studio/$STUDIO_TERMS_ENTRY" \
     && mkdir -p /opt/devcon8/agent/skills \
-    && cp -r /opt/devcon8/studio/skills-src/skills/terms-pack-author /opt/devcon8/agent/skills/terms-pack-author
+    && cp -r /usr/local/lib/capsulectl/plugins/terms-pack-studio/skills/terms-pack-author /opt/devcon8/agent/skills/terms-pack-author
 # devcon8 trade runs trader.yaml; in the layer only, let TRADE_RECIPE name another recipe. The edit fails
 # the build if trade.sh no longer has the line, and the base image's file is not changed.
 RUN sed -i 's#--recipe "$D/agent/recipes/trader.yaml"#--recipe "${TRADE_RECIPE:-$D/agent/recipes/trader.yaml}"#' /opt/devcon8/lib/trade.sh \
@@ -29,7 +32,7 @@ RUN sed -i 's#--recipe "$D/agent/recipes/trader.yaml"#--recipe "${TRADE_RECIPE:-
 COPY studio/versions.lock /opt/devcon8/studio/versions.lock
 COPY studio/bin/ /opt/devcon8/agent/bin/
 COPY agent/recipes/studio.yaml /opt/devcon8/agent/recipes/studio.yaml
-COPY tests/studio-recipe.sh tests/studio-layer.sh /opt/devcon8/tests/
-RUN chmod -R a+rX /opt/devcon8/studio /opt/devcon8/agent /opt/devcon8/tests
+COPY tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh /opt/devcon8/tests/
+RUN chmod -R a+rX /opt/devcon8/studio /opt/devcon8/agent /opt/devcon8/tests /usr/local/lib/capsulectl/plugins/terms-pack-studio
 USER participant
 WORKDIR /home/participant

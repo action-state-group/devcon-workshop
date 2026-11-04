@@ -10,7 +10,7 @@ What it adds:
   from `trader.yaml` by `studio/build-recipe.py` (CI fails if the committed file is stale), so the
   trading protocol exists once.
 - `terms <verb>` (lint, test, run, compare, publish, ...), the evidencebook-skills scripts at the commit
-  pinned in `versions.lock`, run with PyYAML from a venv under `/opt/devcon8/studio`.
+  pinned in `versions.lock`, run with PyYAML from a venv under `/opt/devcon8/studio`, and the checkout sits under capsulectl's trusted plugin root (`/usr/local/lib/capsulectl/plugins/terms-pack-studio`).
 - The `terms-pack-author` skill, from the same commit.
 - `devcon8-studio`, the same as `devcon8 trade` with the Studio recipe.
 
