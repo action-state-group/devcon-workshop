@@ -3,8 +3,8 @@
 # and is never published as `latest`.
 
 # The workshop image the layer is built on: an immutable index digest, never `latest`.
-# (v4 digest: filled in when the gated main run publishes it.)
-STUDIO_BASE=
+# (v4: tag 20261104-ml1aba71d-cap0.1.15-b7e05594.139.)
+STUDIO_BASE=ghcr.io/action-state-group/devcon-workshop@sha256:fde3ab1193e7446dd2d4cbc379fcf3a1b7424e14cb9f30d8164028ae13f31d7c
 
 # The Terms Pack Studio scripts and the terms-pack-author skill: evidencebook-skills at a commit.
 STUDIO_SKILLS_REPO=https://github.com/action-state-group/evidencebook-skills
