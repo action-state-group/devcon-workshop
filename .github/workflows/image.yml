@@ -95,11 +95,14 @@ jobs:
       - name: Free disk (the Rust builds and a 3+ GB image do not fit the default runner disk)
         run: |
           df -h /
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost /usr/share/swift \
+            /opt/hostedtoolcache /usr/local/.ghcup /usr/local/julia* /usr/lib/jvm /usr/share/miniconda /usr/lib/google-cloud-sdk \
+            /opt/microsoft /usr/local/share/chromium /usr/local/lib/node_modules
           sudo docker image prune --all --force >/dev/null
           # BuildKit's cache, the exported tarball and the imported image all live under Docker's data root.
-          # The amd64 runner's root disk had 34 GB free after the removals above and filled at `importing to
-          # docker`; its separate /mnt disk adds about 60 GB, so keep Docker's data there when it is large enough.
+          # Some amd64 runners have a 72 GB root disk with 34 GB free after the removals above (run 41746304076
+          # filled it at `importing to docker`); the build peaks at about 45 GB. When a separate /mnt disk of
+          # 40 GB or more exists, keep Docker's data there. Larger-disk runners (145 GB) skip this.
           mnt_gb=$(df --output=avail -BG /mnt 2>/dev/null | tail -1 | tr -dc 0-9)
           if mountpoint -q /mnt && [ "${mnt_gb:-0}" -ge 40 ]; then
             sudo systemctl stop docker docker.socket
