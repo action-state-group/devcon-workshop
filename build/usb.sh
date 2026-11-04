@@ -5,9 +5,14 @@ set -euo pipefail
 tag=$1 out=$2
 img=ghcr.io/action-state-group/devcon-workshop
 mkdir -p "$out"
+# Not `docker pull` + `docker save`: with the containerd image store, a pull of the host's own architecture
+# unpacks the image and drops the compressed layers, so `docker save` then writes a 15 KB tar with only the
+# manifest. buildx fetches the layers from the registry again and exports them (same image, same config digest).
 for arch in amd64 arm64; do
-  docker pull --platform "linux/$arch" "$img:$tag-$arch"
-  docker save "$img:$tag-$arch" -o "$out/devcon-workshop-$tag-$arch.tar"
+  printf 'FROM %s\n' "$img:$tag-$arch" |
+    docker buildx build --platform "linux/$arch" -o "type=docker,name=$img:$tag-$arch,dest=$out/devcon-workshop-$tag-$arch.tar" -
+  # A tarball without layers is only kilobytes; fail here rather than on the stick.
+  [ "$(wc -c < "$out/devcon-workshop-$tag-$arch.tar")" -gt 500000000 ] || { echo "devcon-workshop-$tag-$arch.tar is too small" >&2; exit 1; }
 done
 # macOS has no sha256sum; shasum -a 256 prints the same format.
 if command -v sha256sum >/dev/null; then sum=(sha256sum); else sum=(shasum -a 256); fi
