@@ -268,7 +268,7 @@ Without them `devcon8 s08` says "run devcon8 models first".
 
 Four nodes on a private mesh inside your container (it never touches the demo mesh): an honest node, a
 referee, a liar and an asker, all on the same mesh-llm and capsules as the demo mesh. Steps, in order:
-`start` (a few minutes per node on a laptop CPU), `lie`, `twins`, `referee`, `show`, then the second hack,
+`setup` (once; it prints "S08 is set up in ~/s08-liar. Next: devcon8 s08 start"), `start` (a few minutes per node on a laptop CPU), `lie`, `twins`, `referee`, `show`, then the second hack,
 `omit` and `count`, then step 8, `ask`, the omission found by a signed evidence request; `stop` when done.
 The asker's Evidence page is http://127.0.0.1:9614/plugins/capsules/evidence. On an arm64 laptop the
 two models write the same ocean haiku, so `twins` asks "Name three colors." by default; pass another
