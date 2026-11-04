@@ -20,11 +20,12 @@ devcon8 s08 setup|<step>        the S08 liar demo, four nodes inside this contai
 devcon8 nanda <email> | leave   list your agent's Agent Box mailbox in the NANDA Index, or unlist it (permanent)
 devcon8 trade [--buy <address>] [--pay lexe]
                                 run your trading agent: sells your sticker; with --buy, buys one there;
-                                with --pay lexe the sticker is paid in REAL Lightning (your own wallet)
+                                with --pay lexe the sticker is paid in REAL Lightning (your own lexe wallet)
 devcon8 lightning [--price-sats P --per-payment-sats N --total-sats T]
                                 your caps for a --pay lexe trade (real sats, mainnet)
-devcon8 wallet                  open your own lexe wallet (optional, real Lightning, mainnet; paid
-                                requests seal a record at the serving node's current price, README)
+devcon8 wallet [fund --sats N | key | stop | node]
+                                open your own lexe wallet (real Lightning, mainnet, no node needed),
+                                fund it, show its key to back up; 'node' is the mesh-llm node's wallet
 devcon8 go-seal [--reset]       build and run the evidencebook Go SDK example in ~/go-seal
 devcon8 versions                print the image's MANIFEST header
 EOF

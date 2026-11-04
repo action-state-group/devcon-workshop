@@ -6,8 +6,8 @@ ARCH=$1 OUT=$2
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/../versions.lock"
 case $ARCH in
-  amd64) A=AMD64 TRIPLE=x86_64-unknown-linux-gnu GOARCH=amd64 NODEARCH=x64 ;;
-  arm64) A=ARM64 TRIPLE=aarch64-unknown-linux-gnu GOARCH=arm64 NODEARCH=arm64 ;;
+  amd64) A=AMD64 TRIPLE=x86_64-unknown-linux-gnu GOARCH=amd64 NODEARCH=x64 LEXEARCH=x86_64 ;;
+  arm64) A=ARM64 TRIPLE=aarch64-unknown-linux-gnu GOARCH=arm64 NODEARCH=arm64 LEXEARCH=aarch64 ;;
   *) echo "fetch: unknown arch $ARCH" >&2; exit 2 ;;
 esac
 pin() { local v="${1}_SHA256_${A}"; printf '%s' "${!v}"; }
@@ -30,12 +30,14 @@ get "$gh/action-state-group/evidencebook/releases/download/capsulectl/$BOOK_VERS
 get "https://go.dev/dl/go$GO_VERSION.linux-$GOARCH.tar.gz" "$(pin GO)" go.tar.gz
 get "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$NODEARCH.tar.xz" "$(pin NODE)" node.tar.xz
 get "$gh/Mesh-LLM/capsules-plugin/releases/download/v$CAPSULES_VERSION/capsules-$CAPSULES_VERSION-$TRIPLE.tar.gz" "$(pin CAPSULES)" "capsules-$CAPSULES_VERSION-$TRIPLE.tar.gz"
+get "$gh/lexe-app/lexe-public/releases/download/lexe-sidecar-v$LEXE_SIDECAR_VERSION/lexe-sidecar-linux-$LEXEARCH.zip" "$(pin LEXE_SIDECAR)" lexe-sidecar.zip
 
 # Unpack into /opt/devcon8 layout fragments.
 rm -rf opt && mkdir -p opt/bin opt/mesh/plugins opt/agent
 install -m 0755 dl/capsulectl opt/bin/capsulectl
 install -m 0755 dl/capsulectl-deal opt/bin/capsulectl-deal
 install -m 0755 dl/capsulectl-book opt/bin/capsulectl-book
+unzip -oq dl/lexe-sidecar.zip -d dl/lexe-sidecar && install -m 0755 dl/lexe-sidecar/lexe-sidecar opt/bin/lexe-sidecar
 tar -xzf dl/deal-skill.tar.gz -C opt/agent
 mkdir -p opt/plugin-assets && tar -xzf dl/deal-view.tar.gz -C opt/plugin-assets && tar -xzf dl/standard-history.tar.gz -C opt/plugin-assets
 mkdir -p opt/go && tar -xzf dl/go.tar.gz -C opt/go --strip-components=1

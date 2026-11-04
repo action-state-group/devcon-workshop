@@ -111,3 +111,58 @@ wait_model() {
   done
   return 1
 }
+
+# --- your own lexe wallet: lexe-sidecar (Lexe's local HTTP API), no mesh-llm node needed -------------
+# The wallet's root seed is $LEXE/root_seed on the volume: whoever has that file holds the wallet's
+# sats. `devcon8 wallet` makes it (after asking), `devcon8 trade --pay lexe` and `lightning` use it.
+LEXE=$ST/lexe
+LEXE_API=${DEVCON8_LEXE_API:-http://127.0.0.1:5393}
+lexe_pid() { # the recorded pid, only while it is still this sidecar
+  local p; p=$(cat "$LEXE/sidecar.pid" 2>/dev/null) || return 1
+  kill -0 "$p" 2>/dev/null || return 1
+  tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -qF lexe-sidecar || return 1
+  echo "$p"
+}
+lexe_call() { # METHOD PATH [JSON]
+  curl -fsS -m "${LEXE_TIMEOUT:-60}" --noproxy '*' -X "$1" -H 'Content-Type: application/json' ${3:+-d "$3"} "$LEXE_API$2"
+}
+lexe_ready() { [ -s "$LEXE/root_seed" ] && [ -e "$LEXE/signed_up" ]; }
+# One run at a time creates the seed or starts the sidecar (two terminals answering `yes` together
+# must not make two seeds). fd 8 holds the lock; the sidecar is started without it.
+lexe_lock() {
+  [ -z "${lexe_locked:-}" ] || return 0
+  mkdir -p "$ST"; exec 8> "$ST/lexe.lock"; flock 8; lexe_locked=1
+}
+lexe_unlock() { exec 8>&-; lexe_locked=""; }
+# The sidecar's settings are flags, which beat any LEXE_* variable or .env file it would otherwise load.
+# Start the sidecar when it is not running, wait until it answers, and (for a registered wallet) run
+# Lexe's idempotent provision, so a failed provision is retried by the next call. Sets lexe_started=1
+# when this call started it (so a trade run stops what it started). Needs the seed; Lexe's sign-up
+# record is $LEXE/signed_up.
+lexe_up() {
+  [ -s "$LEXE/root_seed" ] || die "no lexe wallet on this volume yet: 'devcon8 wallet' opens one"
+  local own=""; [ -n "${lexe_locked:-}" ] || { lexe_lock; own=1; }
+  if ! lexe_pid >/dev/null; then
+    (cd "$LEXE" && umask 077 && exec 8>&- && exec nohup "$D/bin/lexe-sidecar" --root-seed-path "$LEXE/root_seed" --data-dir "$LEXE" \
+       --listen-addr "${LEXE_API#http://}" --network mainnet) > "$LEXE/sidecar.log" 2>&1 < /dev/null &
+    echo $! > "$LEXE/sidecar.pid"
+    # shellcheck disable=SC2034 # read by trade.sh
+    lexe_started=1
+  fi
+  for _ in $(seq 60); do
+    lexe_call GET /v2/health >/dev/null 2>&1 && break
+    lexe_pid >/dev/null || die "the lexe wallet did not start; see $LEXE/sidecar.log"
+    sleep 0.5
+  done
+  lexe_call GET /v2/health >/dev/null 2>&1 || die "the lexe wallet does not answer; see $LEXE/sidecar.log"
+  if [ -e "$LEXE/signed_up" ]; then
+    lexe_call PUT /v2/node/provision >/dev/null || die "the lexe wallet could not be provisioned; see $LEXE/sidecar.log, then run 'devcon8 wallet' again"
+  fi
+  [ -z "$own" ] || lexe_unlock
+}
+lexe_stop() {
+  local p; p=$(lexe_pid) || { rm -f "$LEXE/sidecar.pid"; return 0; }
+  kill -TERM "$p"; for _ in $(seq 20); do kill -0 "$p" 2>/dev/null || break; sleep 0.5; done
+  kill -0 "$p" 2>/dev/null && kill -KILL "$p"
+  rm -f "$LEXE/sidecar.pid"
+}

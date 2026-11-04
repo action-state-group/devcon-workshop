@@ -1,9 +1,9 @@
 #!/usr/bin/env -S python3 -I
 """lightning: the trading agent's REAL Lightning payment, from your own lexe wallet (mainnet).
 
-Used only in a `devcon8 trade --pay lexe` run. It talks to your running node's local wallet API
-(the same one `mesh-llm wallet` uses) and enforces the caps you set with `devcon8 lightning`; the
-agent cannot raise them. It never prints a payment's preimage or a BOLT11 invoice. The seller's
+Used only in a `devcon8 trade --pay lexe` run. It talks to your own Lexe wallet through the lexe-sidecar
+that `devcon8 wallet` and `devcon8 trade --pay lexe` run on this container (no mesh-llm node), and
+enforces the caps you set with `devcon8 lightning`; the agent cannot raise them. It never prints a payment's preimage or a BOLT11 invoice. The seller's
 received preimage, the proof the payment settled, is kept only in the 0600 file `deal note` seals
 it from (Steven: seal the preimage, not the BOLT11); the buyer's is not kept.
 
@@ -23,20 +23,25 @@ it from (Steven: seal the preimage, not the BOLT11); the buyer's is not kept.
   lightning caps
       show your caps and what this container has paid so far
 """
-import contextlib, datetime, fcntl, json, os, re, subprocess, sys, time, urllib.error, urllib.request
+import contextlib, datetime, decimal, fcntl, hashlib, json, math, os, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
 
 HOME = os.path.expanduser("~")
 ST = os.path.join(HOME, ".devcon8")
 DEALS = os.path.join(HOME, "deals")
 CAPS = os.path.join(ST, "lightning.json")
 SPENT = os.path.join(ST, "lightning-spent.json")
-API = os.environ.get("DEVCON8_WALLET_API", "http://127.0.0.1:3131/api/wallet")
+# lexe-sidecar, Lexe's own local HTTP API for your wallet (docs.lexe.tech/sidecar); lib/common.sh runs it.
+API = os.environ.get("DEVCON8_LEXE_API", "http://127.0.0.1:5393")
 # Bitcoin mainnet as a CAIP-19 asset, counted in millisatoshi: the asset the seller's
 # payment_received leg names too (capsulectl deal note --ln-invoice).
 BTC = "bip122:000000000019d6689c085ae165831e93/slip44:0"
 BTC_SCALE = 11
-# The highest routing fee one payment may spend, in msat, inside the caps.
-FEE_CEILING_MSAT = 5000
+# What a payment's fee is expected to cost, from Lexe's node source (lexe-ln balance.rs, 2026-09):
+# 750 ppm LSP fee plus three network hops at a mean 817 ppm, and 3 sats of base fees. lexe-sidecar's
+# pay_invoice takes no fee limit (the node enforces its own, 1% + 100 sats), so this estimate is what
+# a payment is checked and reserved against; the fee Lexe reports is what is recorded.
+EST_FEE_PPM = 750 + 3 * 817
+EST_FEE_BASE_MSAT = 3000
 ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 NODE_ID = re.compile(r"^0[23][0-9a-f]{64}$")
 SAFE_TEXT = re.compile(r"ln[a-z0-9]{20,}|[0-9a-f]{64}|[^A-Za-z0-9 .,:;()'_-]")
@@ -75,8 +80,8 @@ def without_status_text(value):
     return {k: v for k, v in value.items() if k != "status_msg"}
 
 
-# The wallet API is on this machine: never through a proxy from the environment, which would see
-# the invoice (mesh-llm's own wallet client does the same, no_proxy).
+# The sidecar is on this machine: never through a proxy from the environment, which would see
+# the invoice.
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
@@ -84,11 +89,27 @@ class Refused(Exception):
     """The wallet API answered a call with an HTTP error (its redacted detail)."""
 
 
-def wallet(command, timeout=30, refused_ok=False):
-    """One local wallet API call. Errors are reported without the request (it may hold an
-    invoice) and without anything that looks like an invoice or a preimage. With refused_ok, an
-    HTTP error is raised as Refused for the caller to handle."""
-    req = urllib.request.Request(API, data=json.dumps(command).encode(), method="POST",
+def msat_of(sats):
+    """A sidecar amount (decimal sats, a string) as whole msat."""
+    try:
+        v = decimal.Decimal(str(sats)) * 1000
+    except decimal.InvalidOperation:
+        die("the wallet reported an amount that is not a number; nothing more was done")
+    if v != v.to_integral_value() or v < 0:
+        die("the wallet reported an amount that is not whole msat; nothing more was done")
+    return int(v)
+
+
+def sats_of(msat):
+    return format(decimal.Decimal(msat) / 1000, "f")
+
+
+def sidecar(method, path, body=None, query=None, timeout=30, refused_ok=False, paying=False):
+    """One lexe-sidecar call. Errors are reported without the request (it may hold an invoice) and
+    without anything that looks like an invoice or a preimage. With refused_ok, an HTTP error is
+    raised as Refused for the caller to handle."""
+    url = API + path + ("?" + urllib.parse.urlencode(query) if query else "")
+    req = urllib.request.Request(url, data=None if body is None else json.dumps(body).encode(), method=method,
                                  headers={"Content-Type": "application/json"})
     try:
         with OPENER.open(req, timeout=timeout) as r:
@@ -98,12 +119,177 @@ def wallet(command, timeout=30, refused_ok=False):
         detail = re.sub(r"ln[a-z0-9]{20,}|[0-9a-f]{64}", "<redacted>", detail, flags=re.I)
         if refused_ok:
             raise Refused(f"HTTP {e.code} {detail}")
-        die(f"the wallet refused '{command['command']}': HTTP {e.code} {detail}")
+        die(f"the wallet refused '{path}': HTTP {e.code} {detail}")
     except (urllib.error.URLError, TimeoutError) as e:
-        if command["command"] == "send" and not isinstance(getattr(e, "reason", None), ConnectionRefusedError):
+        if paying and not isinstance(getattr(e, "reason", None), ConnectionRefusedError):
             die("no answer from the wallet while paying: the payment may still be in flight. Run the same "
-                "'lightning pay' again (the wallet pays one invoice at most once) or check 'mesh-llm wallet get-transactions'")
-        die(f"your node's wallet API does not answer ({type(e).__name__}): is your node running? ('devcon8 join')")
+                "'lightning pay' again (the wallet pays one invoice at most once) or look at 'devcon8 wallet'")
+        die(f"your lexe wallet does not answer ({type(e).__name__}): 'devcon8 wallet' opens it ('devcon8 trade --pay lexe' does too)")
+
+
+# --- BOLT11 decoding: lexe-sidecar's analyze returns neither an invoice's payment hash nor its payee.
+BECH = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+P = 2**256 - 2**32 - 977
+N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+G = (0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
+     0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8)
+
+
+def _polymod(values):
+    gen = (0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3)
+    chk = 1
+    for v in values:
+        top = chk >> 25
+        chk = (chk & 0x1FFFFFF) << 5 ^ v
+        for i in range(5):
+            chk ^= gen[i] if (top >> i) & 1 else 0
+    return chk
+
+
+def _ec_add(a, b):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    if a[0] == b[0]:
+        if (a[1] + b[1]) % P == 0:
+            return None
+        m = 3 * a[0] * a[0] * pow(2 * a[1], -1, P) % P
+    else:
+        m = (b[1] - a[1]) * pow(b[0] - a[0], -1, P) % P
+    x = (m * m - a[0] - b[0]) % P
+    return x, (m * (a[0] - x) - a[1]) % P
+
+
+def _ec_mul(k, pt):
+    out = None
+    while k:
+        if k & 1:
+            out = _ec_add(out, pt)
+        pt = _ec_add(pt, pt)
+        k >>= 1
+    return out
+
+
+def _recover(digest, r, s, recid):
+    """The public key (33 bytes) that made an ECDSA signature over a 32-byte digest."""
+    x = r + (N if recid & 2 else 0)
+    if not (0 < r < N and 0 < s < N) or x >= P:
+        return None
+    y = pow((x**3 + 7) % P, (P + 1) // 4, P)
+    if y * y % P != (x**3 + 7) % P:
+        return None
+    if (y & 1) != (recid & 1):
+        y = P - y
+    e = int.from_bytes(digest, "big")
+    q = _ec_mul(pow(r, -1, N), _ec_add(_ec_mul(s, (x, y)), _ec_mul((-e) % N, G)))
+    return None if q is None else bytes([2 + (q[1] & 1)]) + q[0].to_bytes(32, "big")
+
+
+def _bits_to_bytes(groups, pad=True):
+    acc = 0
+    for g in groups:
+        acc = acc << 5 | g
+    n = len(groups) * 5
+    if n % 8:  # pad with zero bits, or drop the zero bits a 5-bit field ends with
+        if pad:
+            acc <<= 8 - n % 8
+            n += 8 - n % 8
+        else:
+            acc >>= n % 8
+            n -= n % 8
+    return acc.to_bytes(n // 8, "big")
+
+
+def decode_invoice(text):
+    """A mainnet BOLT11 invoice's payment_hash, amount_msat (None when it asks none), payee and
+    expires_at_ms, with its bech32 checksum and signature checked; None when it is not one."""
+    text = text.strip().lower()
+    pos = text.rfind("1")
+    m = re.match(r"^lnbc([0-9]*)([munp]?)$", text[:pos]) if pos > 0 else None
+    if not m or any(c not in BECH for c in text[pos + 1:]):
+        return None
+    hrp = text[:pos]
+    data = [BECH.index(c) for c in text[pos + 1:]]
+    if _polymod([ord(c) >> 5 for c in hrp] + [0] + [ord(c) & 31 for c in hrp] + data) != 1 or len(data) < 7 + 104 + 6:
+        return None
+    data = data[:-6]
+    body, sig = data[:-104], data[-104:]
+    amount = None
+    if m.group(1):
+        if m.group(1)[0] == "0":
+            return None
+        num = int(m.group(1))
+        per = {"": 10**11, "m": 10**8, "u": 10**5, "n": 100}.get(m.group(2))
+        if per is None:  # pico-bitcoin: tenths of a msat
+            if num % 10:
+                return None
+            per, num = 1, num // 10
+        amount = num * per
+    elif m.group(2):
+        return None
+    ts = sum(g << (5 * (6 - i)) for i, g in enumerate(body[:7]))
+    expiry, phash, node, i = 3600, None, None, 7
+    while i + 3 <= len(body):
+        tag, ln_ = body[i], body[i + 1] * 32 + body[i + 2]
+        val = body[i + 3:i + 3 + ln_]
+        if len(val) != ln_:
+            return None
+        if tag == 1 and ln_ == 52:
+            phash = _bits_to_bytes(val, pad=False)[:32].hex()
+        elif tag == 6:
+            expiry = sum(g << (5 * (len(val) - 1 - j)) for j, g in enumerate(val))
+        elif tag == 19 and ln_ == 53:
+            node = _bits_to_bytes(val, pad=False)[:33].hex()
+        i += 3 + ln_
+    if i != len(body) or phash is None:
+        return None
+    raw = _bits_to_bytes(sig, pad=False)[:65]
+    digest = hashlib.sha256(hrp.encode() + _bits_to_bytes(body)).digest()
+    key = _recover(digest, int.from_bytes(raw[:32], "big"), int.from_bytes(raw[32:64], "big"), raw[64])
+    if key is None or (node is not None and node != key.hex()):
+        return None
+    return {"payment_hash": phash, "amount_msat": amount, "payee": key.hex(), "expires_at_ms": (ts + expiry) * 1000}
+
+
+def _tx(p):
+    """A sidecar Payment as the transaction shape the rest of this tool (and `deal note
+    --ln-transaction`) reads."""
+    status = {"completed": "succeeded", "failed": "failed"}.get(p.get("status"), "pending")
+    return {"id": p.get("index"), "payment_hash": p.get("hash"), "inbound": p.get("direction") == "inbound",
+            "amount_msat": msat_of(p["amount"]) if p.get("amount") is not None else 0, "fee_msat": msat_of(p.get("fees", "0")),
+            "status": status, "status_msg": p.get("status_msg", ""), "created_at_ms": p.get("created_at"),
+            "settled_at_ms": p.get("finalized_at"), "preimage": p.get("preimage")}
+
+
+def wallet(command, timeout=30, refused_ok=False):
+    """One wallet operation, answered in the shapes this tool works with."""
+    name = command["command"]
+    if name == "fund":
+        r = sidecar("POST", "/v2/node/create_invoice", {"amount": sats_of(command["amount_msat"]), "expiration_secs": 86400})
+        d = decode_invoice(str(r.get("invoice", ""))) if isinstance(r, dict) else None
+        if d is None or d["payment_hash"] != r.get("payment_hash"):
+            die("the wallet's invoice is not a mainnet invoice for your price; nothing was sent")
+        return {"bolt11": r["invoice"], **d}
+    if name == "inspect_invoice":
+        d = decode_invoice(command["invoice"])
+        if d is None:
+            die("the shop's invoice does not decode (checksum or signature); nothing paid")
+        return d
+    if name == "send":
+        return _tx(sidecar("POST", "/v2/node/pay_invoice", {"invoice": command["invoice"]}, timeout=timeout,
+                           refused_ok=refused_ok, paying=True))
+    if name == "payment":
+        # By payment id: lexe's get_payment_by_id syncs from the node first (lexe/src/wallet.rs, v0.4.27;
+        # list_payments reads a local copy that can be behind), and a missing payment is HTTP 404.
+        try:
+            r = sidecar("GET", "/v2/node/payment_by_id", query={"id": "ln_" + command["hash"]}, refused_ok=True)
+        except Refused as e:
+            if str(e).startswith("HTTP 404"):
+                return None
+            die(f"the wallet refused the payment lookup: {e}")
+        return _tx(r) if isinstance(r, dict) else None
+    die(f"unknown wallet operation {name}", 2)
 
 
 def caps():
@@ -119,6 +305,11 @@ def caps():
             die(f"{CAPS}: {k} must be a whole number of msat (or sats), at least 1 (set it with 'devcon8 lightning')")
         out[k + "_msat"] = v
     return out
+
+
+def est_fee(msat):
+    """The fee a payment of this size is expected to cost, in msat (see EST_FEE_PPM)."""
+    return math.ceil(msat * EST_FEE_PPM / 1_000_000) + EST_FEE_BASE_MSAT
 
 
 def amount_of(msat):
@@ -232,6 +423,10 @@ def cmd_pay(conv, msat, digest):
     per, total = c["per_payment_msat"], c["total_msat"]
     if amount > per:
         die(f"refused: the invoice asks {amount_of(amount)}, over your per-payment cap of {amount_of(per)}. Nothing paid")
+    est = est_fee(amount)
+    if amount + est > per:
+        die(f"refused: the invoice asks {amount_of(amount)} and Lexe's fee is expected to be about {amount_of(est)} more, "
+            f"over your per-payment cap of {amount_of(per)}. Raise the cap with 'devcon8 lightning' if you accept that. Nothing paid")
     with spent_lock():
         early = load(SPENT, {})
     if early.get(h, {}).get("status") == "failed":
@@ -255,24 +450,27 @@ def cmd_pay(conv, msat, digest):
         if spent.get(h, {}).get("status") == "failed":
             die("this invoice's payment already failed; this conversation cannot be paid now: tell your user, cancel this deal (mbx reply <conversation> cancel) and start a new purchase (mbx send). Nothing paid")
         already = over_total(spent, h, amount, total, c)
-        fee = min(FEE_CEILING_MSAT, per - amount, total - already - amount)
-        spent[h] = {"conversation": conv, "status": "reserved", "reserved_msat": amount + fee, "spent_msat": 0, "at": iso(now_ms())}
+        if already + amount + est > total:
+            die(f"refused: paying {amount_of(amount)} and an expected fee of about {amount_of(est)} would bring the sticker payments to "
+                f"{amount_of(already + amount + est)}, over your total cap of {amount_of(total)}. Nothing paid")
+        spent[h] = {"conversation": conv, "status": "reserved", "reserved_msat": amount + est, "spent_msat": 0, "at": iso(now_ms())}
         write_private(SPENT, spent)
     try:
-        tx = wallet({"command": "send", "invoice": bolt11, "amount_msat": None, "max_fee_msat": fee}, timeout=300, refused_ok=True)
+        tx = wallet({"command": "send", "invoice": bolt11}, timeout=300, refused_ok=True)
     except Refused as refused:
         # A refused send may still have a definite outcome in the wallet (a payment it tried and
         # failed, such as no route): read it, so a failure releases the reservation and a success
         # is not lost. With no record, the outcome is unknown and the reservation stays.
-        txs = wallet({"command": "transactions", "limit": 200})
-        tx = next((t for t in txs if isinstance(t, dict) and t.get("payment_hash") == h and not t.get("inbound")), None) if isinstance(txs, list) else None
+        tx = wallet({"command": "payment", "hash": h})
+        if tx is not None and tx.get("inbound"):
+            tx = None
         if tx is None or tx.get("status") not in ("succeeded", "failed"):
             die(f"the wallet refused 'send' ({refused}) and has no settled record of it; the outcome is unknown, so "
-                "this payment stays counted against your caps. Check 'mesh-llm wallet get-transactions'")
+                "this payment stays counted against your caps. Look at 'devcon8 wallet'")
         if tx.get("status") == "failed" and tx.get("status_msg"):
             print(f"lightning: the wallet reports: {SAFE_TEXT.sub('', str(tx['status_msg']))[:200]}", file=sys.stderr)
     if not isinstance(tx, dict) or tx.get("payment_hash") != h:
-        die("the wallet's answer names another payment; check 'mesh-llm wallet get-transactions' before paying again")
+        die("the wallet's answer names another payment; look at 'devcon8 wallet' before paying again")
     status = tx.get("status")
     paid = {"payment_hash": h, "amount_msat": tx.get("amount_msat"), "fee_msat": tx.get("fee_msat"), "status": status,
             "rail": "lightning", "network": "bitcoin mainnet"}
@@ -283,8 +481,10 @@ def cmd_pay(conv, msat, digest):
             entry.update(status=status, spent_msat=int(tx.get("amount_msat", 0)) + int(tx.get("fee_msat", 0)) if status == "succeeded" else 0)
             spent[h] = entry
             write_private(SPENT, spent)
+    if status == "succeeded" and int(tx.get("fee_msat", 0)) > est:
+        print(f"lightning: Lexe charged a fee of {amount_of(int(tx['fee_msat']))}, more than the {amount_of(est)} expected; it is counted in your total", file=sys.stderr)
     if status != "succeeded":
-        die(f"the payment did not succeed (status {status}); nothing to accept with. {'Nothing was paid.' if status == 'failed' else 'Check mesh-llm wallet get-transactions.'}")
+        die(f"the payment did not succeed (status {status}); nothing to accept with. {'Nothing was paid.' if status == 'failed' else 'Look at devcon8 wallet.'}")
     write_private(os.path.join(out, "payment.json"), paid)
     print(f"REAL Lightning payment of {amount_of(amount)} (fee {paid['fee_msat']} msat), bitcoin mainnet.", file=sys.stderr)
     print(json.dumps({"paid": True, "amount_msat": amount, "fee_msat": paid["fee_msat"], "payment_hash": h, "paid_node": inv.get("payee"),
@@ -302,8 +502,9 @@ def cmd_receive(conv, h, wait_s=120):
         die("that payment hash is not the invoice you issued in this conversation: refusing to treat it as paid")
     end = time.time() + wait_s
     while True:
-        txs = wallet({"command": "transactions", "limit": 200})
-        tx = next((t for t in txs if isinstance(t, dict) and t.get("payment_hash") == h and t.get("inbound")), None) if isinstance(txs, list) else None
+        tx = wallet({"command": "payment", "hash": h})
+        if tx is not None and not tx.get("inbound"):
+            tx = None
         if tx and tx.get("status") in ("succeeded", "failed"):
             break
         if time.time() >= end:
