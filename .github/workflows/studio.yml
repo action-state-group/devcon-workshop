@@ -1,0 +1,35 @@
+name: studio
+
+# The Terms Pack Studio layer's own checks (studio/README.md). Separate from image.yml: the layer is
+# an internal build on top of the published image and never touches its build, tags or publish gate.
+# The recipe test pulls the published image to render studio.yaml with its goose; it pushes nothing.
+
+on:
+  pull_request:
+    paths:
+      - studio/**
+      - agent/recipes/**
+      - tests/studio-*
+      - tests/test_build_recipe.py
+      - .github/workflows/studio.yml
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio
+      - name: studio.yaml is trader.yaml plus the Studio edits (generated file is current)
+        run: |
+          python3 -I studio/build-recipe.py --check
+          python3 -I tests/test_build_recipe.py
+      - name: studio.yaml renders in both payment modes (goose of the published image, recipe mounted in)
+        run: |
+          docker run --rm \
+            -v "$PWD/agent/recipes/studio.yaml:/opt/devcon8/agent/recipes/studio.yaml:ro" \
+            -v "$PWD/tests/studio-recipe.sh:/opt/devcon8/tests/studio-recipe.sh:ro" \
+            ghcr.io/action-state-group/devcon-workshop:latest /opt/devcon8/tests/studio-recipe.sh
