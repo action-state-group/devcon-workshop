@@ -60,7 +60,7 @@ RUN TARGETARCH="$TARGETARCH" SCCACHE_VERSION=0.16.0 scripts/install-sccache.sh \
 # The same recipes as .github/workflows/mesh-llm-lab-release.yml, which publishes the native tarballs:
 # `just release-build` (`release-build-aarch64` on arm64), then `just release-bundle`. The image takes
 # mesh-bundle/'s host and native runtimes from that tarball.
-RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry \
+RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry,sharing=locked \
     . /src/versions.lock \
     && case "$TARGETARCH" in amd64) recipe=release-build triple=x86_64-unknown-linux-gnu;; arm64) recipe=release-build-aarch64 triple=aarch64-unknown-linux-gnu;; esac \
     && just "$recipe" \
@@ -79,7 +79,7 @@ COPY --from=pins /pins/capsules.lock /src/versions.lock
 RUN . /src/versions.lock && git clone --filter=blob:none "$CAPSULES_REPO" /build/capsules \
     && git -C /build/capsules checkout --detach "$CAPSULES_COMMIT" && git -C /build/capsules apply /src/selective-log.patch
 WORKDIR /build/capsules/crates/evidence-plugin
-RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry \
+RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry,sharing=locked \
     . /src/versions.lock \
     && case "$TARGETARCH" in amd64) triple=x86_64-unknown-linux-gnu;; arm64) triple=aarch64-unknown-linux-gnu;; esac \
     && cargo build --locked --release --bin capsules \
@@ -98,7 +98,7 @@ COPY --from=pins /pins/lexe.lock /src/versions.lock
 RUN . /src/versions.lock && git clone --filter=blob:none "$LEXE_REPO" /build/lexe \
     && git -C /build/lexe checkout --detach "$LEXE_COMMIT"
 WORKDIR /build/lexe
-RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry \
+RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry,sharing=locked \
     cargo build --release --locked && python3 scripts/package.py \
     && mkdir -p /out && cp dist/lexe-wallet-v*.tar.gz /out/
 
@@ -134,7 +134,7 @@ RUN . /src/versions.lock && git clone --filter=blob:none "$GOOSE_REPO" /build/go
     && git -C /build/goose checkout --detach "$GOOSE_SHA" \
     && for p in /src/patches/goose-*.patch; do git -C /build/goose apply "$p"; done
 WORKDIR /build/goose
-RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry \
+RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry,sharing=locked \
     cargo build --release --locked -p goose-cli --bin goose \
     && mkdir -p /out && install -m 0755 target/release/goose /out/goose \
     && /out/goose --version

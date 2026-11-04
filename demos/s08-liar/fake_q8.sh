@@ -35,7 +35,7 @@
 set -euo pipefail
 # Portable to macOS (S08 README, "On a Mac"): GNU realpath -m, file size and sha256.
 realpath_m() { realpath -m "$1" 2>/dev/null || python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"; }
-fsize() { stat -c %s "$1" 2>/dev/null || stat -f %z "$1"; }
+fsize() { stat -L -c %s "$1" 2>/dev/null || stat -L -f %z "$1"; }
 command -v sha256sum >/dev/null 2>&1 || sha256sum() { shasum -a 256 "$@"; }
 
 usage() { sed -n '2,25p' "$0" >&2; exit 2; }
