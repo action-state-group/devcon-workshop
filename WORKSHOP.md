@@ -20,6 +20,9 @@ You will:
    then hides exchanges, and watch both lies get caught;
 4. call the reports yourself: the receipt, the settlement receipt and the history.
 
+The trading agent (a Goose agent that sells and buys a sticker, with `devcon8 brain`, `devcon8 nanda` and
+`devcon8 trade`) is not part of this walk-through; steps 3, 6 and 7 of the [README](README.md) cover it.
+
 ## Before you start
 
 - Docker Desktop (macOS, Windows) or Docker Engine (Linux), with **at least 8 GB of memory** for
@@ -32,12 +35,12 @@ You will:
 
 | Step | Time on a laptop | What you see meanwhile |
 |---|---|---|
-| `docker pull` (3 GB) | 5–20 min on conference wifi | layer progress bars |
+| `docker pull` (about 1.7 GiB download) | 5–20 min on conference wifi | layer progress bars |
 | `docker load` from a USB stick | 1–3 min | little or nothing, until one `Loaded image:` line |
 | first `docker run` | a few seconds | a shell prompt |
-| your node joining the mesh | 1–2 min | `devcon8 node log` scrolls |
+| your node joining the mesh | about 20 s to 2 min (`devcon8 join` waits for the mesh's models, then asks one question) | `devcon8 node log` scrolls |
 | your node loading its model (serving) | about 1 min | Network tab says `serving` when done |
-| `devcon8 s08 start` | **up to 15 min** | one line per node, then possibly minutes of silence |
+| `devcon8 s08 start` | about 1 min on a fast laptop, **up to 15 min** on a slow one | one line per node, then possibly minutes of silence |
 | each later S08 step | under 1 min | its output |
 
 ## 1. Get the image and start it

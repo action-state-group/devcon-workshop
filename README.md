@@ -143,7 +143,7 @@ The trading agent runs in [goose](https://github.com/aaif-goose/goose). Pick its
   `devcon8 brain codex` again:
   `docker exec -i devcon8 sh -c 'mkdir -p ~/.codex && umask 077 && cat > ~/.codex/auth.json' < ~/.codex/auth.json`
 - `mesh`: chat with the mesh's own models through your node. A 0.5B model cannot run the trading
-  agent; use `claude` or `codex` for that.
+  agent; use `claude` or `codex` for that. goose may ask once whether to share anonymous usage data; answer no.
 
 ### 4. `devcon8 s02`: the settlement record
 
@@ -195,6 +195,11 @@ they give you. It buys only from that address, never from search results.
   attachments (`buyer-terms.json`, `settle.json`, `sticker.png`). In a `--pay lexe` run a proposal also
   carries the shop's Lightning invoice, which is saved for the payment and not shown to the agent.
 - Each sale or purchase is one deal in `~/.local/share/capsule-deal`; files are in `~/deals/`.
+- **Known gaps in this image.** After a `--pay lexe` sale, `capsulectl deal standard-history card` refuses the deal
+  ([evidencebook#388](https://github.com/action-state-group/evidencebook/issues/388): a Lightning deal is priced in msat, which the card does not accept yet), and
+  `presentation build` writes a plain fallback page because the image lacks the plugins' presentation assets
+  ([devcon-workshop#43](https://github.com/action-state-group/devcon-workshop/issues/43)). Some `capsulectl` failures print only
+  "operation failed; check input, selected profile, permissions and service availability" and hide the cause. The trade itself, its sealed records and its receipt are not affected.
 
 ### 8. `devcon8 go-seal`: the Go SDK example
 
