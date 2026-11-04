@@ -65,7 +65,7 @@ XDG_CONFIG_HOME=$work/seller bash -c "$(jq -r .install <<<"$pub")" >/dev/null ||
 ok "step 3: published and pinned ($(jq -r '.definition_digest[:12]' <<<"$pub"))"
 
 # Step 4: a live sale after the pin. Same snapshots as the replay (evidencebook-deal studio-replay.sh). The
-# commit check at 175 after an offer at 150 must carry the pinned rules and name the price_as_offered row.
+# commit check at 175 after an offer at 150 must carry the pinned rules and fail the price_as_offered row.
 side() { XDG_CONFIG_HOME=$work/seller capsulectl --profile deal deal "$@"; }
 terms_json='{"item":"fox sticker","quantity":1}'
 jq -n '{type:"purchase",demo:true,intent:{verbatim:"Sell my fox sticker for 150",min_total_minor:100,asked:{item:"fox sticker",quantity:1},allowed:["offer","commit"]},terms:{item:"fox sticker",quantity:1,price_minor:150,currency:"USD"},recourse:{rail:"x402",refundable:false}}' >"$work/sale.json"
@@ -75,14 +75,11 @@ thread=$(side open --sale "$sale" --input "$work/thread.json" | jq -r .deal_id)
 jq -n --argjson t "$terms_json" '{action:"offer",amount_minor:150,terms:($t+{handover:"shipped",price_minor:150}),recourse:{rail:"x402",refundable:false}}' >"$work/offer-check.json"
 offer=$(side check --deal "$thread" --input "$work/offer-check.json")
 [ "$(jq -r '.rules.status' <<<"$offer")" != not_evaluated ] || fail "the pinned rules were not evaluated: $(jq -c .rules <<<"$offer")"
-# The pinned rules pause the offer until the seller says go ahead (the replay ran without rules).
-jq -n '{action:"offer",amount_minor:150}' >"$work/offer-act.json"
-side note --deal "$thread" --kind act --input "$work/offer-act.json" >/dev/null
-side note --deal "$thread" --kind acceptance --check "$(jq -r .check_id <<<"$offer")" --words "yes, 150 works for me" --channel marketplace >/dev/null
 jq -n --argjson t "$terms_json" '{action:"commit",amount_minor:175,terms:($t+{handover:"shipped",price_minor:175}),recourse:{rail:"x402",refundable:false}}' >"$work/commit-check.json"
 side check --deal "$thread" --input "$work/commit-check.json" >"$work/check.json"
 jq -e '.rules.ruleset_id' "$work/check.json" >/dev/null || fail "deal check carries no rules.ruleset_id: $(jq -c .rules "$work/check.json")"
 [ "$(jq -r '.rules.definition_digest' "$work/check.json")" = "$(jq -r .definition_digest <<<"$pub")" ] || fail "deal check reads another pack than the published one"
-jq -e '.. | strings | select(. == "price_as_offered")' "$work/check.json" >/dev/null || fail "deal check does not name the price_as_offered row"
-ok "step 4: the live check names price_as_offered under the pinned terms"
+[ "$(jq -r '.rules.findings[] | select(.id == "price_as_offered") | .verdict' "$work/check.json")" = fail ] \
+  || fail "deal check does not fail the price_as_offered row: $(jq -c '.rules.findings' "$work/check.json")"
+ok "step 4: the live check fails price_as_offered under the pinned terms"
 echo "studio-e2e: pass"
