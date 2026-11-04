@@ -16,7 +16,7 @@ the steps still work for anyone running them later). It lets you:
 
 New here? [WORKSHOP.md](WORKSHOP.md) walks through the workshop step by step, with screenshots.
 
-Inference runs on your CPU (Docker on a Mac has no GPU access). The image is about 2 GB, plus 1.1 GB of model files you download only for S08 (sizes being re-measured on the final image).
+Inference runs on your CPU (Docker on a Mac has no GPU access). The image is 0.74 GB to download and 2.1 GB on disk (arm64), plus 1.1 GB of model files you download only for S08.
 
 ## Before the workshop
 
@@ -29,16 +29,15 @@ If you have both Colima and Docker Desktop: run `docker context ls`; if the star
 
 Docker keeps images, containers and volumes in one disk (Docker Desktop: a disk image; Colima: a VM disk), and it is the
 free space *inside* that disk that counts, not your laptop's. The image no longer carries the two S08 model files: `devcon8 models`
-downloads them into your volume. The image rows below are **sizes of the Nov 4 image that still had the models** (`latest`
-`sha256:4402db35…`) and are being re-measured for the final image, which is about 1.1 GB smaller (an estimate, not yet measured):
+downloads them into your volume. The final image (`sha256:65a0b8cd…`, built from main `006fb29`) was measured on arm64; amd64 follows. The "Nov 4 build with models" row is the older image, for comparison:
 
 | What | Download | On disk once loaded |
 |---|---|---|
 | Full image, Nov 4 build with models | 1.9 GB | 3.2 GB |
-| Final image, no models | to be measured | to be measured |
+| Final image, no models (arm64) | 0.74 GB | 2.1 GB |
 | Slim `v4-goose` | 0.64 GB | 1.9 GB |
 | S08 models (`devcon8 models`, only for S08 and the mesh steps) | 1.1 GB, once | 1.1 GB on the volume |
-| USB stick path | one tarball (about 1.9 GB on the Nov 4 build), then `docker load` | tarball + loaded image; delete `~/devcon8-usb` afterwards |
+| USB stick path | one tarball (about 0.74 GB for the arm64 image, compressed; the tarball size is not measured), then `docker load` | tarball + loaded image; delete `~/devcon8-usb` afterwards |
 | Each container (shell, nothing built) | - | about 15 MB |
 | Each volume (`devcon8-home`, after node, trades and logins) | - | about 120 MB without models; grows with use |
 
@@ -85,9 +84,9 @@ Pull the image ahead of time. Conference wifi is slow:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
 
-`latest` moves only when a maintainer approves a publish of a tested build from main. On Nov 4 it is the v4 build with goose in auto mode (index digest `sha256:4402db35…`, see "Containers, volumes and coming back" to check what you have). For a reproducible pull, use the digest:
+`latest` moves only when a maintainer approves a publish of a tested build from main. On Nov 4 it is the build from main `006fb29` with goose in auto mode and no models (arm64 index digest `sha256:65a0b8cd…`; the amd64 build follows and will change the index digest, see "Containers, volumes and coming back" to check what you have). For a reproducible pull, use the digest:
 
-    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:4402db355ac5700999896876e1b97ef04b8c71a87e62b1af9f47f6df6bdc80b9
+    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:65a0b8cd7cec0c3b642a3106729924b7284c4779930398ea1eaf6db13497f7af
 
 (The first v4 build, `…b7e05594.139` / `sha256:fde3ab11…`, asks before every goose tool call and can hang on Ctrl-C;)
 
@@ -125,7 +124,7 @@ Exiting the first shell (`exit`, or Ctrl-D) stops the container. `docker run` wi
 
 **A local `latest` can be stale.** `docker run` never updates an image you already have, and a tag named `latest`
 on your laptop stays at whatever you pulled last. Pull again before every session, and check what you have against
-the registry's index digest (`sha256:4402db355ac5…` on Nov 4). The two digests must match; the registry one comes from `docker buildx imagetools inspect ghcr.io/action-state-group/devcon-workshop:latest`. A stale tag also shows on start: the container prints `installed plugin capsules <version>`, and an older version than the one in "What is in the image" means an older image:
+the registry's index digest (`sha256:65a0b8cd7cec…` on Nov 4, arm64 only). The two digests must match; the registry one comes from `docker buildx imagetools inspect ghcr.io/action-state-group/devcon-workshop:latest`. A stale tag also shows on start: the container prints `installed plugin capsules <version>`, and an older version than the one in "What is in the image" means an older image:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
     docker image inspect ghcr.io/action-state-group/devcon-workshop:latest --format '{{index .RepoDigests 0}}'
