@@ -1,7 +1,7 @@
 # Devcon 8 workshop image
 
-One container you run on your own laptop for the Devcon 8 S08 workshop (Tue Nov 3, 09:30 UTC). It
-lets you:
+One container you run on your own laptop for the Devcon 8 S08 workshop (held on Tue Nov 3, 15:00-16:00 IST, 09:30-10:30 UTC;
+the steps still work for anyone running them later). It lets you:
 
 - run a node on the workshop's demo mesh, on the lab build of [mesh-llm](https://github.com/Mesh-LLM/mesh-llm) the demo nodes run
   with the capsules (evidence) and lexe-wallet plugins;
