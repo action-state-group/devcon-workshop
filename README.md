@@ -35,9 +35,9 @@ downloads them into your volume. The final image (`sha256:65a0b8cd…`, built fr
 |---|---|---|
 | Full image, Nov 4 build with models | 1.9 GB | 3.2 GB |
 | Final image, no models (arm64) | 0.74 GB | 2.1 GB |
-| Slim `v4-goose` | 0.64 GB | 1.9 GB |
+| Slim `v4-goose` | 0.63 GB | 1.9 GB |
 | S08 models (`devcon8 models`, only for S08 and the mesh steps) | 1.1 GB, once | 1.1 GB on the volume |
-| USB stick path | one tarball (about 0.74 GB for the arm64 image, compressed; the tarball size is not measured), then `docker load` | tarball + loaded image; delete `~/devcon8-usb` afterwards |
+| USB stick path | one tarball (size not measured yet; `docker save` does not compress), then `docker load` | tarball + loaded image; delete `~/devcon8-usb` afterwards |
 | Each container (shell, nothing built) | - | about 15 MB |
 | Each volume (`devcon8-home`, after node, trades and logins) | - | about 120 MB without models; grows with use |
 
@@ -52,10 +52,9 @@ Check it:
 
 `devcon8 doctor` (inside the container) prints the free disk the container sees. Docker Desktop: Settings > Resources > Disk image
 size shows and raises the limit. Colima: `colima list` shows DISK; to raise it, `colima stop`, then `colima start --disk 100`
-(it can grow, not shrink; not run here).
+(it can grow, not shrink).
 
-If the disk fills, `docker pull` or `docker load` fails with `no space left on device` (Docker's standard message; not
-reproduced here), usually part way through a layer. Free space, then run the same command again.
+If the disk fills, `docker pull` or `docker load` fails with `no space left on device` (Docker's standard message), usually part way through a layer. Free space, then run the same command again.
 
 Clean up safely. These never touch a volume:
 
@@ -88,7 +87,7 @@ Pull the image ahead of time. Conference wifi is slow:
 
     docker pull ghcr.io/action-state-group/devcon-workshop@sha256:65a0b8cd7cec0c3b642a3106729924b7284c4779930398ea1eaf6db13497f7af
 
-(The first v4 build, `…b7e05594.139` / `sha256:fde3ab11…`, asks before every goose tool call and can hang on Ctrl-C;)
+(The first v4 build, `…b7e05594.139` / `sha256:fde3ab11…`, asks before every goose tool call and can hang on Ctrl-C; do not use it.)
 
 No network at the venue? Use the USB stick: "From the USB stick (no network)" below replaces this pull and
 the `docker run` in "Start".
@@ -309,7 +308,7 @@ they give you. It buys only from that address, never from search results.
   payment the agent runs a final check. Only when that check pauses ("PAUSED FOR YOU", always for a Lightning payment) does
   the agent show you its card in the chat and seal your answer; say no and it holds. In the simulated trade the check can pass
   silently, with no card.
-- Ctrl-C: the first press interrupts the agent's turn. If the agent is busy (for example waiting on the mailbox), the second press prints "Press Ctrl+C again to exit" and the third makes goose print "session closed"; otherwise the second one does. About a second after "session closed" you are back at the shell prompt (`$?` is 0 in the tested run; there is no "Killed" line). If it still hangs, close the terminal and use `docker start -ai devcon8`.
+- Ctrl-C: the first press interrupts the agent's turn. If the agent is busy (for example waiting on the mailbox), the second press prints "Press Ctrl+C again to exit" and the third makes goose print "session closed"; otherwise the second press ends the run. About a second after "session closed" you are back at the shell prompt. If it still hangs, close the terminal and use `docker start -ai devcon8`.
 - It keeps checking its mailbox while it waits for buyers. If it stops and goes quiet, tell it to
   keep waiting ("keep checking the mailbox").
 - **The payment is simulated** unless you add `--pay lexe`. It is an x402 payment recorded against Base
@@ -333,7 +332,7 @@ they give you. It buys only from that address, never from search results.
   ```
 
   If `card` says "the History card was not built: ...", the line names what to do (for example, run `deal tick` again, then ask again).
-  A Lightning (`--pay lexe`) deal is counted as BTC in msat. The workshop trade does not compare your record of a deal with the other side's, so every deal on your card shows "we couldn't tell". That means no comparison was made, not that the trade failed.
+  A Lightning (`--pay lexe`) deal is counted under BTC. The workshop trade does not compare your record of a deal with the other side's, so every deal on your card shows "we couldn't tell". That means no comparison was made, not that the trade failed.
   Some other `capsulectl` failures print only "operation failed; check input, selected profile, permissions and service availability" and
   hide the cause.
 
@@ -427,7 +426,7 @@ that never ran `trade` it answers "this needs the capsulectl-deal plugin, which 
 
     capsulectl --profile deal deal list
 
-One tab-separated line per deal (checked in `deal list --help`; no real output captured here yet), in the order
+One tab-separated line per deal (for example `deal-a47d93d583649482	deal	closed	…`), in the order
 `<id>  <kind>  <state>  <opened>  <last record>  <counterparty fingerprint>  <log id>`:
 
 - the id, `deal-...` or `sale-...`;
@@ -454,7 +453,6 @@ The deals themselves are in `~/.local/share/capsule-deal` and the files in `~/de
 
 Your History card counts your deals as of a checkpoint, with no deal's content. The commands are the ones in "Your History card" under
 step 7. Run them in the container that holds the deals (`devcon8`, or `devcon8b` for the buyer), after at least one deal has closed.
-Nothing in this section has been run end to end yet.
 
 **1. Once per profile**, inside the container, say who holds the card:
 
@@ -481,7 +479,7 @@ someone else, write the shared copy, which has the card, its policy and its anch
 
     capsulectl --profile deal deal standard-history card --shared --out ~/deals/card1-shared.bundle
 
-**5. What it shows.** A Lightning (`--pay lexe`) deal is counted as BTC in msat. The workshop trade does not compare your record of a deal with the other side's, so every deal on your card shows "we couldn't tell". That means no comparison was made, not that the trade failed.
+**5. What it shows.** A Lightning (`--pay lexe`) deal is counted under BTC. The workshop trade does not compare your record of a deal with the other side's, so every deal on your card shows "we couldn't tell". That means no comparison was made, not that the trade failed.
 
 ### 8. `devcon8 go-seal`: the Go SDK example
 
