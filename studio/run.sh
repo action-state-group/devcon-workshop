@@ -7,7 +7,13 @@ set -euo pipefail
 img=${1:-devcon-workshop-studio:dev}
 mkdir -p "$HOME/devcon8-studio"
 # A second run resumes the stopped container (same home, same login) instead of failing on its name.
-if docker container inspect devcon8-studio >/dev/null 2>&1; then exec docker start -ai devcon8-studio; fi
+if docker container inspect devcon8-studio >/dev/null 2>&1; then
+  if [ "$(docker container inspect -f '{{.Image}}' devcon8-studio)" != "$(docker image inspect -f '{{.Id}}' "$img")" ]; then
+    echo "devcon8-studio runs another image than $img; the home volume keeps your data: docker rm devcon8-studio, then run again" >&2
+    exit 1
+  fi
+  exec docker start -ai devcon8-studio
+fi
 exec docker run -it --name devcon8-studio -v devcon8-studio-home:/home/participant \
   -v "$HOME/devcon8-studio:/home/participant/studio" \
   -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 "$img"

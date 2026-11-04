@@ -18,7 +18,7 @@ deal=${1:?usage: studio-e2e.sh DEAL_CHECKOUT}
 
 work=$(mktemp -d)
 export HOME=$work/home XDG_CONFIG_HOME=$work/config
-mkdir -p "$HOME" "$work/seller" "$work/buyer"
+mkdir -p "$HOME" "$work/config" "$work/seller" "$work/buyer"
 
 capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
 bash "$deal/scripts/studio-replay.sh" "$deal/testdata/studio/sticker-trades.json" "$work/seller" "$work/buyer" >"$work/replay.out"
@@ -34,8 +34,8 @@ pack=$HOME/studio/packs/sticker-sale/pack-source.yaml
 awk '/^```yaml$/{f=1;next} /^```$/{f=0} f' "$D/agent/skills/terms-pack-author/SKILL.md" >"$pack"
 [ -s "$pack" ] || fail "no pack example in the terms-pack-author skill"
 
-# A rehearsal changes no deal and no store: the seller's files hash the same after both runs.
-store_hash() { (cd "$work" && find seller buyer -type f ! -name '*.lock' -print0 | sort -z | xargs -0 sha256sum | sha256sum); }
+# A rehearsal changes no deal and no store: the seller's, the buyer's and the config files hash the same after both runs and after publish.
+store_hash() { (cd "$work" && find seller buyer config -type f ! -name '*.lock' -print0 | sort -z | xargs -0 sha256sum | sha256sum); }
 store_before=$(store_hash)
 cd "$HOME/studio"
 lint=$(terms lint "$pack"); [ "$(jq -r .valid <<<"$lint")" = true ] || fail "lint: $lint"
@@ -59,6 +59,7 @@ ok "step 2: $(jq -r '.summary|join("; ")' <<<"$cmp")"
 [ "$(store_hash)" = "$store_before" ] || fail "a rehearsal changed the seller store"
 ok "the rehearsals left the seller store untouched"
 pub=$(terms publish "$pack")
+[ "$(store_hash)" = "$store_before" ] || fail "publish changed the stores or the config"
 [ "$(jq -r .in_force <<<"$pub")" = false ] || fail "publish claims the terms are in force: $pub"
 find "$HOME" "$D/studio" "$D/agent" "$PLUGINS/terms-pack-studio" -newer "$marker" -type f -not -path "$HOME/studio/*" 2>/dev/null | grep . && fail "a verb wrote outside ~/studio (listed above)"
 ok "the verbs wrote nothing outside ~/studio"
