@@ -34,13 +34,15 @@ def _int_groups(v, n):
     return [(v >> (5 * (n - 1 - i))) & 31 for i in range(n)]
 
 
-def make_invoice(amount_msat=500_000, payment_hash=HASH, created=None, expiry=3600, key=KEY):
+def make_invoice(amount_msat=500_000, payment_hash=HASH, created=None, expiry=3600, key=KEY, node=None):
     """A mainnet BOLT11 invoice for amount_msat (None: no amount), signed with key."""
     created = int(time.time()) if created is None else created
     hrp = "lnbc" + (f"{amount_msat * 10}p" if amount_msat is not None else "")
     body = _int_groups(created, 7)
     body += [1, 1, 20] + _groups(bytes.fromhex(payment_hash))[:52]
     body += [6, 0, 3] + _int_groups(expiry, 3)
+    if node:  # an n tag naming the payee
+        body += [19, 1, 21] + _groups(bytes.fromhex(node))[:53]
     raw = hrp.encode() + ln._bits_to_bytes(body)
     e = int.from_bytes(hashlib.sha256(raw).digest(), "big")
     k = int.from_bytes(hashlib.sha256(raw + b"k").digest(), "big") % ln.N

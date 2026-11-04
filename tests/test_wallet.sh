@@ -15,7 +15,13 @@ port=$(python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0));
 D=$T/d; mkdir -p "$D/bin" "$D/lib" "$D/agent/bin" "$T/home"
 for f in "$repo"/lib/{common,wallet,trade}.sh; do sed "s#/opt/devcon8#$D#g" "$f" > "$D/lib/$(basename "$f")"; done
 chmod +x "$D"/lib/*.sh
-printf '#!/bin/sh\nexec python3 -I %s "${LISTEN_ADDR##*:}" "$LEXE_FAKE_LOG" lexe-sidecar\n' "$here/fake_sidecar.py" > "$D/bin/lexe-sidecar"
+cat > "$D/bin/lexe-sidecar" <<'STUB'
+#!/bin/sh
+# the real one takes --listen-addr HOST:PORT; the fake takes the port, a log and a name
+while [ $# -gt 0 ]; do case $1 in --listen-addr) port=${2##*:}; shift 2 ;; *) shift ;; esac; done
+exec python3 -I FAKE "$port" "$LEXE_FAKE_LOG" lexe-sidecar
+STUB
+sed -i.bak "s#FAKE#$here/fake_sidecar.py#" "$D/bin/lexe-sidecar" && rm "$D/bin/lexe-sidecar.bak"
 chmod +x "$D/bin/lexe-sidecar"
 export HOME=$T/home D DEVCON8_LEXE_API=http://127.0.0.1:$port LEXE_FAKE_LOG=$T/fake.log
 ST=$HOME/.devcon8; export ST
@@ -44,7 +50,6 @@ asked yes > "$T/out1" 2>&1 & p1=$!
 asked yes > "$T/out2" 2>&1 & p2=$!
 wait $p1 || true; wait $p2 || true
 [ "$(grep -c '^signup$' "$T/fake.log")" = 1 ] || { cat "$T/out1" "$T/out2"; fail "two concurrent opens signed up $(grep -c '^signup$' "$T/fake.log") times"; }
-seed1=$(cat "$ST/lexe/root_seed")
 w stop >/dev/null 2>&1
 rm -rf "$ST/lexe" "$T/fake.log"
 
@@ -77,7 +82,8 @@ w > "$T/out" 2>&1 < /dev/null || { cat "$T/out"; fail "reopening failed"; }
 
 # Funding shows the backup reminder each time, then an invoice.
 w fund --sats 21 > "$T/out" 2>&1 < /dev/null
-grep -q "Back up your wallet's key" "$T/out" && grep -q '^lnbc' "$T/out" || { cat "$T/out"; fail "fund output"; }
+grep -q "Back up your wallet's key" "$T/out" || { cat "$T/out"; fail "fund: no backup reminder"; }
+grep -q '^lnbc' "$T/out" || { cat "$T/out"; fail "fund: no invoice"; }
 w fund --sats 0 > /dev/null 2>&1 < /dev/null && fail "fund accepted 0 sats"
 w key < /dev/null | grep -qF "$(cat "$seed")" || fail "key does not show the seed"
 

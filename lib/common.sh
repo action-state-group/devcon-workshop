@@ -134,6 +134,7 @@ lexe_lock() {
   mkdir -p "$ST"; exec 8> "$ST/lexe.lock"; flock 8; lexe_locked=1
 }
 lexe_unlock() { exec 8>&-; lexe_locked=""; }
+# The sidecar's settings are flags, which beat any LEXE_* variable or .env file it would otherwise load.
 # Start the sidecar when it is not running, wait until it answers, and (for a registered wallet) run
 # Lexe's idempotent provision, so a failed provision is retried by the next call. Sets lexe_started=1
 # when this call started it (so a trade run stops what it started). Needs the seed; Lexe's sign-up
@@ -142,8 +143,8 @@ lexe_up() {
   [ -s "$LEXE/root_seed" ] || die "no lexe wallet on this volume yet: 'devcon8 wallet' opens one"
   local own=""; [ -n "${lexe_locked:-}" ] || { lexe_lock; own=1; }
   if ! lexe_pid >/dev/null; then
-    (cd "$LEXE" && umask 077 && exec 8>&- && exec env LEXE_ROOT_SEED_PATH="$LEXE/root_seed" LEXE_DATA_DIR="$LEXE" LISTEN_ADDR="${LEXE_API#http://}" \
-       nohup "$D/bin/lexe-sidecar") > "$LEXE/sidecar.log" 2>&1 < /dev/null &
+    (cd "$LEXE" && umask 077 && exec 8>&- && exec nohup "$D/bin/lexe-sidecar" --root-seed-path "$LEXE/root_seed" --data-dir "$LEXE" \
+       --listen-addr "${LEXE_API#http://}" --network mainnet) > "$LEXE/sidecar.log" 2>&1 < /dev/null &
     echo $! > "$LEXE/sidecar.pid"
     # shellcheck disable=SC2034 # read by trade.sh
     lexe_started=1

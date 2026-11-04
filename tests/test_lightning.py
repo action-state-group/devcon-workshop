@@ -411,6 +411,8 @@ class Lightning(unittest.TestCase):
         self.assertIsNone(ln.decode_invoice(INVOICE[:-1] + ("q" if INVOICE[-1] != "q" else "p")), "checksum")
         self.assertIsNone(ln.decode_invoice("lntb" + INVOICE[4:]), "not mainnet")
         # Signed by one key but claiming another in its n tag, or amount changed after signing.
+        self.assertEqual(ln.decode_invoice(make_invoice(500_000, node=PAYEE))["payee"], PAYEE, "an n tag that matches the signer")
+        self.assertIsNone(ln.decode_invoice(make_invoice(500_000, node="02" + "cd" * 32)))
         self.assertIsNone(ln.decode_invoice(INVOICE.replace("lnbc5000000p", "lnbc5000001p", 1)))
         self.assertEqual(ln.decode_invoice(make_invoice(None))["amount_msat"], None)
         self.assertEqual(ln.decode_invoice(make_invoice(12_345))["amount_msat"], 12_345)

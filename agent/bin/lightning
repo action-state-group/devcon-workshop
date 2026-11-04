@@ -280,7 +280,8 @@ def wallet(command, timeout=30, refused_ok=False):
         return _tx(sidecar("POST", "/v2/node/pay_invoice", {"invoice": command["invoice"]}, timeout=timeout,
                            refused_ok=refused_ok, paying=True))
     if name == "payment":
-        # By payment id, which syncs with the node first (list_payments reads a local copy that can be behind).
+        # By payment id: lexe's get_payment_by_id syncs from the node first (lexe/src/wallet.rs, v0.4.27;
+        # list_payments reads a local copy that can be behind), and a missing payment is HTTP 404.
         try:
             r = sidecar("GET", "/v2/node/payment_by_id", query={"id": "ln_" + command["hash"]}, refused_ok=True)
         except Refused as e:

@@ -14,11 +14,16 @@ T=$(mktemp -d /tmp/sl-XXXXXX)
 unset CAPSULE_PROFILE CAPSULECTL_PLUGIN_ROOTS CAPSULE_DEAL_CHECK_URL XDG_DATA_HOME
 fail() { echo "FAIL $*" >&2; exit 1; }
 deal() { capsulectl --profile deal deal "$@"; }
-port=$(python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
-python3 -I "$here/fake_sidecar.py" "$port" "$T/wallet.log" & wpid=$!
-trap 'kill $wpid 2>/dev/null || true' EXIT
-export DEVCON8_LEXE_API=http://127.0.0.1:$port
-for _ in $(seq 50); do curl -fsS -o /dev/null "$DEVCON8_LEXE_API/v2/health" 2>/dev/null && break; sleep 0.1; done
+# One fake sidecar per wallet, as each participant has one: the buyer's and the seller's payments are
+# looked up by payment hash in their own.
+freeport() { python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])'; }
+sport=$(freeport); bport=$(freeport)
+python3 -I "$here/fake_sidecar.py" "$sport" "$T/wallet.log" & spid=$!
+python3 -I "$here/fake_sidecar.py" "$bport" "$T/wallet.log" & bpid=$!
+trap 'kill $spid $bpid 2>/dev/null || true' EXIT
+for p in $sport $bport; do
+  for _ in $(seq 50); do curl -fsS -o /dev/null "http://127.0.0.1:$p/v2/health" 2>/dev/null && break; sleep 0.1; done
+done
 : > "$T/wallet.log"
 STICKER=$D/agent/fixtures/sticker.png
 DIGEST=$(sha256sum "$STICKER" | cut -d' ' -f1)
@@ -28,6 +33,7 @@ PAYEE=$(python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import fake_
 CONV=conv-ln
 home() { # name: a participant's HOME with its deal store
   export HOME=$T/$1; mkdir -p "$HOME/.devcon8"; cd "$HOME"
+  if [ "$1" = seller ]; then export DEVCON8_LEXE_API=http://127.0.0.1:$sport; else export DEVCON8_LEXE_API=http://127.0.0.1:$bport; fi
   capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
   deal init --dir "$HOME/.local/share/capsule-deal" --materiality builtin:neutral --no-witness >/dev/null
 }
@@ -90,7 +96,7 @@ grep -aq 'Paid 500000 msat' "$HOME/receipt.html" || fail "the buyer's rendered r
 if grep -aq 'Paid \$' "$HOME/receipt.html"; then fail "the buyer's rendered receipt still reads a dollar amount"; fi
 
 # Seller: the payment settled in its wallet; seal it, then the delivery.
-export HOME=$T/seller; cd "$HOME"
+export HOME=$T/seller DEVCON8_LEXE_API=http://127.0.0.1:$sport; cd "$HOME"
 "$D/agent/bin/lightning" receive "$CONV" "$HASH" > receive.out
 [ "$(jq -r .received receive.out)" = true ] || { cat receive.out; fail "lightning receive"; }
 CH=agentboxnanda.org.agent_box
