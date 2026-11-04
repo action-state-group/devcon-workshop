@@ -282,6 +282,10 @@ in all three places):
 The deals themselves are in `~/.local/share/capsule-deal` and the files in `~/deals/` inside each container; the buyer's
 `sticker.png` is there.
 
+**Going back to the other steps.** These containers publish no ports, so the console (3141), `devcon8 s02` (8080) and the S08
+Evidence pages are not reachable from them. To go back to those steps, run `docker rm -f devcon8` and start it again with the run
+line in "Start"; the `devcon8-home` volume keeps your state.
+
 **5. If a terminal closes.** Exiting a container's first shell stops the container. Bring it back with
 `docker start -ai devcon8` (or `devcon8b`); logins, mailbox and deals are on the volume. `docker exec -it devcon8 bash`
 opens another shell in a running container.
