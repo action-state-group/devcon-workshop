@@ -15,4 +15,4 @@ STUDIO_TERMS_ENTRY=scripts/studio/terms
 # Test only (tests/studio-e2e.sh, not in the image): the evidencebook-deal checkout that holds the
 # ten-sticker-trade replay (scripts/studio-replay.sh, testdata/studio/sticker-trades.json).
 STUDIO_DEAL_REPO=https://github.com/action-state-group/evidencebook-deal
-STUDIO_DEAL_COMMIT=c2746fc963730217b13c01d0adf23df6e1840daa
+STUDIO_DEAL_COMMIT=8da40a2f7436b0c6d1ec8cfe3b692e625d33f4b2
