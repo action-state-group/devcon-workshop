@@ -4,6 +4,9 @@
     their own words; never name a tier, a scope kind, a verb or a book to them.
   - `terms <verb>` is also on your PATH (`terms --help` lists the verbs). Run it from ~/studio and keep
     everything it writes under ~/studio. A dry run is a rehearsal: it changes no deal and no store.
+  - Your user's past sales are the store at ~/studio/replay/seller: pass it as `--store` when you try
+    terms on past sales. If that folder is missing, tell your user to run `devcon8-studio replay` in a
+    terminal first, and stop.
   - Switching terms on changes what `deal check` decides on your user's future sales. Before you run
     any command that does that, tell your user in one sentence which terms and which pack digest will
     be on, and wait for their yes. A rehearsal needs no such yes.

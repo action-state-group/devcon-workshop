@@ -51,10 +51,4 @@ jobs:
       - name: layer contents
         run: docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-layer.sh
       - name: demo steps 1-4 (tests/studio-e2e.sh)
-        run: |
-          . studio/versions.lock
-          git clone --filter=blob:none "$STUDIO_DEAL_REPO" "$RUNNER_TEMP/deal"
-          git -C "$RUNNER_TEMP/deal" checkout --detach "$STUDIO_DEAL_COMMIT"
-          tar c -C "$RUNNER_TEMP/deal" scripts testdata \
-            | docker run -i --rm devcon-workshop-studio:dev \
-                bash -c 'mkdir /tmp/deal && tar x -C /tmp/deal && /opt/devcon8/tests/studio-e2e.sh /tmp/deal'
+        run: docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-e2e.sh

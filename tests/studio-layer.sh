@@ -17,6 +17,8 @@ ok "terms on PATH, both skills and both recipes readable"
 # The system Python stays untouched (no pip into an externally managed Python).
 python3 -c 'import yaml' 2>/dev/null && fail "PyYAML leaked into the system Python"
 ok "system Python untouched"
+if [ ! -x "$D/agent/bin/devcon8-studio" ] || [ ! -s "$D/studio/replay/testdata/studio/sticker-trades.json" ] || [ ! -s "$D/studio/replay/scripts/studio-replay.sh" ]; then fail "the replay or its launcher is missing"; fi
+ok "devcon8-studio replay and its fixture are in place"
 terms --help >/dev/null || fail "terms --help failed"
 ok "terms --help"
 # trade.sh runs the Studio recipe when TRADE_RECIPE is set (the layer patches it; the base image's is untouched).

@@ -12,7 +12,9 @@ What it adds:
 - `terms <verb>` (lint, test, run, compare, publish, ...), the evidencebook-skills scripts at the commit
   pinned in `versions.lock`, run with PyYAML from a venv under `/opt/devcon8/studio`, and the checkout sits under capsulectl's trusted plugin root (`/usr/local/lib/capsulectl/plugins/terms-pack-studio`).
 - The `terms-pack-author` skill, from the same commit.
-- `devcon8-studio`, the same as `devcon8 trade` with the Studio recipe.
+- `devcon8-studio`, the same as `devcon8 trade` with the Studio recipe, and `devcon8-studio replay`, which
+  puts ten past sticker sales in `~/studio/replay` (evidencebook-deal's replay, at the commit pinned in
+  `versions.lock`) for the first rehearsal.
 
 ## Build
 
@@ -28,12 +30,13 @@ The build is local and pushes nothing.
     docker start -ai devcon8-studio       # the same, by hand
 
 Inside the container: `devcon8 brain claude` (a Claude subscription login; no API key), `devcon8 nanda
-<your email>`, then `devcon8-studio`. Rehearsal pages and Result JSON land in `~/devcon8-studio` on
-your laptop (mounted at `~/studio`), so you open them from the browser.
+<your email>`, then `devcon8-studio replay` once, which puts ten past sticker sales in `~/studio/replay`
+(running it again changes nothing), then `devcon8-studio`. Rehearsal pages and Result JSON land in
+`~/devcon8-studio` on your laptop (mounted at `~/studio`), so you open them from the browser.
 
 ## Tests
 
 - `python3 -I tests/test_build_recipe.py` and `python3 studio/build-recipe.py --check`
 - `tests/studio-recipe.sh` renders `studio.yaml` with goose in both payment modes (CI runs it in the image)
 - `tests/studio-layer.sh` checks the layer's contents (inside the built layer)
-- `tests/studio-e2e.sh` runs demo steps 1-4 without a model over a replay of ten sticker trades (inside the built layer; CI runs it)
+- `tests/studio-e2e.sh` runs demo steps 1-4 without a model over `devcon8-studio replay` (inside the built layer; CI runs it)
