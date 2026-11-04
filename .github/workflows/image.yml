@@ -113,7 +113,8 @@ jobs:
             sudo mount --bind /mnt/containerd /var/lib/containerd
             sudo systemctl start containerd docker
             docker info --format 'docker root: {{.DockerRootDir}} ({{.Driver}})'
-            findmnt -n /var/lib/docker /var/lib/containerd
+            findmnt -n -M /var/lib/docker
+            findmnt -n -M /var/lib/containerd
           fi
           df -h / /mnt
 
