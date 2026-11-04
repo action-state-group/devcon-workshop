@@ -55,23 +55,26 @@ mode=${DEVCON8_GOOSE_MODE:-auto}
 echo "Ctrl-C interrupts a turn; press it again and the run ends."
 args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive --params "pay=$pay")
 [ -n "$buy" ] && args+=(--params "buy_from=$buy")
-# goose is a child, not exec'd: after "session closed" it can stay alive waiting on claude-agent-acp,
-# which waits on a tool call still running (an `mbx wait`), and a bare Ctrl-C then does nothing (seen
-# on v4). The first Ctrl-C is goose's own (it interrupts the turn); a second one that reaches this
-# script, which happens only when goose is not reading keys, ends goose and everything under it.
-# shellcheck disable=SC2317,SC2329 # tree is called from the INT/TERM traps
+# goose runs under `script`, which logs what it prints. After "session closed" goose can stay alive
+# waiting on claude-agent-acp, which waits on a tool call still running (an `mbx wait`), so Ctrl-C
+# never returned to the shell (seen on v4). The watcher ends goose and everything under it as soon
+# as the log shows "session closed", so one Ctrl-C (goose's own exit prompt) is enough.
+# shellcheck disable=SC2317,SC2329 # called from the trap and the watcher
 tree() { local p; for p in $(pgrep -P "$1" 2>/dev/null); do tree "$p"; done; echo "$1"; }
-# shellcheck disable=SC2034 # last is read in the INT trap
-ints=0 last=0 forced=
-# A background job ignores SIGINT; the subshell restores it so goose and its children see Ctrl-C as before.
-(trap - INT QUIT; exec env GOOSE_MODE="$mode" goose "${args[@]}") <&0 &
+log=$(mktemp); trap 'rm -f "$log"' EXIT
+cmd=$(printf '%q ' env "GOOSE_MODE=$mode" goose "${args[@]}")
+script -qefc "$cmd" "$log" <&0 &
 gp=$!
-trap 'if [ $((SECONDS-last)) -gt 10 ]; then ints=0; fi; last=$SECONDS; ints=$((ints+1)); [ $ints -lt 2 ] || { forced=1; kill -KILL $(tree $gp) 2>/dev/null; }' INT
-trap 'forced=1; kill -KILL $(tree $gp) 2>/dev/null' TERM HUP
+(while ! grep -qa 'session closed' "$log" 2>/dev/null; do sleep 0.5; done
+ sleep 1
+ # shellcheck disable=SC2046 # one word per pid
+ kill -KILL $(tree "$gp") 2>/dev/null) &
+watcher=$!
+# shellcheck disable=SC2046 # one word per pid
+trap 'kill -KILL $(tree "$gp") 2>/dev/null' TERM HUP
 rc=0
-wait $gp && rc=0 || rc=$?
-while [ $rc -gt 128 ] && kill -0 $gp 2>/dev/null; do wait $gp && rc=0 || rc=$?; done
-trap - INT TERM HUP
+wait "$gp" 2>/dev/null && rc=0 || rc=$?
+kill "$watcher" 2>/dev/null || true
 if [ -t 0 ]; then stty sane 2>/dev/null || true; fi
-[ -z "$forced" ] || rc=130
+[ $rc -le 128 ] || rc=130
 exit $rc
