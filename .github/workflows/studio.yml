@@ -29,7 +29,9 @@ jobs:
           python3 -I tests/test_build_recipe.py
       - name: studio.yaml renders in both payment modes (goose of the published image, recipe mounted in)
         run: |
+          # The layer's pinned base (studio/versions.lock), not a moving tag: `latest` can briefly lack a platform.
+          . studio/versions.lock
           docker run --rm \
             -v "$PWD/agent/recipes/studio.yaml:/opt/devcon8/agent/recipes/studio.yaml:ro" \
             -v "$PWD/tests/studio-recipe.sh:/opt/devcon8/tests/studio-recipe.sh:ro" \
-            ghcr.io/action-state-group/devcon-workshop:latest /opt/devcon8/tests/studio-recipe.sh
+            "$STUDIO_BASE" /opt/devcon8/tests/studio-recipe.sh
