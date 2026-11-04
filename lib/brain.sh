@@ -4,13 +4,20 @@
 set -euo pipefail
 . /opt/devcon8/lib/common.sh
 cfg=$HOME/.config/goose/config.yaml
+# goose asks "share anonymous usage data?" unless this key is set, so every brain path writes it
+# (mesh included, which hands over to mesh-llm without reaching set_provider), forced to false.
+telemetry_off() {
+  mkdir -p "$(dirname "$cfg")"; touch "$cfg"
+  sed -i '/^GOOSE_TELEMETRY_ENABLED:/d' "$cfg"
+  echo 'GOOSE_TELEMETRY_ENABLED: false' >> "$cfg"
+}
 set_provider() { # provider
   mkdir -p "$(dirname "$cfg")"; touch "$cfg"
   sed -i '/^GOOSE_PROVIDER:/d; /^GOOSE_MODEL:/d' "$cfg"
   printf 'GOOSE_PROVIDER: %s\nGOOSE_MODEL: default\n' "$1" >> "$cfg"
-  grep -q '^GOOSE_TELEMETRY_ENABLED:' "$cfg" || echo 'GOOSE_TELEMETRY_ENABLED: false' >> "$cfg"
   echo "goose now thinks with $1 (written to $cfg)"
 }
+case "${1:-}" in claude|codex|mesh) telemetry_off ;; esac
 case "${1:-}" in
   claude)
     echo "Claude Code prints a link: open it on your laptop, sign in, paste the code back here, then type /exit."

@@ -67,4 +67,15 @@ ok "trader recipe: seller waits in the foreground, no item/price questions, stal
 # Nothing tracks: DO_NOT_TRACK is set and MESH_LLM_ANALYTICS is not.
 if [ "${DO_NOT_TRACK:-}" != 1 ] || [ -n "${MESH_LLM_ANALYTICS+x}" ]; then fail "analytics environment"; fi
 ok "DO_NOT_TRACK=1"
+# Every `devcon8 brain` path turns goose telemetry off (else goose asks "share anonymous usage data?"), mesh
+# included, and forces a stale `true` to false. claude/codex logins are stubbed on PATH; mesh stops at its
+# node check ("not running") after the write.
+bt=$(mktemp -d); mkdir "$bt/bin"; for c in claude codex; do printf '#!/bin/sh\nexit 0\n' > "$bt/bin/$c"; chmod +x "$bt/bin/$c"; done
+for b in mesh claude codex; do
+  mkdir -p "$bt/$b/.config/goose"; echo 'GOOSE_TELEMETRY_ENABLED: true' > "$bt/$b/.config/goose/config.yaml"
+  PATH="$bt/bin:$PATH" HOME="$bt/$b" devcon8 brain "$b" >/dev/null 2>&1 < /dev/null || true
+  c=$bt/$b/.config/goose/config.yaml
+  [ "$(grep '^GOOSE_TELEMETRY_ENABLED:' "$c")" = 'GOOSE_TELEMETRY_ENABLED: false' ] || fail "devcon8 brain $b leaves goose telemetry on"
+done
+rm -rf "$bt"; ok "devcon8 brain mesh|claude|codex: goose telemetry off"
 echo "smoke: all passed"
