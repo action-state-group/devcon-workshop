@@ -32,7 +32,7 @@ You will:
 | Step | Time on a laptop | What you see meanwhile |
 |---|---|---|
 | `docker pull` (3 GB) | 5–20 min on conference wifi | layer progress bars |
-| `docker load` from a USB stick | 1–3 min | **nothing**, until one `Loaded image:` line |
+| `docker load` from a USB stick | 1–3 min | little or nothing, until one `Loaded image:` line |
 | first `docker run` | a few seconds | a shell prompt |
 | your node joining the mesh | 1–2 min | `devcon8 node log` scrolls |
 | your node loading its model (serving) | about 1 min | Network tab says `serving` when done |
@@ -51,22 +51,71 @@ Docker picks `arm64` or `amd64` for your machine by itself.
 
 ### From a USB stick (no network)
 
-The stick holds one tarball per architecture: `arm64` for Apple silicon and arm64 Linux, `amd64` for
-x86 Linux and Windows. `docker run` never reads a tarball. You load it into Docker first, and it
-loads under a name ending in `-arm64` or `-amd64`, not `latest`. Run this **from the stick's folder**
-(`cd` there first). It loads the image and names it `latest` so the run line below works unchanged:
+The stick holds these three files in its top folder (no subfolders):
 
-```sh
-IMG=$(docker load -i devcon-workshop-*-arm64.tar | sed -n 's/^Loaded image: //p') && docker tag "$IMG" ghcr.io/action-state-group/devcon-workshop:latest && echo "ready: $IMG"
-```
+    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
+    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-amd64.tar    Windows and x86 Linux
+    SHA256SUMS
 
-On x86 Linux, change `arm64` to `amd64`. On Windows PowerShell, run `docker load -i <the amd64 file>`,
-then `docker tag <the name it printed> ghcr.io/action-state-group/devcon-workshop:latest`.
+`docker run` cannot read a tarball: copy the one file for your laptop, check it, `docker load` it, then
+run the loaded tag. Each tarball is about 1.9 GB; loading takes 1 to 3 minutes and may print nothing until
+the `Loaded image:` line (or shows only layer progress bars). Docker must be running. You need about 4 GB free
+disk for the copy plus the loaded image (`devcon8 doctor` only checks disk after the load). Do steps 1 to 5 in
+one terminal window, since step 1 sets `A`; if you open a new window, set `A` again.
 
-If it does not print `ready:`, the load failed. Check the tarball against the stick's `SHA256SUMS`;
-a half-copied file is the usual cause.
+**1. Pick your file.** Apple-silicon Mac: `arm64` (always, even if `uname -m` says `x86_64` in a terminal opened with Rosetta). Windows or x86 Linux: `amd64`. Check yourself:
+`uname -m` prints `arm64` or `aarch64` (use `arm64`) or `x86_64` (use `amd64`); in Windows PowerShell,
+`$env:PROCESSOR_ARCHITECTURE` prints `AMD64` (use `amd64`) or `ARM64` (use `arm64`). Intel Macs are not supported.
 
-### Start the container
+**2. Copy it from the stick into a folder on your laptop** (set `A` to your arch first):
+
+macOS (the stick appears under `/Volumes`; `ls /Volumes` shows its name, for example `NO NAME`: replace STICKNAME
+with it and keep the quotes):
+
+    A=arm64
+    cd "/Volumes/STICKNAME" && mkdir -p ~/devcon8-usb && cp devcon-workshop-*-$A.tar SHA256SUMS ~/devcon8-usb/ && cd ~/devcon8-usb
+
+Linux (`ls /media/$USER` shows the stick; on Fedora and Arch use `/run/media/$USER` in its place):
+
+    A=amd64
+    cd "/media/$USER/STICKNAME" && mkdir -p ~/devcon8-usb && cp devcon-workshop-*-$A.tar SHA256SUMS ~/devcon8-usb/ && cd ~/devcon8-usb
+
+Windows PowerShell (the stick has a drive letter, for example `E:`):
+
+    $A = "amd64"
+    mkdir -Force $HOME\devcon8-usb; copy "E:\devcon-workshop-*-$A.tar","E:\SHA256SUMS" $HOME\devcon8-usb; cd $HOME\devcon8-usb
+
+**3. Check the file.** macOS (reads only your arch's line from `SHA256SUMS`; it must print `OK`):
+
+    grep -e "-$A.tar" SHA256SUMS | shasum -a 256 -c
+
+Linux: the same with `sha256sum -c` in place of `shasum -a 256 -c`. Windows: this prints `True` when the file is intact:
+
+    (Get-FileHash devcon-workshop-*-$A.tar).Hash -eq (Select-String "-$A.tar" SHA256SUMS).Line.Split(' ')[0]
+
+Not `OK` (or `False`): the copy is incomplete, copy it again.
+
+**4. Load it.** `docker load -i` takes the file name (the `*` fills in the tag):
+
+    docker load -i devcon-workshop-*-$A.tar
+
+(PowerShell: `docker load -i (Get-ChildItem devcon-workshop-*-$A.tar).Name`.) It ends with
+`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64`
+(or `-amd64`). A loaded image is not called `latest`, so the run line below names this tag.
+
+**5. Start the container.** Pick the line for your arch (`--pull never` stops Docker from going to the network):
+
+arm64:
+
+    docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant \
+      -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
+      ghcr.io/action-state-group/devcon-workshop:20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64
+
+amd64: the same line ending in `...cap0.1.15-b168c6fe.local-amd64`. In PowerShell write it on one line
+(without the `\` line ends). You are then in the container's shell: skip "Start the container" below and go to `devcon8 doctor` there. `No such image` means the load
+in step 4 did not finish, or the arch suffix differs from the one it printed.
+
+### Start the container (with network)
 
 ```sh
 docker rm -f devcon8 ; docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 ghcr.io/action-state-group/devcon-workshop:latest
