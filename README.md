@@ -23,13 +23,13 @@ Inference runs on your CPU (Docker on a Mac has no GPU access). The image is abo
 You need Docker (Docker Desktop on macOS or Windows, Docker Engine on Linux) with at least **8 GB of
 memory** for the container (Docker Desktop: Settings > Resources) and about 6 GB of free disk.
 If you have both Colima and Docker Desktop: run `docker context ls`; if the starred context is colima, run `docker context use desktop-linux`.
-**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Docker picks the right one for the tag and for the digest below.
+**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Docker picks the right one for `latest`, the tag and the digest below.
 
 Pull the image ahead of time. Conference wifi is slow:
 
-    docker pull ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139
+    docker pull ghcr.io/action-state-group/devcon-workshop:latest
 
-The tag above is v4's multi-arch tag (index digest `sha256:fde3ab1193e7446dd2d4cbc379fcf3a1b7424e14cb9f30d8164028ae13f31d7c`); `latest` is meant to follow it once a maintainer approves a publish of a tested build from main, but pull the tag or the digest, which do not move. For a reproducible pull, use the digest:
+`latest` moves only when a maintainer approves a publish of a tested build from main; today it is v4. For a reproducible pull, use the immutable v4 tag (`20261104-ml1aba71d-cap0.1.15-b7e05594.139`) or its index digest:
 
     docker pull ghcr.io/action-state-group/devcon-workshop@sha256:fde3ab1193e7446dd2d4cbc379fcf3a1b7424e14cb9f30d8164028ae13f31d7c
 
@@ -40,9 +40,9 @@ the `docker run` in "Start".
 
     docker run -it --name devcon8 -v devcon8-home:/home/participant \
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
-      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139
+      ghcr.io/action-state-group/devcon-workshop:latest
 
-(Or the `@sha256:fde3ab11…` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
+(Or the v4 tag or `@sha256:fde3ab11…` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
 The console is on port 3141 because Buzz Desktop uses 3131. Inside the container a small relay (port 3132) hands the console its requests from the container's own loopback, which mesh-llm requires for the console's plugin routes (the Evidence tab). A client node hides the Configuration tab by mesh-llm's design. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then the `docker run` above; your `devcon8-home` volume keeps your state.
 
@@ -175,15 +175,16 @@ Index. The NANDA Index works with ARD and AI Catalog. Read this first:
 
 The mailbox key is kept in `~/.devcon8/agentbox/key` (mode 0600) and is never printed.
 
-**Already have a mailbox?** On the same `devcon8-home` volume there is nothing to do: the key is already there, and
-`devcon8 nanda <email>` just checks the listing. On a new container, a new volume or another laptop, run the same
-command with the same email:
+**Already have a mailbox?** On the same `devcon8-home` volume the key is already there: if no other container has run
+`devcon8 nanda` for this mailbox since, there is nothing to do. If one has, this container is off duty and `devcon8 trade`
+starts but the agent does not answer; run `devcon8 nanda <email>` again and it takes the mailbox back. On a new container,
+a new volume or another laptop, run the same command with the same email:
 
     devcon8 nanda <the email you used the first time>
 
 It asks "Create the mailbox for ...?": answer `y`. The gateway returns your existing mailbox (the same address, and no
 second listing in the NANDA Index) with a new key, emails a new six-digit code to the same address, and asks you for
-it. Checked on 2026-11-04 on the v4 image. Only one container answers for the mailbox at a time: the one that ran
+it. Checked on 2026-11-04 on a local build of the v4 sources. Only one container answers for the mailbox at a time: the one that ran
 `devcon8 nanda` last takes over, and an older container's key keeps working for reading but is off duty, so its agent stops answering.
 
 ### 7. `devcon8 trade [--buy <address>] [--pay lexe]`: the trading agent
@@ -218,12 +219,14 @@ One person plays both sides in two containers: a seller that sells your sticker 
 email addresses that can each receive a six-digit code (one per mailbox), and a Claude or ChatGPT login for the agent in
 each container. Use two terminal windows. No money moves.
 
-**Terminal 1, the seller.** Start the container (the console ports are only needed here; add the pull from "Before the
-workshop" first, or use the USB steps' run line):
+**Terminal 1, the seller.** Stop a running `devcon8` container first (`docker stop devcon8`), since this one publishes the
+same console port. Pull the image as in "Before the workshop", then start it:
 
     docker run -it --name devcon8-seller -v devcon8-seller-home:/home/participant \
-      -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 \
-      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139
+      -p 127.0.0.1:3141:3132 \
+      ghcr.io/action-state-group/devcon-workshop:latest
+
+From the USB stick, add `--pull never` and use the loaded tag (`...cap0.1.15-b7e05594.139-arm64` or `-amd64`) in place of `:latest`, for both containers.
 
 Inside it:
 
@@ -237,7 +240,7 @@ starts. Copy it for the buyer. (`brain codex` works the same way if you use Chat
 **Terminal 2, the buyer.** A second container, with its own volume and no published ports:
 
     docker run -it --name devcon8-buyer -v devcon8-buyer-home:/home/participant \
-      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139
+      ghcr.io/action-state-group/devcon-workshop:latest
 
 Inside it:
 
