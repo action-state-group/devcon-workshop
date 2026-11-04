@@ -46,7 +46,7 @@ cd "$HOME"
 if [ "$pay" = lexe ]; then
   echo "Payment in this run is REAL Lightning from your own lexe wallet (bitcoin mainnet), within your caps:"
   "$D/agent/bin/lightning" caps
-  echo "Every payment stops for your answer in the chat first."
+  echo "Every payment shows you a card first; answer in the chat."
 else
   echo "Payment in this run is SIMULATED: no money moves. Offers, commitments and payments still stop for your answer in the chat."
 fi
