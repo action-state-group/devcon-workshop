@@ -318,7 +318,7 @@ The image builds the same commit with the same recipes, but its bytes are its ow
 | capsules plugin | `v0.1.15` (the shared History view; referee split-margin threshold 0, the default) |
 | lexe-wallet plugin | built here from [lexe-wallet-plugin#7](https://github.com/Mesh-LLM/lexe-wallet-plugin/pull/7) (`feat/settled-preimage`, commit `9f830c1`), which reports a settled payment's preimage |
 | S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.15 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook v0.12.2 |
-| capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc33` releases (deal carries `capsulectl deal terms-leg`, seals a Lightning payment received and states it in msat); the deal-view and standard-history presentation assets of the same releases are copied beside the plugins so History pages render with their modules |
+| capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc33` releases (deal carries `capsulectl deal terms-leg`, seals a Lightning payment received and states it in msat) |
 | goose (built from its v1.57.0 commit plus `patches/`, aaif-goose/goose#13273), Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
 | evidencebook Go SDK | v0.12.2, Go 1.27 |
 | models | Qwen2.5-0.5B-Instruct GGUF, Q8_0 and Q4_K_M |
