@@ -2,7 +2,9 @@
 # trade.sh [--buy <address>] [--pay lexe]: run your trading agent in goose. It sells your fox sticker
 # to any participant's agent that asks and, with --buy, buys one from that address. Payment is
 # simulated; with --pay lexe it is REAL Lightning from your own lexe wallet, within the caps you set
-# with 'devcon8 lightning'. goose runs in approve mode: it asks you before each tool call.
+# with 'devcon8 lightning'. goose runs in auto mode for the simulated trade (the deal plugin's own
+# PAUSED FOR YOU cards still gate offers, commitments and payments) and in approve mode for --pay lexe
+# (real money). DEVCON8_GOOSE_MODE overrides.
 set -euo pipefail
 . /opt/devcon8/lib/common.sh
 buy="" pay=simulated
@@ -44,10 +46,28 @@ cd "$HOME"
 if [ "$pay" = lexe ]; then
   echo "Payment in this run is REAL Lightning from your own lexe wallet (bitcoin mainnet), within your caps:"
   "$D/agent/bin/lightning" caps
+  mode=${DEVCON8_GOOSE_MODE:-approve}
   echo "goose asks before each tool call, and every payment shows you a card first; answer in the chat."
 else
-  echo "Payment in this run is SIMULATED: no money moves. goose asks before each tool call; answer in the chat."
+  mode=${DEVCON8_GOOSE_MODE:-auto}
+  echo "Payment in this run is SIMULATED: no money moves. Offers, commitments and payments still stop for your answer in the chat."
 fi
+echo "Ctrl-C ends the run."
 args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive --params "pay=$pay")
 [ -n "$buy" ] && args+=(--params "buy_from=$buy")
-GOOSE_MODE=approve exec goose "${args[@]}"
+# goose is a child, not exec'd: after "session closed" it can stay alive waiting on claude-agent-acp,
+# which waits on a tool call still running (an `mbx wait`), and a bare Ctrl-C then does nothing (seen
+# on v4). The first Ctrl-C is goose's own (it interrupts the turn); a second one that reaches this
+# script, which happens only when goose is not reading keys, ends goose and everything under it.
+tree() { local p; for p in $(pgrep -P "$1" 2>/dev/null); do tree "$p"; done; echo "$1"; }
+ints=0 forced=
+GOOSE_MODE=$mode goose "${args[@]}" <&0 &
+gp=$!
+trap 'ints=$((ints+1)); [ $ints -lt 2 ] || { forced=1; kill -KILL $(tree $gp) 2>/dev/null; }' INT
+trap 'forced=1; kill -KILL $(tree $gp) 2>/dev/null' TERM HUP
+rc=0
+while kill -0 $gp 2>/dev/null; do wait $gp && rc=0 || rc=$?; done
+trap - INT TERM HUP
+[ -t 0 ] && stty sane 2>/dev/null
+[ -z "$forced" ] || rc=130
+exit $rc
