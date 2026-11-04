@@ -61,9 +61,10 @@ Clean up safely. These never touch a volume:
     docker image prune -a      # removes images no container uses (you pull again next time); keeps the ones a container uses
     docker builder prune       # build cache (only if you built images yourself)
 
-**Do not run `docker volume prune` or `docker system prune --volumes`.** They delete any volume no running container uses,
-and that includes `devcon8-home` while its container is stopped: your logins, mailbox key and deals go with it. Check
-`docker volume ls` before you remove one by name.
+**Do not run `docker volume prune -a`, or `docker volume prune` / `docker system prune --volumes` on a Docker older than 23.**
+Newer Docker's plain `volume prune` removes only anonymous volumes (`docker volume prune --help` says so; `devcon8-home` is
+named), but `-a` and older versions remove every volume no container uses, and that includes `devcon8-home` while its
+container is stopped or removed: your logins, mailbox key and deals go with it. Check `docker volume ls` before you remove one by name.
 
 Pull the image ahead of time. Conference wifi is slow:
 
