@@ -60,10 +60,12 @@ args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive --params "pay=$p
 # which waits on a tool call still running (an `mbx wait`), and a bare Ctrl-C then does nothing (seen
 # on v4). The first Ctrl-C is goose's own (it interrupts the turn); a second one that reaches this
 # script, which happens only when goose is not reading keys, ends goose and everything under it.
+# shellcheck disable=SC2317,SC2329 # tree is called from the INT/TERM traps
 tree() { local p; for p in $(pgrep -P "$1" 2>/dev/null); do tree "$p"; done; echo "$1"; }
+# shellcheck disable=SC2034 # last is read in the INT trap
 ints=0 last=0 forced=
 # A background job ignores SIGINT; the subshell restores it so goose and its children see Ctrl-C as before.
-(trap - INT QUIT; exec env GOOSE_MODE=$mode goose "${args[@]}") <&0 &
+(trap - INT QUIT; exec env GOOSE_MODE="$mode" goose "${args[@]}") <&0 &
 gp=$!
 trap 'if [ $((SECONDS-last)) -gt 10 ]; then ints=0; fi; last=$SECONDS; ints=$((ints+1)); [ $ints -lt 2 ] || { forced=1; kill -KILL $(tree $gp) 2>/dev/null; }' INT
 trap 'forced=1; kill -KILL $(tree $gp) 2>/dev/null' TERM HUP
