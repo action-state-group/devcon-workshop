@@ -4,12 +4,11 @@ This walk-through runs the workshop from the Docker image, step by step, with wh
 each step. It replaces the older "Mesh-LLM evidence demo: join the mesh" Google doc, which installed
 mesh-llm natively. The [README](README.md) remains the reference for every `devcon8` command.
 
-**What you are running.** The image's `latest` tag, a **pre-release lab build** of
+**What you are running.** The v4 image, a **pre-release lab build** of
 [mesh-llm](https://github.com/Mesh-LLM/mesh-llm) ahead of the next release (0.79). It prints
 `mesh-llm 0.78.0`; the latest official release is 0.78.1. It is lab commit `1aba71d` with
 the [capsules](https://github.com/Mesh-LLM/capsules-plugin) evidence plugin v0.1.15 and the lexe-wallet
-plugin v0.1.0. `devcon8 doctor` prints the exact build (image revision `168c6fed` for the current
-`latest`). The screenshots below were taken on an Apple-silicon laptop on 2026-11-03 with the
+plugin v0.1.0. `devcon8 doctor` prints the exact build (image revision `7e055946` for v4). The screenshots below were taken on an Apple-silicon laptop on 2026-11-03 with the
 earlier image revision `80ed6c66` (capsules v0.1.14).
 
 You will:
@@ -48,7 +47,7 @@ The trading agent (a Goose agent that sells and buys a sticker, with `devcon8 br
 ### With network
 
 ```sh
-docker pull ghcr.io/action-state-group/devcon-workshop:latest
+docker pull ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139
 ```
 
 Docker picks `arm64` or `amd64` for your machine by itself.
@@ -57,8 +56,8 @@ Docker picks `arm64` or `amd64` for your machine by itself.
 
 The stick holds these three files in its top folder (no subfolders):
 
-    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
-    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-amd64.tar    Windows and x86 Linux
+    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
+    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-amd64.tar    Windows and x86 Linux
     SHA256SUMS
 
 `docker run` cannot read a tarball: copy the one file for your laptop, check it, `docker load` it, then
@@ -104,7 +103,7 @@ Not `OK` (or `False`): the copy is incomplete, copy it again.
     docker load -i devcon-workshop-*-$A.tar
 
 (PowerShell: `docker load -i (Get-ChildItem devcon-workshop-*-$A.tar).Name`.) It ends with
-`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64`
+`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64`
 (or `-amd64`). A loaded image is not called `latest`, so the run line below names this tag.
 
 **5. Start the container.** Pick the line for your arch (`--pull never` stops Docker from going to the network):
@@ -113,16 +112,16 @@ arm64:
 
     docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant \
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
-      ghcr.io/action-state-group/devcon-workshop:20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64
+      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64
 
-amd64: the same line ending in `...cap0.1.15-b168c6fe.local-amd64`. In PowerShell write it on one line
+amd64: the same line ending in `...cap0.1.15-b7e05594.139-amd64`. In PowerShell write it on one line
 (without the `\` line ends). You are then in the container's shell: skip "Start the container" below and go to `devcon8 doctor` there. `No such image` means the load
 in step 4 did not finish, or the arch suffix differs from the one it printed.
 
 ### Start the container (with network)
 
 ```sh
-docker rm -f devcon8 ; docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 ghcr.io/action-state-group/devcon-workshop:latest
+docker rm -f devcon8 ; docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139
 ```
 
 - `--pull never` stops Docker from going to the network. If you get `No such image`, the image

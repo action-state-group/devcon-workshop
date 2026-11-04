@@ -23,15 +23,15 @@ Inference runs on your CPU (Docker on a Mac has no GPU access). The image is abo
 You need Docker (Docker Desktop on macOS or Windows, Docker Engine on Linux) with at least **8 GB of
 memory** for the container (Docker Desktop: Settings > Resources) and about 6 GB of free disk.
 If you have both Colima and Docker Desktop: run `docker context ls`; if the starred context is colima, run `docker context use desktop-linux`.
-**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Docker picks the right one for `latest` and for the digest below.
+**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Docker picks the right one for the tag and for the digest below.
 
 Pull the image ahead of time. Conference wifi is slow:
 
-    docker pull ghcr.io/action-state-group/devcon-workshop:latest
+    docker pull ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139
 
-`latest` moves only when a maintainer approves a publish of a tested build from main. For a reproducible pull, use the immutable tag and digest announced for the workshop:
+The tag above is v4's multi-arch tag (index digest `sha256:fde3ab1193e7446dd2d4cbc379fcf3a1b7424e14cb9f30d8164028ae13f31d7c`); `latest` is meant to follow it once a maintainer approves a publish of a tested build from main, but pull the tag or the digest, which do not move. For a reproducible pull, use the digest:
 
-    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:<digest>
+    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:fde3ab1193e7446dd2d4cbc379fcf3a1b7424e14cb9f30d8164028ae13f31d7c
 
 No network at the venue? Use the USB stick: "From the USB stick (no network)" below replaces this pull and
 the `docker run` in "Start".
@@ -40,9 +40,9 @@ the `docker run` in "Start".
 
     docker run -it --name devcon8 -v devcon8-home:/home/participant \
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
-      ghcr.io/action-state-group/devcon-workshop:latest
+      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139
 
-(Or the `@sha256:<digest>` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
+(Or the `@sha256:fde3ab11…` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
 The console is on port 3141 because Buzz Desktop uses 3131. Inside the container a small relay (port 3132) hands the console its requests from the container's own loopback, which mesh-llm requires for the console's plugin routes (the Evidence tab). A client node hides the Configuration tab by mesh-llm's design. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then the `docker run` above; your `devcon8-home` volume keeps your state.
 
@@ -50,8 +50,8 @@ The console is on port 3141 because Buzz Desktop uses 3131. Inside the container
 
 The stick holds these three files in its top folder (no subfolders):
 
-    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
-    devcon-workshop-20261103-ml1aba71d-cap0.1.15-b168c6fe.local-amd64.tar    Windows and x86 Linux
+    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
+    devcon-workshop-20261104-ml1aba71d-cap0.1.15-b7e05594.139-amd64.tar    Windows and x86 Linux
     SHA256SUMS
 
 `docker run` cannot read a tarball: copy the one file for your laptop, check it, `docker load` it, then
@@ -97,7 +97,7 @@ Not `OK` (or `False`): the copy is incomplete, copy it again.
     docker load -i devcon-workshop-*-$A.tar
 
 (PowerShell: `docker load -i (Get-ChildItem devcon-workshop-*-$A.tar).Name`.) It ends with
-`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64`
+`Loaded image: ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64`
 (or `-amd64`). A loaded image is not called `latest`, so the run line below names this tag.
 
 **5. Start the container.** Pick the line for your arch (`--pull never` stops Docker from going to the network):
@@ -106,9 +106,9 @@ arm64:
 
     docker run -it --pull never --name devcon8 -v devcon8-home:/home/participant \
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
-      ghcr.io/action-state-group/devcon-workshop:20261103-ml1aba71d-cap0.1.15-b168c6fe.local-arm64
+      ghcr.io/action-state-group/devcon-workshop:20261104-ml1aba71d-cap0.1.15-b7e05594.139-arm64
 
-amd64: the same line ending in `...cap0.1.15-b168c6fe.local-amd64`. In PowerShell write it on one line
+amd64: the same line ending in `...cap0.1.15-b7e05594.139-amd64`. In PowerShell write it on one line
 (without the `\` line ends). Then run `devcon8 doctor` in the shell you get. `No such image` means the load
 in step 4 did not finish, or the arch suffix differs from the one it printed.
 
