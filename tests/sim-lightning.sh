@@ -63,31 +63,39 @@ if "$D/agent/bin/lightning" pay "$CONV" 500000 "$DIGEST" 2>/dev/null; then fail 
 # The buyer's pay check on Lightning pauses: money sent this way cannot be pulled back.
 ID=deal-00000000000051ff
 SHOP=shop@agentboxnanda.org
-t=$(jq -nc '{item:"digital fox sticker",quantity:1,price_minor:50,currency:"USD"}')
+# The terms are in msat (currency BTC: for BTC, price_minor counts millisatoshi), what the wallet moves.
+t=$(jq -nc '{item:"digital fox sticker",quantity:1,price_minor:500000,currency:"BTC"}')
 who=$(jq -nc --arg s "$SHOP" '{relay_address: $s, payee: $s}')
 jq -n --argjson t "$t" --argjson who "$who" '{type: "purchase", channel: "agentboxnanda.org.agent_box",
-  intent: {verbatim: "Buy me one digital fox sticker from shop@agentboxnanda.org, 50 cents at most, paid by Lightning from my own wallet. Ask me before anything else.",
-           asked: {item: "digital fox sticker", quantity: 1}, max_total_minor: 50, allowed: ["pay"]},
+  intent: {verbatim: "Buy me one digital fox sticker from shop@agentboxnanda.org, 600000 msat at most, paid by Lightning from my own wallet. Ask me before anything else.",
+           asked: {item: "digital fox sticker", quantity: 1}, max_total_minor: 600000, allowed: ["pay"]},
   who: $who, terms: $t, recourse: {rail: "lightning", refundable: false}}' > open.json
 deal open --deal-id "$ID" --records typed --input open.json >/dev/null
-jq -n --argjson t "$t" --argjson who "$who" '{action: "pay", amount_minor: 50, authorized_max_minor: 50, terms: $t, who: $who,
+jq -n --argjson t "$t" --argjson who "$who" '{action: "pay", amount_minor: 500000, authorized_max_minor: 500000, terms: $t, who: $who,
   recourse: {rail: "lightning", refundable: false}}' > check-pay.json
 deal check --deal "$ID" --input check-pay.json > pay.check.json
 [ "$(jq -r .verdict pay.check.json)" = pause ] || { jq . pay.check.json; fail "a Lightning pay did not pause"; }
 jq -e '[.differences[].rule] | index("irreversible_rail")' pay.check.json >/dev/null || fail "no irreversible_rail on the Lightning pay"
 jq -r .approval_text pay.check.json > card.txt
 deal note --deal "$ID" --kind approval --check "$(jq -r .check_id pay.check.json)" --choice proceed --said "yes, pay" --shown-card card.txt >/dev/null
-jq -n --arg s "$SHOP" --arg h "$HASH" '{action:"pay",amount_minor:50,payee:$s,rail:"lightning",reference:$h}' > act.json
+jq -n --arg s "$SHOP" --arg h "$HASH" '{action:"pay",amount_minor:500000,currency:"BTC",payee:$s,rail:"lightning",reference:$h}' > act.json
 a=$(deal note --deal "$ID" --kind act --input act.json)
 [ "$(jq -r .unchecked <<<"$a")" = false ] || { echo "$a"; fail "the Lightning pay act was recorded unchecked"; }
+
+# The buyer's receipt states what moved, in msat (never a dollar amount for 500000 msat).
+report=$(deal report --deal "$ID")
+[ "$(jq -r .money.text <<<"$report")" = "Paid 500000 msat, returned 0 msat: net 500000 msat." ] || { jq .money <<<"$report"; fail "the buyer's receipt does not state the payment in msat"; }
+deal report --deal "$ID" --html "$HOME/receipt.html" >/dev/null
+grep -aq 'Paid 500000 msat' "$HOME/receipt.html" || fail "the buyer's rendered receipt does not read in msat"
+if grep -aq 'Paid \$' "$HOME/receipt.html"; then fail "the buyer's rendered receipt still reads a dollar amount"; fi
 
 # Seller: the payment settled in its wallet; seal it, then the delivery.
 export HOME=$T/seller; cd "$HOME"
 "$D/agent/bin/lightning" receive "$CONV" "$HASH" > receive.out
 [ "$(jq -r .received receive.out)" = true ] || { cat receive.out; fail "lightning receive"; }
 CH=agentboxnanda.org.agent_box
-jq -n --argjson t "$t" '{type: "purchase", intent: {verbatim: "Sell my digital fox sticker for 50 cents to any workshop participant who asks. Not under 50 cents.",
-  party_role: "seller", min_total_minor: 50, asked: {item: "digital fox sticker", quantity: 1}, allowed: ["offer", "commit"]},
+jq -n --argjson t "$t" '{type: "purchase", intent: {verbatim: "Sell my digital fox sticker for 500000 msat to any workshop participant who asks. Not under 500000 msat.",
+  party_role: "seller", min_total_minor: 500000, asked: {item: "digital fox sticker", quantity: 1}, allowed: ["offer", "commit"]},
   terms: $t, recourse: {rail: "lightning", refundable: false}}' > sale.json
 sale=$(deal sale new --input sale.json | jq -r .sale_id)
 jq -n --arg ch "$CH" '{channel: $ch, who: {name: "Workshop buyer", relay_address: "buyer@agentboxnanda.org"}}' > open.json
@@ -100,6 +108,13 @@ deal note --deal "$sid" --kind delivered --terms buyer-terms.json --content "$ST
 s=$(deal settlement --deal "$sid" --leg buyer-terms.json)
 [ "$(jq -r '.settlement.conforming' <<<"$s")" = true ] || { echo "$s"; fail "the legs do not conform"; }
 [ "$(jq -r '.settlement.settlements[0].payment_state' <<<"$s")" = payee_stated ] || { echo "$s"; fail "payment state"; }
+
+# The seller's receipt states the sealed settlement leg in msat (the fake wallet credits 495000 and takes a 5000 fee).
+sreport=$(deal report --deal "$sid")
+jq -e '.money.text | test("Received [0-9]+ msat, receive fee [0-9]+ msat\\.")' <<<"$sreport" >/dev/null || { jq .money <<<"$sreport"; fail "the seller's receipt does not state what it received in msat"; }
+deal report --deal "$sid" --html "$HOME/receipt.html" >/dev/null
+grep -aq 'receive fee [0-9]* msat' "$HOME/receipt.html" || fail "the seller's rendered receipt does not read in msat"
+rm -f "$HOME/receipt.html"  # the seller's own page holds its sealed preimage: not left beside the files checked below
 
 db=$T/seller/.local/share/capsule-deal/deal.db
 grep -aq "$HASH" "$db" || fail "the sealed records do not name the payment hash"

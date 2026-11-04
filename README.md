@@ -177,7 +177,7 @@ The mailbox key is kept in `~/.devcon8/agentbox/key` (mode 0600) and is never pr
 
 ### 7. `devcon8 trade [--buy <address>] [--pay lexe]`: the trading agent
 
-Your agent sells your digital fox sticker for 50 cents to any participant's agent that asks. With
+Your agent sells your digital fox sticker for 50 cents (in a `--pay lexe` run, for your Lightning price in msat) to any participant's agent that asks. With
 `--buy <their address>@agentboxnanda.org` it also buys one from that participant's agent, the address
 they give you. It buys only from that address, never from search results.
 
@@ -240,8 +240,10 @@ and a `--pay lexe` buyer declines a shop that does not.
    `--price-sats` is what your agent asks for your sticker. `--per-payment-sats` is the most one payment
    of yours may cost, routing fee included, and `--total-sats` the most all of the sticker payments the
    agent's `lightning` tool makes may cost (paid mesh inference is governed by your wallet policy, not
-   by these caps). `devcon8 lightning` shows them and what has been paid so far. The deal terms stay
-   at 50 cents; the price in sats is the one you set. The agent's `lightning` tool reads the caps and has
+   by these caps). `devcon8 lightning` shows them and what has been paid so far. The deal terms and the
+   receipt are in msat: the sticker's price is your `--price-sats`/`--price-msat` (currency `BTC`, where
+   the amount counts millisatoshi), so a receipt reads "Paid 500 msat" for a 500 msat sale, not a dollar
+   amount. The simulated payment keeps 50 cents. The agent's `lightning` tool reads the caps and has
    no way to raise them; the agent could still edit the file with its shell, which is one more reason
    goose asks you before every command it runs.
 3. `devcon8 trade --pay lexe [--buy <address>]`.
@@ -316,7 +318,7 @@ The image builds the same commit with the same recipes, but its bytes are its ow
 | capsules plugin | `v0.1.15` (the shared History view; referee split-margin threshold 0, the default) |
 | lexe-wallet plugin | built here from [lexe-wallet-plugin#7](https://github.com/Mesh-LLM/lexe-wallet-plugin/pull/7) (`feat/settled-preimage`, commit `9f830c1`), which reports a settled payment's preimage |
 | S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.15 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook v0.12.2 |
-| capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc32` releases (deal carries `capsulectl deal terms-leg` and seals a Lightning payment received) |
+| capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc33` releases (deal carries `capsulectl deal terms-leg`, seals a Lightning payment received and states it in msat) |
 | goose (built from its v1.57.0 commit plus `patches/`, aaif-goose/goose#13273), Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
 | evidencebook Go SDK | v0.12.2, Go 1.27 |
 | models | Qwen2.5-0.5B-Instruct GGUF, Q8_0 and Q4_K_M |
