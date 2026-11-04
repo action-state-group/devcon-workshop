@@ -100,11 +100,11 @@ STUB
 chmod +x "$bt/bin/claude"
 bc() { PATH="$bt/bin:$PATH" HOME="$bt/h" STUB_LOG="$bt/log" STUB_STATE="$bt/state" devcon8 brain claude "$@" 2>&1 < /dev/null; }
 : > "$bt/log"
-bc | grep -q 'did not complete' || fail "brain claude: failed login not reported"
+out=$(bc || true); grep -q 'did not complete' <<<"$out" || fail "brain claude: failed login not reported"
 grep -q GOOSE_PROVIDER "$bt/h/.config/goose/config.yaml" && fail "brain claude: provider set after a failed login"
-STUB_LOGIN_OK=1 bc | grep -q 'login succeeded' || fail "brain claude: successful login not reported"
+out=$(STUB_LOGIN_OK=1 bc || true); grep -q 'login succeeded' <<<"$out" || fail "brain claude: successful login not reported"
 [ "$(grep -c login "$bt/log" || true)" = 2 ] || fail "brain claude: expected 2 logins so far"
-bc | grep -q 'already logged in' || fail "brain claude: already-logged-in not reported"
+out=$(bc || true); grep -q 'already logged in' <<<"$out" || fail "brain claude: already-logged-in not reported"
 [ "$(grep -c login "$bt/log" || true)" = 2 ] || fail "brain claude: re-run forced a new login"
 bc --relogin >/dev/null || true
 [ "$(grep -c login "$bt/log" || true)" = 3 ] || fail "brain claude --relogin did not log in again"
