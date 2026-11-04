@@ -37,7 +37,6 @@ START = "  Start: read the deal skill, "
 def once(text, anchor, what):
     if text.count(anchor) != 1:
         sys.exit(f"build-recipe: {what} not found exactly once in {TRADER.name}; update studio/build-recipe.py")
-    return text
 
 
 def build(t, section):
@@ -45,8 +44,11 @@ def build(t, section):
     once(t, FORBID, "the home-directory sentence")
     once(t, START, "the Start line")
     once(t, DESC_START, "the description")
+    once(t, DESC_END, "the parameters block")
     t = t.replace(TITLE, "title: Devcon 8 sticker trader with Terms Pack Studio\n")
     a, b = t.index(DESC_START), t.index(DESC_END)
+    if b < a:
+        sys.exit(f"build-recipe: the parameters block comes before the description in {TRADER.name}")
     t = t[:a] + STUDIO_DESC + t[b:]
     t = t.replace(FORBID, ALLOW)
     t = t.replace(START, section + "\n" + START)

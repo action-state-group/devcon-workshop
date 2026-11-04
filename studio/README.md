@@ -6,7 +6,7 @@ Studio demo needs and changes nothing in the published image, its `latest` tag o
 What it adds:
 
 - `studio.yaml`, the sticker trader recipe plus a Studio section: goose may read the
-  `terms-pack-author` skill and run `terms <verb>`, and writes only under `~/studio`. It is generated
+  `terms-pack-author` skill and run `terms <verb>`; everything `terms` writes goes under `~/studio`. It is generated
   from `trader.yaml` by `studio/build-recipe.py` (CI fails if the committed file is stale), so the
   trading protocol exists once.
 - `terms <verb>` (lint, test, run, compare, publish, ...), the evidencebook-skills scripts at the commit
@@ -24,7 +24,8 @@ The build is local and pushes nothing.
 
 ## Run
 
-    studio/run.sh
+    studio/run.sh                         # a second run resumes the stopped container
+    docker start -ai devcon8-studio       # the same, by hand
 
 Inside the container: `devcon8 brain claude` (a Claude subscription login; no API key), `devcon8 nanda
 <your email>`, then `devcon8-studio`. Rehearsal pages and Result JSON land in `~/devcon8-studio` on
@@ -35,3 +36,4 @@ your laptop (mounted at `~/studio`), so you open them from the browser.
 - `python3 -I tests/test_build_recipe.py` and `python3 studio/build-recipe.py --check`
 - `tests/studio-recipe.sh` renders `studio.yaml` with goose in both payment modes (CI runs it in the image)
 - `tests/studio-layer.sh` checks the layer's contents (inside the built layer)
+- `tests/studio-e2e.sh` runs demo steps 1-4 without a model over a replay of ten sticker trades (inside the built layer; CI runs it)

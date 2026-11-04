@@ -2,7 +2,7 @@
 # studio-recipe.sh: studio.yaml keeps the trader's protocol in both payment modes, adds the Studio
 # section, and does not widen the permissions beyond the two skills and ~/studio. (That studio.yaml is
 # trader.yaml plus exactly those edits is tests/test_build_recipe.py's check.)
-# Run inside the Studio layer: docker run --rm IMAGE /opt/devcon8/tests/studio-recipe.sh
+# Run inside the Studio layer, or in the base image with the recipe mounted in (as CI does): docker run --rm IMAGE /opt/devcon8/tests/studio-recipe.sh
 # shellcheck disable=SC2016  # backticks are literal text in the prompt
 set -euo pipefail
 D=${D:-/opt/devcon8}

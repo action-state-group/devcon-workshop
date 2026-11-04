@@ -6,8 +6,8 @@
 #   4 live            deal check names the row that fails
 # Also asserts the verbs (up to publish) write nothing outside ~/studio.
 # DEAL_CHECKOUT is evidencebook-deal at STUDIO_DEAL_COMMIT (studio/versions.lock).
-# Run inside the layer: tar c -C DEAL_CHECKOUT scripts testdata | docker run -i --rm -u root IMAGE \
-#   bash -c 'mkdir /deal && tar x -C /deal && /opt/devcon8/tests/studio-e2e.sh /deal'
+# Run inside the layer, as its own user: tar c -C DEAL_CHECKOUT scripts testdata | docker run -i --rm IMAGE \
+#   bash -c "mkdir /tmp/deal && tar x -C /tmp/deal && /opt/devcon8/tests/studio-e2e.sh /tmp/deal"
 set -euo pipefail
 D=/opt/devcon8
 PLUGINS=/usr/local/lib/capsulectl/plugins
@@ -19,8 +19,6 @@ deal=${1:?usage: studio-e2e.sh DEAL_CHECKOUT}
 work=$(mktemp -d)
 export HOME=$work/home XDG_CONFIG_HOME=$work/config
 mkdir -p "$HOME" "$work/seller" "$work/buyer"
-. "$D/studio/versions.lock"
-cap() { capsulectl --profile deal deal "$@"; }
 
 capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
 bash "$deal/scripts/studio-replay.sh" "$deal/testdata/studio/sticker-trades.json" "$work/seller" "$work/buyer" >"$work/replay.out"
@@ -36,6 +34,9 @@ pack=$HOME/studio/packs/sticker-sale/pack-source.yaml
 awk '/^```yaml$/{f=1;next} /^```$/{f=0} f' "$D/agent/skills/terms-pack-author/SKILL.md" >"$pack"
 [ -s "$pack" ] || fail "no pack example in the terms-pack-author skill"
 
+# A rehearsal changes no deal and no store: the seller's files hash the same after both runs.
+store_hash() { (cd "$work" && find seller buyer -type f ! -name '*.lock' -print0 | sort -z | xargs -0 sha256sum | sha256sum); }
+store_before=$(store_hash)
 cd "$HOME/studio"
 lint=$(terms lint "$pack"); [ "$(jq -r .valid <<<"$lint")" = true ] || fail "lint: $lint"
 test_=$(terms test "$pack"); [ "$(jq -r .passed <<<"$test_")" = true ] || fail "test: $test_"
@@ -55,6 +56,8 @@ row=$(jq -c '.rows[]|select(.row=="delivered_within_days")' <<<"$cmp")
 [ "$(jq -r '.before.pack_digest==.after.pack_digest' <<<"$cmp")" = false ] || fail "both runs carry one pack digest"
 ok "step 2: $(jq -r '.summary|join("; ")' <<<"$cmp")"
 
+[ "$(store_hash)" = "$store_before" ] || fail "a rehearsal changed the seller store"
+ok "the rehearsals left the seller store untouched"
 pub=$(terms publish "$pack")
 [ "$(jq -r .in_force <<<"$pub")" = false ] || fail "publish claims the terms are in force: $pub"
 find "$HOME" "$D/studio" "$D/agent" "$PLUGINS/terms-pack-studio" -newer "$marker" -type f -not -path "$HOME/studio/*" 2>/dev/null | grep . && fail "a verb wrote outside ~/studio (listed above)"

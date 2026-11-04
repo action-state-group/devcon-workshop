@@ -10,7 +10,8 @@ if [ "${1:-}" = --base ]; then base=${2:?--base <image reference>}; shift 2; fi
 for v in STUDIO_SKILLS_COMMIT STUDIO_TERMS_ENTRY; do
   [ -n "${!v}" ] || { echo "$v is not pinned in studio/versions.lock" >&2; exit 1; }
 done
-case $base in *:latest|*:latest@*) echo "refusing a moving base ($base): pin a tag and digest" >&2; exit 1 ;; esac
+# Only an immutable digest: a bare name means `latest`, and any tag can move.
+if ! [[ $base =~ @sha256:[0-9a-f]{64}$ ]]; then echo "refusing a base that is not pinned by digest ($base): use <image>@sha256:<64 hex>" >&2; exit 1; fi
 python3 studio/build-recipe.py --check
 tag=devcon-workshop-studio:${1:-dev}
 docker build -f studio/Dockerfile -t "$tag" \
