@@ -17,8 +17,8 @@ ok "terms on PATH, both skills and both recipes readable"
 # The system Python stays untouched (no pip into an externally managed Python).
 python3 -c 'import yaml' 2>/dev/null && fail "PyYAML leaked into the system Python"
 ok "system Python untouched"
-terms help >/dev/null || fail "terms help failed"
-ok "terms help"
+terms --help >/dev/null || fail "terms --help failed"
+ok "terms --help"
 # trade.sh runs the Studio recipe when TRADE_RECIPE is set (the layer patches it; the base image's is untouched).
 grep -q 'TRADE_RECIPE:-' "$D/lib/trade.sh" || fail "the layer's trade.sh does not honour TRADE_RECIPE"
 ok "trade.sh honours TRADE_RECIPE"
