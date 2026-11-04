@@ -57,7 +57,8 @@ rm -rf "$ST/lexe" "$T/fake.log"
 asked yes > "$T/out" 2>&1 || { cat "$T/out"; fail "yes did not open the wallet"; }
 seed=$ST/lexe/root_seed
 [[ $(cat "$seed") =~ ^[0-9a-f]{64}$ ]] || fail "the seed is not 64 hex"
-[ "$(stat -c %a "$seed")" = 600 ] && [ "$(stat -c %a "$ST/lexe")" = 700 ] || fail "seed or folder permissions"
+[ "$(stat -c %a "$seed")" = 600 ] || fail "seed permissions"
+[ "$(stat -c %a "$ST/lexe")" = 700 ] || fail "wallet folder permissions"
 grep -q "wallet registered with Lexe" "$T/out" || fail "no registration line"
 [ "$(grep -c '^signup$' "$T/fake.log")" = 1 ] || fail "signup not called once"
 grep -qx provision "$T/fake.log" || fail "provision not called"

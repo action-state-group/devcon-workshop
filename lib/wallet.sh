@@ -60,7 +60,7 @@ case ${1:-open} in
     echo "Fund it with 'devcon8 wallet fund --sats N'. 'devcon8 trade --pay lexe' still stops for your answer before every payment."
     ;;
   fund)
-    [ "${2:-}" = --sats ] && [[ ${3:-} =~ ^[1-9][0-9]{0,9}$ ]] || die "devcon8 wallet fund --sats N"
+    [[ ${2:-} == --sats && ${3:-} =~ ^[1-9][0-9]{0,9}$ ]] || die "devcon8 wallet fund --sats N"
     open_wallet
     reminder
     echo
