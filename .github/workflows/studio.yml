@@ -35,3 +35,22 @@ jobs:
             -v "$PWD/agent/recipes/studio.yaml:/opt/devcon8/agent/recipes/studio.yaml:ro" \
             -v "$PWD/tests/studio-recipe.sh:/opt/devcon8/tests/studio-recipe.sh:ro" \
             "$STUDIO_BASE" /opt/devcon8/tests/studio-recipe.sh
+
+  # The layer itself, on the pinned base: build it, check its contents, then run demo steps 1-4 without a
+  # model against a replay of ten sticker trades. Built locally in the job; nothing is pushed.
+  layer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: build the layer
+        run: studio/build.sh
+      - name: layer contents
+        run: docker run --rm -u root devcon-workshop-studio:dev /opt/devcon8/tests/studio-layer.sh
+      - name: demo steps 1-4 (tests/studio-e2e.sh)
+        run: |
+          . studio/versions.lock
+          git clone --filter=blob:none "$STUDIO_DEAL_REPO" "$RUNNER_TEMP/deal"
+          git -C "$RUNNER_TEMP/deal" checkout --detach "$STUDIO_DEAL_COMMIT"
+          tar c -C "$RUNNER_TEMP/deal" scripts testdata \
+            | docker run -i --rm -u root devcon-workshop-studio:dev \
+                bash -c 'mkdir /deal && tar x -C /deal && /opt/devcon8/tests/studio-e2e.sh /deal'
