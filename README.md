@@ -118,7 +118,7 @@ them into your volume. From the stick, copy its `models` folder next to the tarb
 (`cp -r "/Volumes/STICKNAME/models" ~/devcon8-usb/` on macOS), then, with the container running
 (`docker run` above, in another terminal), hand it to the container and load it:
 
-    docker cp ~/devcon8-usb/models devcon8:/tmp/models
+    docker cp ~/devcon8-usb/models devcon8:/tmp/
     devcon8 models --from /tmp/models
 
 `devcon8 models` checks each file's sha256 and skips files it already has. Skip this if you only run the trade.

@@ -7,7 +7,8 @@ S=${S08_DIR:-${DEVCON8_S08:-$HOME/s08-liar}}
 export S08_DIR=$S S08_LISTEN_ALL=1   # env.sh (company-internal-all#48) reads S08_DIR
 Q8=qwen2.5-0.5b-instruct-q8_0.gguf Q4=qwen2.5-0.5b-instruct-q4_k_m.gguf
 setup() {
-  need_models "$Q8" "$Q4"
+  # stop and fresh must work even when the models are gone (SKIP_MODELS=1); every other step needs them.
+  [ -n "${SKIP_MODELS:-}" ] || need_models "$Q8" "$Q4"
   mkdir -p "$S"
   cp "$D"/demos/s08-liar/*.sh "$S"/ && chmod u+w "$S"/*.sh
   mkdir -p "$S/redteam" && cp "$D/demos/s08-liar/redteam/selective-log.patch" "$S/redteam/"   # step 6 quotes it
@@ -19,12 +20,14 @@ setup() {
   # hard-link (01-start.sh) must be a real file on this volume: a hard link to the downloaded one.
   [ -L "$S/models" ] && rm "$S/models"
   mkdir -p "$S/models"
+  [ -n "${SKIP_MODELS:-}" ] || {
   [ "$S/models/$Q8" -ef "$MODELS/$Q8" ] || { rm -f "$S/models/$Q8"; ln "$MODELS/$Q8" "$S/models/$Q8" || cp "$MODELS/$Q8" "$S/models/$Q8"; }
   ln -sfn "$MODELS/$Q4" "$S/models/$Q4"
+  }
   echo "S08 is set up in $S. Next: devcon8 s08 start (up to a few minutes per node on a laptop CPU)."
 }
 # Every step refreshes the scripts from this image first, so an upgraded image never runs old copies.
-step() { setup >/dev/null; cd "$S" && exec "./$1" "${@:2}"; }
+step() { case $1 in 99-stop.sh|00-fresh.sh) SKIP_MODELS=1 setup >/dev/null ;; *) setup >/dev/null ;; esac; cd "$S" && exec "./$1" "${@:2}"; }
 case "${1:-help}" in
   setup) setup ;;
   fresh) step 00-fresh.sh ;; start) step 01-start.sh ;; lie) step 02-lie.sh ;;

@@ -18,8 +18,10 @@ done
 . "$(dirname "$0")/../versions.lock"
 mkdir -p "$out/models"
 for pair in "$Q8_FILE:$Q8_SHA256" "$Q4_FILE:$Q4_SHA256"; do
-  f=${pair%%:*}
+  f=${pair%%:*} want=${pair##*:}
   curl -fL --retry 5 -C - -o "$out/models/$f" "https://huggingface.co/$HF_REPO/resolve/$HF_REV/$f"
+  got=$(if command -v sha256sum >/dev/null; then sha256sum "$out/models/$f"; else shasum -a 256 "$out/models/$f"; fi | cut -d' ' -f1)
+  [ "$got" = "$want" ] || { echo "$f failed its sha256 check" >&2; exit 1; }
 done
 # macOS has no sha256sum; shasum -a 256 prints the same format.
 if command -v sha256sum >/dev/null; then sum=(sha256sum); else sum=(shasum -a 256); fi

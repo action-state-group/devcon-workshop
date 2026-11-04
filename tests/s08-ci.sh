@@ -4,6 +4,7 @@
 # Run inside the image: docker run --rm IMAGE /opt/devcon8/tests/s08-ci.sh
 set -uo pipefail
 fail() { echo "FAIL $*" >&2; devcon8 s08 stop >/dev/null 2>&1; exit 1; }
+devcon8 models > /tmp/models.log 2>&1 || { tail -5 /tmp/models.log; fail "models"; }
 devcon8 s08 setup >/dev/null || fail "setup"
 timeout 1200 devcon8 s08 start > /tmp/start.log 2>&1 || { tail -20 /tmp/start.log; fail "start"; }
 echo "ok   start: four nodes up"
