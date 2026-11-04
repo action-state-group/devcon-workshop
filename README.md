@@ -411,7 +411,7 @@ line in "Start"; the `devcon8-home` volume keeps your state.
 `docker start -ai devcon8` (or `devcon8b`); logins, mailbox and deals are on the volume. `docker exec -it devcon8 bash`
 opens another shell in a running container.
 
-**Known gaps.** See the note under step 7 (History card, presentation assets, masked errors).
+**History card and known gaps.** See "Your History card" under step 7.
 
 **Clean up.** `docker rm -f devcon8 devcon8b` removes the containers and keeps the volumes (and their disk). To forget the logins,
 mailboxes and deals too, and to start over with different emails, run:
