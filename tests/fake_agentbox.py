@@ -7,10 +7,12 @@ import json, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 state = {"key_verified": False, "on_duty": False}
-if sys.argv[3:] == ["verified"]:
+if sys.argv[3:4] == ["verified"]:
     state.update(key_verified=True, on_duty=True)
 # "lenient": duty is granted even to an unverified key (a gateway that answers "already yours").
 lenient = sys.argv[3:] == ["lenient"]
+# "inbox500": the inbox answers HTTP 500 (a transient gateway failure).
+inbox500 = sys.argv[3:] == ["verified", "inbox500"]
 
 
 class H(BaseHTTPRequestHandler):
@@ -40,6 +42,13 @@ class H(BaseHTTPRequestHandler):
             return self.reply(200 if ok else 404, {"entry": {"extensions": {"org.projectnanda": {"status": "active"}}}} if ok else {"error": "not_found"})
         if self.path == "/api/agent/mailboxes/m1":
             return self.reply(200, {"mailbox": {"id": "m1", "verified": True}, "discovery": {"orgId": "o1", "status": "indexed"}})
+        if self.path.startswith("/api/v1/inbox"):
+            if inbox500:
+                return self.reply(500, {"error": "boom"})
+            # Seven messages of history from an earlier run, paged like the gateway: after=<seq>&limit=<n>.
+            q = dict(kv.split("=") for kv in self.path.split("?", 1)[1].split("&"))
+            after, limit = int(q.get("after", 0)), int(q.get("limit", 10))
+            return self.reply(200, {"messages": [{"seq": n, "kind": "general"} for n in range(1, 8) if n > after][:limit]})
         if self.path == "/api/v1/me":
             return self.reply(200, {"onDuty": state["on_duty"]})
         self.reply(404, {"error": "no route"})

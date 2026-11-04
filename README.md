@@ -201,7 +201,7 @@ a new volume or another laptop, run the same command with the same email:
 It asks "Create the mailbox for ...?" (it says Create even for a mailbox that exists): answer `y`. The gateway returns your existing mailbox (the same address, and no
 second listing in the NANDA Index) with a new key, emails a new six-digit code to the same address, and asks you for
 it. Checked on 2026-11-04 on a local build of the v4 sources. Only one container answers for the mailbox at a time: the one that ran
-`devcon8 nanda` last takes over, and the older container can still read the mailbox but no longer answers from it.
+`devcon8 nanda` last takes over, and the older container can still read the mailbox but no longer answers from it. On a new volume it also starts your agent after the mailbox's newest message, so messages from earlier runs are not replayed into `devcon8 trade`.
 
 ### 7. `devcon8 trade [--buy <address>] [--pay lexe]`: the trading agent
 
