@@ -229,8 +229,10 @@ Remove old containers of these names from earlier tries (your volumes, logins an
 
     docker rm -f devcon8 devcon8b
 
+(On a first try it prints "No such container"; that is fine.)
+
 **1. The seller, terminal 1.** The trade runs over Agent Box mailboxes, not over mesh-llm, so neither container publishes a port
-(http://127.0.0.1:3141 is the mesh-llm node console and only has something after `devcon8 join`):
+(port 3141 in the steps above is the mesh-llm node console, which this trade does not use):
 
     docker run -it --name devcon8 -v devcon8-home:/home/participant ghcr.io/action-state-group/devcon-workshop:latest
 
@@ -288,7 +290,8 @@ opens another shell in a running container.
 
 **Clean up.** `docker rm -f devcon8 devcon8b` removes the containers and keeps the volumes. To forget the logins, mailboxes and
 deals too, and to start over with different emails, also run `docker volume rm devcon8-home devcon8b-home`. If you listed a
-mailbox you will not use again, run `devcon8 nanda leave` first (permanent; see "Leaving the NANDA Index").
+mailbox you will not use again, run `devcon8 nanda leave` inside its container before you remove the container (permanent; see
+"Leaving the NANDA Index").
 
 ### 8. `devcon8 go-seal`: the Go SDK example
 
