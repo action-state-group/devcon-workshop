@@ -447,6 +447,39 @@ A receipt takes only a `deal-...` id; `deal report` refuses a `sale-...` id.
 
 The deals themselves are in `~/.local/share/capsule-deal` and the files in `~/deals/` inside each container (the buyer's `sticker.png` is there).
 
+### Make your History card
+
+Your History card counts your deals as of a checkpoint, with no deal's content. The commands are the ones in "Your History card" under
+step 7. Run them in the container that holds the deals (`devcon8`, or `devcon8b` for the buyer), after at least one deal has closed.
+Nothing in this section has been run end to end yet.
+
+**1. Once per profile**, inside the container, say who holds the card:
+
+    capsulectl --profile deal deal standard-history declare --holder-kind person
+
+**2. Each time you want a new card**, cut a checkpoint first (the card is as of your newest one), then write the card and its page.
+`card --out` and `presentation build --out` take a **new** file, so give each card its own name:
+
+    capsulectl --profile deal deal tick
+    capsulectl --profile deal deal standard-history card --out ~/deals/card1.bundle
+    capsulectl presentation build --bundle ~/deals/card1.bundle --out ~/deals/card1.html
+
+If `card` says "the History card was not built: ...", the line names what to do (for example run `deal tick`, then ask again).
+`presentation build` writes the page only when the bundle verifies as VALID.
+
+**3. From your Mac terminal**, all of that and the opening in one command (the file name uses the time, so each run is new):
+
+    docker exec devcon8 bash -lc 'f=~/deals/card-$(date +%s); capsulectl --profile deal deal tick >/dev/null && capsulectl --profile deal deal standard-history card --out $f.bundle && capsulectl presentation build --bundle $f.bundle --out $f.html >/dev/null && cp $f.html ~/history-card.html' && docker cp devcon8:/home/participant/history-card.html . && open history-card.html
+
+(The first time, run step 1 inside the container.)
+
+**4. Your copy and the copy you send.** The card above is your own copy: it holds the deal entries it counts. To hand the card to
+someone else, write the shared copy, which has the card, its policy and its anchor but not the deal entries:
+
+    capsulectl --profile deal deal standard-history card --shared --out ~/deals/card1-shared.bundle
+
+**5. What it shows.** A Lightning (`--pay lexe`) deal is counted as BTC in msat. The workshop trade does not compare your record of a deal with the other side's, so every deal on your card shows "we couldn't tell". That means no comparison was made, not that the trade failed.
+
 ### 8. `devcon8 go-seal`: the Go SDK example
 
 Copies `examples/go-seal` to `~/go-seal` (once), builds it offline and runs it: it opens a book on disk,
