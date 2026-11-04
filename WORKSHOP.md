@@ -200,6 +200,7 @@ devcon8 s08 referee    # the asker's plugin asks a referee; the referee signs a 
 devcon8 s08 show       # the lie and the verdict, as files
 devcon8 s08 omit       # second hack: the liar answers everything but logs only every second exchange
 devcon8 s08 count      # the asker sends the liar 6 requests
+devcon8 s08 ask        # step 8: the asker sends the liar a signed evidence request
 ```
 
 Watch it on the asker's Evidence page: **http://127.0.0.1:9614/plugins/capsules/evidence**.
@@ -259,7 +260,7 @@ anyone runs on the log alone.
 After `count`, the asker's Exchanges tab shows the gap. Each of the 6 exchanges has the asker's own
 sealed half, but only some have "Theirs ● confirmed". Every other row has no other side.
 
-**Step 8 on the Evidence page.** On a row with no other side, click **Ask for their record**. The
+**Step 8, on the Evidence page** (or `devcon8 s08 ask`). On a row with no other side, click **Ask for their record**. The
 asker sends the liar a signed evidence request for that one exchange, naming the request and answer
 digests from its own half. The liar has two choices, and both are signed: hand over a record it
 never made, or say it has none. It says:
