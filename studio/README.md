@@ -7,7 +7,7 @@ What it adds:
 
 - `studio.yaml`, the sticker trader recipe plus a Studio section: goose may read the
   `terms-pack-author` skill and run `terms <verb>`; everything `terms` writes goes under `~/studio`. It is generated
-  from `trader.yaml` by `studio/build-recipe.py` (CI fails if the committed file is stale), so the
+  from `trader.yaml` by `studio/build-recipe.py`, which adds the Studio section, its permissions and a start-up that does not wait on the mailbox until you ask to sell (CI fails if the committed file is stale), so the
   trading protocol exists once.
 - `terms <verb>` (lint, test, run, compare, publish, ...), the evidencebook-skills scripts at the commit
   pinned in `versions.lock`, run with PyYAML from a venv under `/opt/devcon8/studio`, and the checkout sits under capsulectl's trusted plugin root (`/usr/local/lib/capsulectl/plugins/terms-pack-studio`).
@@ -41,9 +41,18 @@ Inside the container: `devcon8 brain claude` (a Claude subscription login; no AP
 a second run changes nothing; if it fails, delete `~/studio/replay` and run `devcon8-studio replay` again), then `devcon8-studio`. Rehearsal pages and Result JSON land in
 `~/devcon8-studio` on your laptop (mounted at `~/studio`), so you open them from the browser.
 
+`devcon8-studio` greets you with your agent's address and asks whether you want to write terms or sell. Unlike
+`devcon8 trade` it does not wait for buyers at start-up (steps 1-3 need no mailbox): type your first request. It
+starts waiting on the mailbox, in the foreground, only when you ask it to sell (step 4), and keeps waiting between
+deals. (`devcon8-studio --buy <address>` is different: a purchase starts at once and waits for the shop's reply.) While it waits, press Ctrl-C once: that stops the agent's turn, even while it waits on the mailbox, and you can type again (the agent goes back
+to waiting afterwards if you had asked it to sell). To end the run, press Ctrl-C twice at the empty prompt (the first
+prints "Press Ctrl+C again to exit", the second "session closed"). This relies on the goose patch
+`patches/goose-acp-cancel-abandoned-prompt.patch`, which the image built from this repository carries.
+
 ## Tests
 
 - `python3 -I tests/test_build_recipe.py` and `python3 studio/build-recipe.py --check`
-- `tests/studio-recipe.sh` renders `studio.yaml` with goose in both payment modes (CI runs it in the image)
+- `tests/studio-recipe.sh` renders `studio.yaml` with goose in both payment modes and checks that Studio does not start the mailbox wait while the trader does (CI runs it in the image)
+- `tests/goose-cancel.sh` (in the workshop image): Ctrl-C ends a running agent turn and the next typed line reaches the agent
 - `tests/studio-layer.sh` checks the layer's contents (inside the built layer)
 - `tests/studio-e2e.sh` runs demo steps 1-4 without a model over `devcon8-studio replay` (inside the built layer; CI runs it)

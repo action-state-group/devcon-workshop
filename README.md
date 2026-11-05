@@ -383,7 +383,7 @@ they give you. It buys only from that address, never from search results.
   payment the agent runs a final check. Only when that check pauses ("PAUSED FOR YOU", always for a Lightning payment) does
   the agent show you its card in the chat and seal your answer; say no and it holds. In the simulated trade the check can pass
   silently, with no card.
-- Ctrl-C: the first press interrupts the agent's turn. If the agent is busy (for example waiting on the mailbox), the second press prints "Press Ctrl+C again to exit" and the third makes goose print "session closed"; otherwise the second press ends the run. About a second after "session closed" you are back at the shell prompt. If it still hangs, close the terminal and use `docker start -ai devcon8`.
+- Ctrl-C: once stops the agent's turn, even while it waits on the mailbox, and you can type again. To end the run, press Ctrl-C twice at the empty prompt (the first prints "Press Ctrl+C again to exit", the second makes goose print "session closed"). About a second after "session closed" you are back at the shell prompt. If it still hangs, close the terminal and use `docker start -ai devcon8`.
 - It keeps checking its mailbox while it waits for buyers. If it stops and goes quiet, tell it to
   keep waiting ("keep checking the mailbox").
 - **The payment is simulated** unless you add `--pay lexe`. It is an x402 payment recorded against Base
@@ -452,7 +452,7 @@ its sha256 and confirms; both agents close their deals.
 
 - If one side goes quiet, type: `keep checking the mailbox`
 - If both seem to wait, tell the buyer: `Buy one digital fox sticker from <seller address> now`
-- Ctrl-C: once interrupts the turn goose is on; when the agent is busy it takes three presses (the second prints "Press Ctrl+C again to exit", the third "session closed"), then you are back at your shell within about a second.
+- Ctrl-C: once stops the turn goose is on, and you can type again; to end the run, press Ctrl-C twice at the empty prompt (the first prints "Press Ctrl+C again to exit", the second "session closed"), then you are back at your shell within about a second.
 
 **4. See the result.** Follow "Find your deals and make a receipt" below (seller: `devcon8`; buyer: `devcon8b`).
 
@@ -661,7 +661,7 @@ The image builds the same commit with the same recipes, but its bytes are its ow
 | lexe-wallet plugin | built here from [lexe-wallet-plugin#7](https://github.com/Mesh-LLM/lexe-wallet-plugin/pull/7) (`feat/settled-preimage`, commit `9f830c1`), which reports a settled payment's preimage |
 | S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.15 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook v0.12.2 |
 | capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc36` releases (`versions.lock`; deal carries `capsulectl deal terms-leg`, seals a Lightning payment received and states it in msat) |
-| goose (built from its v1.57.0 commit plus `patches/`, aaif-goose/goose#13273), Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
+| goose (built from its v1.57.0 commit plus `patches/`, aaif-goose/goose#13273 and #10619), Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
 | evidencebook Go SDK | v0.12.2, Go 1.27 |
 | models (not in the image; `devcon8 models` downloads them) | Qwen2.5-0.5B-Instruct GGUF, Q8_0 and Q4_K_M, pinned in `versions.lock` |
 

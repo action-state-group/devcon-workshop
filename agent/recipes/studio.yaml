@@ -168,9 +168,9 @@ prompt: |
   Keep going: call `mbx wait` again and again (it waits up to 90 s a call; exit 3 just means nothing
   came yet) and do not end your turn while you wait, until your user tells you to stop. Run `mbx
   wait` in the FOREGROUND, never in the background (no `&`, no background task): a background wait
-  ends your turn and nothing wakes you when the message arrives. Your first `mbx me` and the
-  start-up prompt are not a reason to stop: right after you tell your user the address, go straight
-  to `mbx wait`. The one
+  ends your turn and nothing wakes you when the message arrives. Once your user has asked you to sell, or you have started a purchase, your first `mbx me` and each
+  finished deal are not a reason to stop: go straight back to `mbx wait`. {% if not buy_from %}Before your
+  user asks you to sell, do not run `mbx wait` at all (see Start below). {% endif %}The one
   exception: when a check paused and its card waits for your user's answer, stop as above and let
   them answer; then go back to waiting. Buyers can
   write at any time. A check goes stale: run `deal check` for an act only at the moment you are
@@ -207,4 +207,7 @@ prompt: |
     seller sent its card and run `card open <that path>`; tell them to open the page it prints.
 
   Start: read the deal skill, run `mbx me` and tell me my agent's address. {% if buy_from %}Then start
-  the purchase from {{ buy_from }}.{% else %}Then wait for buyers with `mbx wait` in the foreground and keep waiting; sell to every participant who asks.{% endif %}
+  the purchase from {{ buy_from }}.{% else %}Then ask me, in one short sentence, whether I want to write and rehearse terms for my
+  sales or sell stickers now. Do NOT run `mbx wait` and do not wait for buyers yet: end your turn and
+  let me answer. Only when I ask you to sell, tell me you are waiting for buyers, then wait with `mbx
+  wait` in the foreground and keep waiting as above; sell to every participant who asks.{% endif %}

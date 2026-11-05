@@ -54,10 +54,13 @@ BOOK_SHA256_AMD64=a659dedf3a19b9257ecb4dcee91ce23b8c0844d6dd4823fb6ee96d5f084ecb
 BOOK_SHA256_ARM64=253620b205d41e806ced7794e15f712bfb48e2f9e9e7fd9ff3617a30a8d0fb9d
 BOOK_HISTORY_SHA256=3c0edca28e78e3bb1ef9603669afc731b1f816d271aaa4d41b64d8b40cab53ab
 
-# goose: built from source at the v1.57.0 commit plus patches/goose-acp-approval-card-once.patch
-# (aaif-goose/goose#13273: in approve mode an ACP provider's approval card came back after the turn and
-# answering it exited goose with "tool confirmation request was already answered"). Back to the release
-# tarball once a goose release carries the fix.
+# goose: built from source at the v1.57.0 commit plus patches/goose-*.patch:
+# - goose-acp-approval-card-once.patch (aaif-goose/goose#13273: in approve mode an ACP provider's approval
+#   card came back after the turn and answering it exited goose with "tool confirmation request was already
+#   answered");
+# - goose-acp-cancel-abandoned-prompt.patch (aaif-goose/goose#10619: Ctrl-C never told the ACP agent to stop,
+#   so a looping `mbx wait` turn never ended and the next typed line queued behind it).
+# Back to the release tarball once a goose release carries both fixes.
 GOOSE_REPO=https://github.com/aaif-goose/goose
 GOOSE_VERSION=v1.57.0
 GOOSE_SHA=30bba95105e59bc3e7df624cf6b4d433690cfe12
