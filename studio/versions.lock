@@ -3,16 +3,16 @@
 # and is never published as `latest`.
 
 # The workshop image the layer is built on: an immutable index digest, never `latest`.
-# (v4: tag 20261104-ml1aba71d-cap0.1.15-b7e05594.139.)
-STUDIO_BASE=ghcr.io/action-state-group/devcon-workshop@sha256:fde3ab1193e7446dd2d4cbc379fcf3a1b7424e14cb9f30d8164028ae13f31d7c
+# (workshop latest 20261104-ml1aba71d-cap0.1.15-baa6ac30.215, a linux/amd64 + linux/arm64 index of main aa6ac30: Ctrl-C fix, capsulectl and capsulectl-deal rc35.)
+STUDIO_BASE=ghcr.io/action-state-group/devcon-workshop@sha256:41de955092337a4761a20b115ccea3f0cb0f53642c5f8d450eef6c26c4e3a51f
 
 # The Terms Pack Studio scripts and the terms-pack-author skill: evidencebook-skills at a commit.
 STUDIO_SKILLS_REPO=https://github.com/action-state-group/evidencebook-skills
-STUDIO_SKILLS_COMMIT=0d9fe7dcaa1df74341dd8eab506adb510324e618
+STUDIO_SKILLS_COMMIT=9059cab4156e0524a74fa3c392f2b0a83f1e5ec0
 # Path of the `terms <verb>` entry point inside that checkout.
 STUDIO_TERMS_ENTRY=scripts/studio/terms
 
-# Test only (tests/studio-e2e.sh, not in the image): the evidencebook-deal checkout that holds the
-# ten-sticker-trade replay (scripts/studio-replay.sh, testdata/studio/sticker-trades.json).
+# The ten-sticker-trade replay the presenter runs once before step 1 (`devcon8-studio replay`):
+# evidencebook-deal's scripts/studio-replay.sh and testdata/studio/ at this commit.
 STUDIO_DEAL_REPO=https://github.com/action-state-group/evidencebook-deal
 STUDIO_DEAL_COMMIT=8da40a2f7436b0c6d1ec8cfe3b692e625d33f4b2

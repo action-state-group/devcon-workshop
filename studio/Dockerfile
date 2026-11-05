@@ -8,6 +8,8 @@ USER root
 ARG STUDIO_SKILLS_REPO
 ARG STUDIO_SKILLS_COMMIT
 ARG STUDIO_TERMS_ENTRY
+ARG STUDIO_DEAL_REPO
+ARG STUDIO_DEAL_COMMIT
 COPY studio/requirements.txt /tmp/studio-requirements.txt
 # A venv, not the system Python: Ubuntu's Python is externally managed.
 RUN apt-get update && apt-get install -y --no-install-recommends python3-venv \
@@ -25,6 +27,14 @@ RUN mkdir -p /usr/local/lib/capsulectl/plugins \
     && test -x "/usr/local/lib/capsulectl/plugins/terms-pack-studio/$STUDIO_TERMS_ENTRY" \
     && mkdir -p /opt/devcon8/agent/skills \
     && cp -r /usr/local/lib/capsulectl/plugins/terms-pack-studio/skills/terms-pack-author /opt/devcon8/agent/skills/terms-pack-author
+# The past sales for step 1: evidencebook-deal's replay script and fixture, run by `devcon8-studio replay`.
+RUN git clone --filter=blob:none "$STUDIO_DEAL_REPO" /tmp/deal \
+    && git -C /tmp/deal checkout --detach "$STUDIO_DEAL_COMMIT" \
+    && mkdir -p /opt/devcon8/studio/replay/scripts /opt/devcon8/studio/replay/testdata \
+    && cp /tmp/deal/scripts/studio-replay.sh /opt/devcon8/studio/replay/scripts/ \
+    && cp -r /tmp/deal/testdata/studio /opt/devcon8/studio/replay/testdata/studio \
+    && test -s /opt/devcon8/studio/replay/testdata/studio/sticker-trades.json \
+    && rm -rf /tmp/deal
 # devcon8 trade runs trader.yaml; in the layer only, let TRADE_RECIPE name another recipe. The edit fails
 # the build if trade.sh no longer has the line, and the base image's file is not changed.
 RUN sed -i 's#--recipe "$D/agent/recipes/trader.yaml"#--recipe "${TRADE_RECIPE:-$D/agent/recipes/trader.yaml}"#' /opt/devcon8/lib/trade.sh \
