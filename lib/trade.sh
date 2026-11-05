@@ -55,7 +55,7 @@ else
   echo "Payment in this run is SIMULATED: no money moves. Offers, commitments and payments still stop for your answer in the chat."
 fi
 mode=${DEVCON8_GOOSE_MODE:-auto}
-echo "Ctrl-C interrupts a turn; at the empty prompt press it twice more and the run ends."
+echo "Ctrl-C stops a turn; press it twice at the empty prompt to end the run."
 args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive --params "pay=$pay")
 [ -n "$buy" ] && args+=(--params "buy_from=$buy")
 # goose runs under `script`, which logs what it prints. After "session closed" goose can stay alive

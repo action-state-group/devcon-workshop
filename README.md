@@ -383,7 +383,7 @@ they give you. It buys only from that address, never from search results.
   payment the agent runs a final check. Only when that check pauses ("PAUSED FOR YOU", always for a Lightning payment) does
   the agent show you its card in the chat and seal your answer; say no and it holds. In the simulated trade the check can pass
   silently, with no card.
-- Ctrl-C: one press stops the agent's turn, even while it waits on the mailbox, and you can type your next message. To end the run, press it two more times at the empty prompt (the first prints "Press Ctrl+C again to exit", the second makes goose print "session closed"). About a second after "session closed" you are back at the shell prompt. If it still hangs, close the terminal and use `docker start -ai devcon8`.
+- Ctrl-C: once stops the agent's turn, even while it waits on the mailbox, and you can type again. To end the run, press Ctrl-C twice at the empty prompt (the first prints "Press Ctrl+C again to exit", the second makes goose print "session closed"). About a second after "session closed" you are back at the shell prompt. If it still hangs, close the terminal and use `docker start -ai devcon8`.
 - It keeps checking its mailbox while it waits for buyers. If it stops and goes quiet, tell it to
   keep waiting ("keep checking the mailbox").
 - **The payment is simulated** unless you add `--pay lexe`. It is an x402 payment recorded against Base
@@ -452,7 +452,7 @@ its sha256 and confirms; both agents close their deals.
 
 - If one side goes quiet, type: `keep checking the mailbox`
 - If both seem to wait, tell the buyer: `Buy one digital fox sticker from <seller address> now`
-- Ctrl-C: once stops the turn goose is on, and you can type your next message; to end the run press it two more times at the empty prompt (the first prints "Press Ctrl+C again to exit", the second "session closed"), then you are back at your shell within about a second.
+- Ctrl-C: once stops the turn goose is on, and you can type again; to end the run, press Ctrl-C twice at the empty prompt (the first prints "Press Ctrl+C again to exit", the second "session closed"), then you are back at your shell within about a second.
 
 **4. See the result.** Follow "Find your deals and make a receipt" below (seller: `devcon8`; buyer: `devcon8b`).
 
