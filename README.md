@@ -29,7 +29,7 @@ This is checked in `bin/devcon8` and `lib/*.sh`. There is no one order to run th
 | Mesh: join | `devcon8 join`, `devcon8 node`, `devcon8 brain mesh` | The invite you are handed at the workshop, a network to the demo mesh, port 3141 published for the console | Models, any login. `brain mesh` needs the running node, so `join` first |
 | Mesh: S08 | `devcon8 models`, then `devcon8 s08 ...` | The two model files (`models` downloads 1.1 GB from huggingface.co, or copies them from the USB stick), ports 9611-9614 published for the Evidence pages | The invite, any login. The four nodes are on a private mesh inside the container |
 | Goose | `devcon8 brain claude\|codex`, `devcon8 nanda <email>`, then `devcon8 trade` | A Claude or ChatGPT login (`brain`), an email address that can receive a six-digit code (`nanda`), a network to Agent Box and the NANDA Index. `trade` needs both `brain claude\|codex` and `nanda` done first | The invite, the models, any published port |
-| Goose, real Lightning (optional) | `devcon8 wallet`, `devcon8 lightning --price-sats P --per-payment-sats N --total-sats T`, `devcon8 trade --pay lexe` | Everything the goose demo needs, plus your own lexe wallet and your caps set with `devcon8 lightning` (`trade --pay lexe` refuses without them); to buy, sats in the wallet (real money), and selling needs no funds | The mesh node: `--pay lexe` runs through `lexe-sidecar`, with no `join` |
+| Goose, real Lightning (optional; `latest`, not the slim tag) | `devcon8 wallet`, `devcon8 lightning --price-sats P --per-payment-sats N --total-sats T`, `devcon8 trade --pay lexe` | Everything the goose demo needs, plus your own lexe wallet and your caps set with `devcon8 lightning` (`trade --pay lexe` refuses without them); to buy, sats in the wallet (real money), and selling needs no funds | The mesh node: `--pay lexe` runs through `lexe-sidecar`, with no `join` |
 | Go SDK | `devcon8 go-seal` | The container only. It builds offline. | A network, logins, models |
 
 Go to: [setup](#shared-setup), [the mesh demo](#the-mesh-demo), [the goose demo](#the-goose-demo), [the Go SDK example](#the-go-sdk-example),
@@ -50,11 +50,12 @@ If you have both Colima and Docker Desktop: run `docker context ls`; if the star
 
 Docker keeps images, containers and volumes in one disk (Docker Desktop: a disk image; Colima: a VM disk), and it is the
 free space *inside* that disk that counts, not your laptop's. The image no longer carries the two S08 model files: `devcon8 models`
+downloads them into your volume. The "Final image" row (`sha256:65a0b8cd…`, built from main `006fb29`) was measured on arm64; the current `latest` and amd64 were not remeasured. The "Nov 4 build with models" row is the older image, for comparison:
 
 | What | Download | On disk once loaded |
 |---|---|---|
 | Full image, Nov 4 build with models | 1.9 GB | 3.2 GB |
-| Final image, no models (arm64) | 0.74 GB | 2.1 GB |
+| Final image, no models (arm64, main `006fb29`) | 0.74 GB | 2.1 GB |
 | Slim `v4-goose` | 0.63 GB | 1.9 GB |
 | S08 models (`devcon8 models`, only for S08 and the mesh steps) | 1.1 GB, once | 1.1 GB on the volume |
 | USB stick path | one tarball (size not measured yet; `docker save` does not compress), then `docker load` | tarball + loaded image; delete `~/devcon8-usb` afterwards |
@@ -120,7 +121,7 @@ the `docker run` in "Start".
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
       ghcr.io/action-state-group/devcon-workshop:latest
 
-(Or the v4 tag or `@sha256:fde3ab11…` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
+You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
 The three `-p` flags are for the mesh demo only: the console on laptop port 3141 (`join`), S02 on 8080 (`s02`) and the S08 Evidence pages on 9611-9614 (`s08`). The goose demo publishes no port, so you can leave them out of its `docker run`.
 If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then `docker pull` the image again and run the `docker run` above (a local copy of `latest` from before Nov 4 is an older image, and `docker run` does not update it); your `devcon8-home` volume keeps your state.
@@ -324,7 +325,7 @@ without the models, mesh-llm and its plugins, and S08.
 
     docker run -it --name devcon8 -v devcon8-home:/home/participant ghcr.io/action-state-group/devcon-workshop:v4-goose
 
-- **Works** (run on the 2026-11-04 tag; `brain claude|codex` and `nanda` need a login or email code and were not run on it): `doctor`, `go-seal`, and `s02` (it serves on port 8080, so add `-p 127.0.0.1:8080:8080` to the run line to open it). `trade` starts only after `nanda`.
+- **Works** (run on the 2026-11-04 tag; `brain claude|codex` and `nanda` need a login or email code and were not run on it): `doctor`, `go-seal`, and `s02` (it serves on port 8080, so add `-p 127.0.0.1:8080:8080` to the run line to open it). `trade` starts only after `nanda`. `devcon8 wallet` and `trade --pay lexe` need `latest`: this tag answers `wallet` with "your node is not running", so use it for the simulated trade only.
 - **Does not work:** `join` (it accepts an invite, then fails with `cat: /opt/devcon8/mesh/capsules.version: No such file or directory`), `node`, `wallet` ("your node is not running"), `s08` (`/opt/devcon8/lib/s08.sh: No such file or directory`), `brain mesh` (not offered), and the console on port 3141.
 - It is a derived tag of v4 (not rebuilt by CI) and does not move with `latest`. On Nov 4 its `devcon8 trade` script is the same as `latest`'s (auto mode, `DEVCON8_GOOSE_MODE`, goose run as a child for Ctrl-C); a later `latest` may get fixes it lacks.
 
