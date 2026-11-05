@@ -110,6 +110,6 @@ PY
   conv=$(basename "$(dirname "$f")")
   [[ $conv =~ ^[A-Za-z0-9_-]{1,128}$ ]] || conv=received
   page "$f" "$OUT/from-$conv.html"
-  echo "card: the staple is signed by key ${key:0:16}... and the bundle's card is the stapled card. The seller's identity is not checked: your own deal holds no key for the seller, so this key comes from the card itself." >&2 ;;
+  echo "card: signed by key ${key:0:8}…, and the bundle's card is the stapled card. Not checked: that this key is the seller's. Your deal doesn't record the seller's key, so it comes from the card itself." >&2 ;;
 *) sed -n '2,/^set -/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
 esac
