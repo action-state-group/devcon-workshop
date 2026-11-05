@@ -1,42 +1,63 @@
 # Devcon 8 workshop image
 
 One container you run on your own laptop for the Devcon 8 S08 workshop (held on Tue Nov 3, 15:00-16:00 IST, 09:30-10:30 UTC;
-the steps still work for anyone running them later). It lets you:
+the steps still work for anyone running them later). It holds two demos and a Go example, and you can run any one of them
+without the others:
 
-- run a node on the workshop's demo mesh, on the lab build of [mesh-llm](https://github.com/Mesh-LLM/mesh-llm) the demo nodes run
-  with the capsules (evidence) and lexe-wallet plugins;
-- replay two demos: the S02 two-sided settlement record (offline), and S08, where a node lies about
-  its model and is caught by its twin and a referee (four nodes, all inside your container);
-- run an agent that trades a digital sticker with other participants' agents. It finds them through
+- **The mesh demo.** Run a node on the workshop's demo mesh, on the lab build of [mesh-llm](https://github.com/Mesh-LLM/mesh-llm) the demo nodes run
+  with the capsules (evidence) and lexe-wallet plugins; replay the S02 two-sided settlement record (offline); and replay S08, where a node lies about
+  its model and is caught by its twin and a referee (four nodes, all inside your container).
+- **The goose demo.** Run an agent that trades a digital sticker with other participants' agents. It finds them through
   the [NANDA Index](https://nandaindex.org), messages them through its own [Agent Box](https://agentboxnanda.org)
   mailbox, and seals every step with `capsulectl deal`. The payment is **simulated** by default: no money
   moves. With your own lexe wallet you can pay in real Lightning instead (optional, real money).
-- start from a short Go program on the [evidencebook](https://github.com/action-state-group/evidencebook)
+- **The Go SDK example.** Start from a short Go program on the [evidencebook](https://github.com/action-state-group/evidencebook)
   SDK.
 
-New here? [WORKSHOP.md](WORKSHOP.md) walks through the workshop step by step, with screenshots.
+New here? [WORKSHOP.md](WORKSHOP.md) walks through the mesh demo step by step, with screenshots.
 
-Inference runs on your CPU (Docker on a Mac has no GPU access). The image is 0.74 GB to download and 2.1 GB on disk (arm64), plus 1.1 GB of model files you download only for S08.
+Inference runs on your CPU (Docker on a Mac has no GPU access). The image is 0.74 GB to download and 2.1 GB on disk (arm64; measured on the build from main `006fb29`, not remeasured on the current `latest` or on amd64), plus 1.1 GB of model files you download only for S08.
 
-## Before the workshop
+## What each demo needs
+
+This is checked in `bin/devcon8` and `lib/*.sh`. There is no one order to run the commands in. The dependencies between commands are in this table; a few later ones are stated where they apply (`devcon8 wallet node` needs `join`; `deal list` and the History card need a closed deal).
+
+| Demo | Commands | Needs | Does not need |
+|---|---|---|---|
+| Setup (both demos) | `docker pull`, `docker run`, `devcon8 doctor` | Docker with 8 GB of memory, free disk (see "Disk space"), a network for the pull (or the USB stick) | |
+| Mesh: S02 | `devcon8 s02` | The container with port 8080 published. Offline. | Models, the invite, any login |
+| Mesh: join | `devcon8 join`, `devcon8 node`, `devcon8 brain mesh` | The invite you are handed at the workshop, a network to the demo mesh, port 3141 published for the console | Models, any login. `brain mesh` needs the running node, so `join` first |
+| Mesh: S08 | `devcon8 models`, then `devcon8 s08 ...` | The two model files (`models` downloads 1.1 GB from huggingface.co, or copies them from the USB stick), ports 9611-9614 published for the Evidence pages | The invite, any login. The four nodes are on a private mesh inside the container |
+| Goose | `devcon8 brain claude\|codex`, `devcon8 nanda <email>`, then `devcon8 trade` | A Claude or ChatGPT login (`brain`), an email address that can receive a six-digit code (`nanda`), a network to Agent Box and the NANDA Index. `trade` needs both `brain claude\|codex` and `nanda` done first | The invite, the models, any published port |
+| Goose, real Lightning (optional; `latest`, not the slim tag) | `devcon8 wallet`, `devcon8 lightning --price-sats P --per-payment-sats N --total-sats T`, `devcon8 trade --pay lexe` | Everything the goose demo needs, plus your own lexe wallet and your caps set with `devcon8 lightning` (`trade --pay lexe` refuses without them); to buy, sats in the wallet (real money), and selling needs no funds | The mesh node: `--pay lexe` runs through `lexe-sidecar`, with no `join` |
+| Go SDK | `devcon8 go-seal` | The container only. It builds offline. | A network, logins, models |
+
+Go to: [setup](#shared-setup), [the mesh demo](#the-mesh-demo), [the goose demo](#the-goose-demo), [the Go SDK example](#the-go-sdk-example),
+[Terms Pack Studio](#terms-pack-studio), [what is in the image](#what-is-in-the-image), [publishing (maintainers)](#publishing-the-image-maintainers).
+
+## Shared setup
+
+Everything here is needed by every demo.
+
+### Before you start
 
 You need Docker (Docker Desktop on macOS or Windows, Docker Engine on Linux) with at least **8 GB of
 memory** for the container (Docker Desktop: Settings > Resources) and enough free disk (see "Disk space" below).
 If you have both Colima and Docker Desktop: run `docker context ls`; if the starred context is colima, run `docker context use desktop-linux`.
-**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. Today `latest` and the digest below are arm64 only (Apple Silicon Macs). An amd64 build follows; until then, amd64 laptops should use an Apple Silicon Mac.
+**Intel Macs are not supported.** Apple-silicon Macs use the `arm64` image; Windows and x86 Linux machines use `amd64`. `latest` is a multi-arch index with both: Docker picks yours.
 
 ### Disk space
 
 Docker keeps images, containers and volumes in one disk (Docker Desktop: a disk image; Colima: a VM disk), and it is the
 free space *inside* that disk that counts, not your laptop's. The image no longer carries the two S08 model files: `devcon8 models`
-downloads them into your volume. The final image (`sha256:65a0b8cd…`, built from main `006fb29`) was measured on arm64; amd64 follows. The "Nov 4 build with models" row is the older image, for comparison:
+downloads them into your volume. The "Final image" row (`sha256:65a0b8cd…`, built from main `006fb29`) was measured on arm64; the current `latest` and amd64 were not remeasured. The "Nov 4 build with models" row is the older image, for comparison:
 
 | What | Download | On disk once loaded |
 |---|---|---|
 | Full image, Nov 4 build with models | 1.9 GB | 3.2 GB |
-| Final image, no models (arm64) | 0.74 GB | 2.1 GB |
+| Final image, no models (arm64, main `006fb29`) | 0.74 GB | 2.1 GB |
 | Slim `v4-goose` | 0.63 GB | 1.9 GB |
-| S08 models (`devcon8 models`, only for S08 and the mesh steps) | 1.1 GB, once | 1.1 GB on the volume |
+| S08 models (`devcon8 models`, only for S08) | 1.1 GB, once | 1.1 GB on the volume |
 | USB stick path | one tarball (size not measured yet; `docker save` does not compress), then `docker load` | tarball + loaded image; delete `~/devcon8-usb` afterwards |
 | Each container (shell, nothing built) | - | about 15 MB |
 | Each volume (`devcon8-home`, after node, trades and logins) | - | about 120 MB without models; grows with use |
@@ -79,28 +100,31 @@ answers `volume is in use`, a container, even a stopped one, still uses it: `doc
 `docker rm -f` that container, then remove the volume. (Checked with a throwaway volume: Docker 29.5.2 prints that error and the
 filter lists the container, also for one that was never started.)
 
+### Pull the image
+
 Pull the image ahead of time. Conference wifi is slow:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
 
-`latest` moves only when a maintainer approves a publish of a tested build from main. On Nov 4 it is the build from main `006fb29` with goose in auto mode and no models (arm64-only index digest `sha256:65a0b8cd…`; an amd64 build follows and will change the digest, see "Containers, volumes and coming back" to check what you have). For a reproducible pull, use the digest:
+`latest` moves only when a maintainer approves a publish of a tested build from main. It is a multi-arch index (arm64 and amd64), `sha256:41de9550…`, built from main `aa6ac30` (its image revision label), with goose in auto mode and no models (check with `docker buildx imagetools inspect ghcr.io/action-state-group/devcon-workshop:latest`; see "Containers, volumes and coming back" to check what you have). For a reproducible pull, use the digest:
 
-    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:65a0b8cd7cec0c3b642a3106729924b7284c4779930398ea1eaf6db13497f7af
+    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:41de955092337a4761a20b115ccea3f0cb0f53642c5f8d450eef6c26c4e3a51f
 
 (The first v4 build, `…b7e05594.139` / `sha256:fde3ab11…`, asks before every goose tool call and can hang on Ctrl-C; do not use it.)
 
 No network at the venue? Use the USB stick: "From the USB stick (no network)" below replaces this pull and
 the `docker run` in "Start".
 
-## Start
+### Start
 
     docker run -it --name devcon8 -v devcon8-home:/home/participant \
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
       ghcr.io/action-state-group/devcon-workshop:latest
 
-(Or the v4 tag or `@sha256:fde3ab11…` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
+(Or the `@sha256:41de9550…` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
-The console is on port 3141 because Buzz Desktop uses 3131. Inside the container a small relay (port 3132) hands the console its requests from the container's own loopback, which mesh-llm requires for the console's plugin routes (the Evidence tab). A client node hides the Configuration tab by mesh-llm's design. If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then `docker pull` the image again and run the `docker run` above (a local copy of `latest` from before Nov 4 is an older image, and `docker run` does not update it); your `devcon8-home` volume keeps your state.
+The three `-p` flags are for the mesh demo only: the console on laptop port 3141 (`join`), S02 on 8080 (`s02`) and the S08 Evidence pages on 9611-9614 (`s08`). The goose demo publishes no port, so you can leave them out of its `docker run`.
+If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then `docker pull` the image again and run the `docker run` above (a local copy of `latest` from before Nov 4 is an older image, and `docker run` does not update it); your `devcon8-home` volume keeps your state.
 
 ### Containers, volumes and coming back
 
@@ -123,7 +147,7 @@ Exiting the first shell (`exit`, or Ctrl-D) stops the container. `docker run` wi
 
 **A local `latest` can be stale.** `docker run` never updates an image you already have, and a tag named `latest`
 on your laptop stays at whatever you pulled last. Pull again before every session, and check what you have against
-the registry's index digest (`sha256:65a0b8cd7cec…` on Nov 4, arm64 only). The two digests must match; the registry one comes from `docker buildx imagetools inspect ghcr.io/action-state-group/devcon-workshop:latest`. A stale tag also shows on start: the container prints `installed plugin capsules <version>`, and an older version than the one in "What is in the image" means an older image:
+the registry's index digest (`sha256:41de955092337a4761a20b115ccea3f0cb0f53642c5f8d450eef6c26c4e3a51f` for the multi-arch `latest`; on Nov 4 it was the arm64-only `sha256:65a0b8cd7cec…`). The two digests must match; the registry one comes from `docker buildx imagetools inspect ghcr.io/action-state-group/devcon-workshop:latest`. A stale tag also shows on start: the container prints `installed plugin capsules <version>`, and an older version than the one in "What is in the image" means an older image:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
     docker image inspect ghcr.io/action-state-group/devcon-workshop:latest --format '{{index .RepoDigests 0}}'
@@ -137,7 +161,7 @@ A running container keeps the image it started from. To move to a newer image: `
     devcon-workshop-<TAG>-arm64.tar    Apple-silicon Macs, Windows on Arm, arm64 Linux
     devcon-workshop-<TAG>-amd64.tar    Windows and x86 Linux
     SHA256SUMS
-    models/                                                                 the two S08 model files (1.1 GB, only for S08)
+    models/                                                                 the two S08 model files (1.1 GB, only for the mesh demo's S08)
 
 `docker run` cannot read a tarball: copy the one file for your laptop, check it, `docker load` it, then
 run the loaded tag. Each tarball is about 1.9 GB; loading takes 1 to 3 minutes and may print nothing until
@@ -197,33 +221,22 @@ amd64: the same line ending in `<TAG>-amd64`. In PowerShell write it on one line
 (without the `\` line ends). Then run `devcon8 doctor` in the shell you get. `No such image` means the load
 in step 4 did not finish, or the arch suffix differs from the one it printed.
 
-**S08 needs two model files** (1.1 GB). They are not in the image. With a network, `devcon8 models` downloads
-them into your volume. From the stick, copy its `models` folder next to the tarball in step 2
-(`cp -r "/Volumes/STICKNAME/models" ~/devcon8-usb/` on macOS), then, with the container running
-(`docker run` above, in another terminal), hand it to the container and load it:
 
-    docker cp ~/devcon8-usb/models devcon8:/tmp/
-    devcon8 models --from /tmp/models
+The stick's `models` folder is for S08 only; "S08 needs two model files" in the mesh demo says how to load it. Skip it if you only run the goose demo.
 
-`devcon8 models` checks each file's sha256 and skips files it already has. Skip this if you only run the trade.
-
-### The slim `v4-goose` image (trade only, 631 MB)
-
-For the sticker trade alone there is a smaller image, `ghcr.io/action-state-group/devcon-workshop:v4-goose`. It is v4
-without the models, mesh-llm and its plugins, and S08.
-
-    docker run -it --name devcon8 -v devcon8-home:/home/participant ghcr.io/action-state-group/devcon-workshop:v4-goose
-
-- **Works** (run on the 2026-11-04 tag; `brain claude|codex` and `nanda` need a login or email code and were not run on it): `doctor`, `go-seal`, and `s02` (it serves on port 8080, so add `-p 127.0.0.1:8080:8080` to the run line to open it). `trade` starts only after `nanda`.
-- **Does not work:** `join` (it accepts an invite, then fails with `cat: /opt/devcon8/mesh/capsules.version: No such file or directory`), `node`, `wallet` ("your node is not running"), `s08` (`/opt/devcon8/lib/s08.sh: No such file or directory`), `brain mesh` (not offered), and the console on port 3141.
-- It is a derived tag of v4 (not rebuilt by CI) and does not move with `latest`. On Nov 4 its `devcon8 trade` script is the same as `latest`'s (auto mode, `DEVCON8_GOOSE_MODE`, goose run as a child for Ctrl-C); a later `latest` may get fixes it lacks.
-
-### 1. `devcon8 doctor`
+### `devcon8 doctor`
 
 Shows your architecture, CPUs, memory, free disk and the versions in the image, and warns when Docker
 has under 8 GB of memory.
 
-### 2. `devcon8 join`: a node on the demo mesh
+## The mesh demo
+
+Three independent parts: a node on the demo mesh (`join`), the S02 settlement record (`s02`) and the S08 liar demo
+(`models`, then `s08`). Run any of them without the others. [WORKSHOP.md](WORKSHOP.md) walks through `join` and S08 with screenshots.
+
+### `devcon8 join`: a node on the demo mesh
+
+Needs the invite and a network to the demo mesh; no models and no login.
 
 Paste the invite you are handed at the workshop (it is stored in `~/.devcon8/join.txt`, never shown
 back). Your node starts as a client, with its wallet policy at the default, **free-only**: it never
@@ -237,7 +250,86 @@ pays. Then it asks the mesh one question. One of two things happens:
 `devcon8 node status|log|stop` manage your node. `devcon8 join --new` asks for a new invite. If you
 change your wallet policy away from free-only, `join` no longer sends its question.
 
-### 3. `devcon8 brain claude|codex|mesh`: what goose thinks with
+### `devcon8 brain mesh`: chat with the mesh
+
+Needs your node running (`devcon8 join` first; `brain.sh` refuses with "your node is not running" otherwise).
+
+`mesh`: chat with the mesh's own models through your node. A 0.5B model cannot run the trading
+agent; use `claude` or `codex` for that (see "The goose demo").
+
+### The console and its ports
+
+Your node's console is on your laptop at http://127.0.0.1:3141 (published by the `docker run` in "Start"; 3141 because Buzz Desktop uses 3131).
+Inside the container a small relay (port 3132) hands the console its requests from the container's own loopback, which mesh-llm requires for the console's plugin routes (the Evidence tab). A client node hides the Configuration tab by mesh-llm's design.
+The other mesh-demo ports are 8080 (S02, `devcon8 s02`) and 9611-9614 (the S08 nodes' Evidence pages, forwarded from 9621-9624 in the container).
+
+### If your first prompt is refused
+
+Your node is free-only and the serving node charges, so the mesh refused the request and nothing was
+paid. The presenter shows a free join and its Evidence tab on screen. You can also pay with your own
+Lightning wallet (see "Paid mesh inference with the node's wallet" below). That is optional and real money.
+
+### Paid mesh inference with the node's wallet (optional, real Lightning, mainnet)
+
+`devcon8 wallet node` shows the balance of the mesh-llm node's own wallet and the commands that change it; it needs your running node (`devcon8 join` first, `lib/wallet.sh`). Funding it
+(`mesh-llm wallet fund-wallet --amount-sats N`) and allowing payments
+(`mesh-llm wallet policy --mode automatic --daily-budget-sats N`) are up to you, and they spend real
+sats. The wallet is the node's own: the image ships none, the plugin creates one on first use, inside `~/.mesh-llm/payments` on your volume. It is not the wallet `devcon8 wallet` opens for the goose demo's `--pay lexe` (see "Paying for the sticker with your own wallet").
+
+What has been checked: on 2026-10-31 a funded demo node paid the serving node 1,900 msat for one
+request, and its own sealed record of the payment shows on its Evidence tab. That holds at the serving
+node's current price. At a much lower price the deposit can cover the whole bill, and then no payer
+record is sealed ([evidencebook#48](https://github.com/action-state-group/evidencebook/issues/48)):
+you would pay and see no record.
+
+### `devcon8 s02`: the settlement record
+
+Needs port 8080 published and nothing else (it is offline).
+
+Open http://127.0.0.1:8080/settlement-record.html. One Lightning payment between two demo nodes, as two
+signed halves under two keys, checked in your browser, offline. `/opt/devcon8/demos/s02/README.md` (inside the container) has the same check
+on the command line.
+
+### `devcon8 models`, then `devcon8 s08 <step>`: catch a lying node
+
+S08 needs two model files (1.1 GB); they are not in the image.
+
+First `devcon8 models` (once): it downloads the two Qwen2.5-0.5B model files, 1.1 GB, into `~/.devcon8/models`
+on your volume, checks their sha256 and skips what it already has; interrupted, run it again to resume.
+Without them `devcon8 s08` says "run devcon8 models first".
+
+From the USB stick instead: copy its `models` folder next to the tarball (the stick's step 2 above; `cp -r "/Volumes/STICKNAME/models" ~/devcon8-usb/` on macOS), then, with the container running
+(`docker run` above, in another terminal), hand it to the container and load it:
+
+    docker cp ~/devcon8-usb/models devcon8:/tmp/
+    devcon8 models --from /tmp/models
+
+Four nodes on a private mesh inside your container (it never touches the demo mesh): an honest node, a
+referee, a liar and an asker, all on the same mesh-llm and capsules as the demo mesh. Steps, in order:
+`setup` (once; it prints "S08 is set up in ~/s08-liar. Next: devcon8 s08 start"), `start` (a few minutes per node on a laptop CPU), `lie`, `twins`, `referee`, `show`, then the second hack,
+`omit` and `count`, then step 8, `ask`, the omission found by a signed evidence request; `stop` when done.
+The asker's Evidence page is http://127.0.0.1:9614/plugins/capsules/evidence. On an arm64 laptop the
+two models write the same ocean haiku, so `twins` asks "Name three colors." by default; pass another
+question as `devcon8 s08 twins "<question>"`.
+
+## The goose demo
+
+An agent that sells and buys a digital sticker through Agent Box mailboxes. It needs no mesh node, no models and no published port. The order is `brain`, then `nanda`, then `trade` (`trade` refuses with "pick a brain first" or "no mailbox yet" otherwise; `lib/trade.sh`); `brain` and `nanda` may be done in either order.
+
+Needs: a Claude or ChatGPT login, an email address that can receive a six-digit code, and a network. Optional: for `--pay lexe`, your own lexe wallet and your caps set with `devcon8 lightning`; to buy, sats in the wallet.
+
+### The slim `v4-goose` image (trade only, 631 MB)
+
+For the sticker trade alone there is a smaller image, `ghcr.io/action-state-group/devcon-workshop:v4-goose`. It is v4
+without the models, mesh-llm and its plugins, and S08.
+
+    docker run -it --name devcon8 -v devcon8-home:/home/participant ghcr.io/action-state-group/devcon-workshop:v4-goose
+
+- **Works** (run on the 2026-11-04 tag; `brain claude|codex` and `nanda` need a login or email code and were not run on it): `doctor`, `go-seal`, and `s02` (it serves on port 8080, so add `-p 127.0.0.1:8080:8080` to the run line to open it). `trade` starts only after `nanda`. `devcon8 wallet` and `trade --pay lexe` need `latest`: this tag answers `wallet` with "your node is not running", so use it for the simulated trade only.
+- **Does not work:** `join` (it accepts an invite, then fails with `cat: /opt/devcon8/mesh/capsules.version: No such file or directory`), `node`, `wallet` ("your node is not running"), `s08` (`/opt/devcon8/lib/s08.sh: No such file or directory`), `brain mesh` (not offered), and the console on port 3141.
+- It is a derived tag of v4 (not rebuilt by CI) and does not move with `latest`. On Nov 4 its `devcon8 trade` script is the same as `latest`'s (auto mode, `DEVCON8_GOOSE_MODE`, goose run as a child for Ctrl-C); a later `latest` may get fixes it lacks.
+
+### `devcon8 brain claude|codex`: what goose thinks with
 
 The trading agent runs in [goose](https://github.com/aaif-goose/goose). Pick its model:
 
@@ -249,30 +341,10 @@ The trading agent runs in [goose](https://github.com/aaif-goose/goose). Pick its
   from a laptop terminal (this keeps it readable only by the container's user), then run
   `devcon8 brain codex` again:
   `docker exec -i devcon8 sh -c 'mkdir -p ~/.codex && umask 077 && cat > ~/.codex/auth.json' < ~/.codex/auth.json`
-- `mesh`: chat with the mesh's own models through your node. A 0.5B model cannot run the trading
-  agent; use `claude` or `codex` for that.
 
-### 4. `devcon8 s02`: the settlement record
+For the other choice, `mesh`, see "The mesh demo".
 
-Open http://127.0.0.1:8080/settlement-record.html. One Lightning payment between two demo nodes, as two
-signed halves under two keys, checked in your browser, offline. `/opt/devcon8/demos/s02/README.md` (inside the container) has the same check
-on the command line.
-
-### 5. `devcon8 s08 <step>`: catch a lying node
-
-First `devcon8 models` (once): it downloads the two Qwen2.5-0.5B model files, 1.1 GB, into `~/.devcon8/models`
-on your volume, checks their sha256 and skips what it already has; interrupted, run it again to resume.
-Without them `devcon8 s08` says "run devcon8 models first".
-
-Four nodes on a private mesh inside your container (it never touches the demo mesh): an honest node, a
-referee, a liar and an asker, all on the same mesh-llm and capsules as the demo mesh. Steps, in order:
-`setup` (once; it prints "S08 is set up in ~/s08-liar. Next: devcon8 s08 start"), `start` (a few minutes per node on a laptop CPU), `lie`, `twins`, `referee`, `show`, then the second hack,
-`omit` and `count`, then step 8, `ask`, the omission found by a signed evidence request; `stop` when done.
-The asker's Evidence page is http://127.0.0.1:9614/plugins/capsules/evidence. On an arm64 laptop the
-two models write the same ocean haiku, so `twins` asks "Name three colors." by default; pass another
-question as `devcon8 s08 twins "<question>"`.
-
-### 6. `devcon8 nanda <email>`: your agent's mailbox
+### `devcon8 nanda <email>`: your agent's mailbox
 
 Creates an Agent Box mailbox for your agent (its own address at `agentboxnanda.org`, the inbox for
 agent-to-agent messages), sends a six-digit code to your email, and lists the mailbox in the NANDA
@@ -298,7 +370,7 @@ second listing in the NANDA Index) with a new key, emails a new six-digit code t
 it. Checked on 2026-11-04 on a local build of the v4 sources. Only one container answers for the mailbox at a time: the one that ran
 `devcon8 nanda` last takes over, and the older container can still read the mailbox but no longer answers from it. On a new volume it also starts your agent after the mailbox's newest message, so messages from earlier runs are not replayed into `devcon8 trade`.
 
-### 7. `devcon8 trade [--buy <address>] [--pay lexe]`: the trading agent
+### `devcon8 trade [--buy <address>] [--pay lexe]`: the trading agent
 
 Your agent sells your digital fox sticker for 50 cents (in a `--pay lexe` run, for your Lightning price in msat) to any participant's agent that asks. With
 `--buy <their address>@agentboxnanda.org` it also buys one from that participant's agent, the address
@@ -320,21 +392,7 @@ they give you. It buys only from that address, never from search results.
   attachments (`buyer-terms.json`, `settle.json`, `sticker.png`). In a `--pay lexe` run a proposal also
   carries the shop's Lightning invoice, which is saved for the payment and not shown to the agent.
 - Each sale or purchase is one deal in `~/.local/share/capsule-deal`; files are in `~/deals/`.
-- **Your History card.** After a sale or purchase, make your History card: a count of your deals as of a checkpoint, with no
-  deal's content. Once per profile, say who holds it, then cut a checkpoint (the card is as of your newest one), then write the card
-  and its page:
-
-  ```sh
-  capsulectl --profile deal deal standard-history declare --holder-kind person
-  capsulectl --profile deal deal tick
-  capsulectl --profile deal deal standard-history card --out ~/deals/history-card.bundle
-  capsulectl presentation build --bundle ~/deals/history-card.bundle --out ~/deals/history-card.html
-  ```
-
-  If `card` says "the History card was not built: ...", the line names what to do (for example, run `deal tick` again, then ask again).
-  A Lightning (`--pay lexe`) deal is counted under BTC. The workshop trade does not compare your record of a deal with the other side's, so every deal on your card shows "we couldn't tell". That means no comparison was made, not that the trade failed.
-  Some other `capsulectl` failures print only "operation failed; check input, selected profile, permissions and service availability" and
-  hide the cause.
+- **Your History card.** See "Make your History card" below; run it after a sale or purchase.
 
 ### Trade with yourself: a walkthrough (simulated payment)
 
@@ -355,7 +413,7 @@ Remove old containers of these names from earlier tries (your volumes, logins an
 (On a first try it prints "No such container"; that is fine.)
 
 **1. The seller, terminal 1.** The trade runs over Agent Box mailboxes, not over mesh-llm, so neither container publishes a port
-(port 3141 in the steps above is the mesh-llm node console, which this trade does not use):
+(port 3141 in the mesh demo is the mesh-llm node console, which this trade does not use):
 
     docker run -it --name devcon8 -v devcon8-home:/home/participant ghcr.io/action-state-group/devcon-workshop:latest
 
@@ -395,15 +453,16 @@ its sha256 and confirms; both agents close their deals.
 
 **4. See the result.** Follow "Find your deals and make a receipt" below (seller: `devcon8`; buyer: `devcon8b`).
 
-**Going back to the other steps.** These containers publish no ports, so the console (3141), `devcon8 s02` (8080) and the S08
-Evidence pages are not reachable from them. To go back to those steps, run `docker rm -f devcon8` and start it again with the run
+
+**Going back to the mesh demo.** These containers publish no ports, so the console (3141), `devcon8 s02` (8080) and the S08
+Evidence pages are not reachable from them. To go back to the mesh demo, run `docker rm -f devcon8` and start it again with the run
 line in "Start"; the `devcon8-home` volume keeps your state.
 
 **5. If a terminal closes.** Exiting a container's first shell stops the container. Bring it back with
 `docker start -ai devcon8` (or `devcon8b`); logins, mailbox and deals are on the volume. `docker exec -it devcon8 bash`
 opens another shell in a running container.
 
-**History card and known gaps.** See "Your History card" under step 7.
+**History card and known gaps.** See "Make your History card" below.
 
 **Clean up.** `docker rm -f devcon8 devcon8b` removes the containers and keeps the volumes (and their disk). To forget the logins,
 mailboxes and deals too, and to start over with different emails, run:
@@ -451,8 +510,7 @@ The deals themselves are in `~/.local/share/capsule-deal` and the files in `~/de
 
 ### Make your History card
 
-Your History card counts your deals as of a checkpoint, with no deal's content. The commands are the ones in "Your History card" under
-step 7. Run them in the container that holds the deals (`devcon8`, or `devcon8b` for the buyer), after at least one deal has closed.
+Your History card counts your deals as of a checkpoint, with no deal's content. Run the commands in the container that holds the deals (`devcon8`, or `devcon8b` for the buyer), after at least one deal has closed.
 
 **1. Once per profile**, inside the container, say who holds the card:
 
@@ -481,40 +539,25 @@ someone else, write the shared copy, which has the card, its policy and its anch
 
 **5. What it shows.** A Lightning (`--pay lexe`) deal is counted under BTC. The workshop trade does not compare your record of a deal with the other side's, so every deal on your card shows "we couldn't tell". That means no comparison was made, not that the trade failed.
 
-### 8. `devcon8 go-seal`: the Go SDK example
+Some other `capsulectl` failures print only "operation failed; check input, selected profile, permissions and service availability" and
+hide the cause.
 
-Copies `examples/go-seal` to `~/go-seal` (once), builds it offline and runs it: it opens a book on disk,
-seals one Evidence Result and cuts a checkpoint. Change `~/go-seal/main.go` and run `devcon8 go-seal`
-again; your edits are kept. `devcon8 go-seal --reset` starts over from the image's copy.
+### Your own wallet for `--pay lexe` (optional, real Lightning, mainnet)
 
-## If your first prompt is refused
-
-Your node is free-only and the serving node charges, so the mesh refused the request and nothing was
-paid. The presenter shows a free join and its Evidence tab on screen. You can also pay with your own
-Lightning wallet (next section). That is optional and real money.
-
-## Your own wallet (optional, real Lightning, mainnet)
-
-`devcon8 wallet` opens your own lexe wallet through your running node. The image ships no wallet: the
-plugin creates one on first use, inside `~/.mesh-llm/payments` on your volume. Funding it
-(`mesh-llm wallet fund-wallet --amount-sats N`) and allowing payments
-(`mesh-llm wallet policy --mode automatic --daily-budget-sats N`) are up to you, and they spend real
+`devcon8 wallet` opens your own lexe wallet (`lexe-sidecar`, Lexe's local HTTP API) in the container. It needs no mesh-llm node and no `join`. The image ships no wallet: the
+first `devcon8 wallet` asks, registers an anonymous account with Lexe and creates the wallet; its key is `~/.devcon8/lexe/root_seed` on your volume
+(`devcon8 wallet key` shows it for a backup; removing the volume loses the wallet). Funding it
+(`devcon8 wallet fund --sats N` prints a mainnet invoice to pay from another wallet) and `--pay lexe` spend real
 sats. With a funded wallet, every payment of a `--pay lexe` trade still stops for your answer; `DEVCON8_GOOSE_MODE=approve` also asks before each tool call. The sticker trade stays simulated unless you
-run it with `--pay lexe` (next section).
+run it with `--pay lexe` (next section). `devcon8 wallet stop` stops the wallet process.
 
-What has been checked: on 2026-10-31 a funded demo node paid the serving node 1,900 msat for one
-request, and its own sealed record of the payment shows on its Evidence tab. That holds at the serving
-node's current price. At a much lower price the deposit can cover the whole bill, and then no payer
-record is sealed ([evidencebook#48](https://github.com/action-state-group/evidencebook/issues/48)):
-you would pay and see no record.
-
-## Paying for the sticker with your own wallet (optional, real Lightning, mainnet)
+### Paying for the sticker with your own wallet (optional, real Lightning, mainnet)
 
 `devcon8 trade --pay lexe` pays for the sticker with real sats, from your own lexe wallet to the seller's.
 Both sides must run `--pay lexe`: a buyer in a simulated run declines a shop that asks for Lightning,
 and a `--pay lexe` buyer declines a shop that does not.
 
-1. `devcon8 join`, then `devcon8 wallet`: your node and your own wallet (previous section). To buy, fund
+1. `devcon8 wallet`: your own wallet (previous section). To buy, fund
    it with a few hundred sats more than the price; selling needs no funds.
 2. Set your caps, for example:
 
@@ -551,7 +594,7 @@ What happens:
 A mailbox listed by an earlier image keeps the description it was listed with, "simulated payment"
 (this image does not change an existing listing); if yours says that, tell the other participant before a `--pay lexe` sale.
 
-## Leaving the NANDA Index
+### Leaving the NANDA Index
 
     devcon8 nanda leave
 
@@ -565,6 +608,17 @@ How it works: the NANDA Index keeps an account for your agent's mailbox address.
 for a password reset, which arrives in your agent's own mailbox, signs in with a new random password it
 never shows, and deletes the listing. Afterwards a lookup of your agent's address finds nothing, and
 other agents cannot message it through the Index. The Agent Box mailbox itself stays, unlisted.
+
+## The Go SDK example
+
+Copies `examples/go-seal` to `~/go-seal` (once), builds it offline and runs it: it opens a book on disk,
+seals one Evidence Result and cuts a checkpoint. Change `~/go-seal/main.go` and run `devcon8 go-seal`
+again; your edits are kept. `devcon8 go-seal --reset` starts over from the image's copy.
+
+
+## Terms Pack Studio
+
+Terms Pack Studio is an internal layer on top of this image, with its own README: [studio/README.md](studio/README.md). It adds only an unused recipe file (`agent/recipes/studio.yaml`) to the published image and changes nothing in its behaviour, its `latest` tag or the USB files.
 
 ## Your data, and removing it
 
@@ -603,7 +657,7 @@ The image builds the same commit with the same recipes, but its bytes are its ow
 | capsules plugin | `v0.1.15` (the shared History view; referee split-margin threshold 0, the default) |
 | lexe-wallet plugin | built here from [lexe-wallet-plugin#7](https://github.com/Mesh-LLM/lexe-wallet-plugin/pull/7) (`feat/settled-preimage`, commit `9f830c1`), which reports a settled payment's preimage |
 | S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.15 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook v0.12.2 |
-| capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc34` releases (deal carries `capsulectl deal terms-leg`, seals a Lightning payment received and states it in msat) |
+| capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc35` releases (`versions.lock`; deal carries `capsulectl deal terms-leg`, seals a Lightning payment received and states it in msat) |
 | goose (built from its v1.57.0 commit plus `patches/`, aaif-goose/goose#13273), Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
 | evidencebook Go SDK | v0.12.2, Go 1.27 |
 | models (not in the image; `devcon8 models` downloads them) | Qwen2.5-0.5B-Instruct GGUF, Q8_0 and Q4_K_M, pinned in `versions.lock` |
