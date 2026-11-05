@@ -12,7 +12,8 @@
 set -euo pipefail
 die() { echo "dispute: $*" >&2; exit 1; }
 show=0; [ "${1:-}" != show ] || { show=1; shift; }
-deal=${1:-}; [ -n "$deal" ] && [ "${deal#-}" = "$deal" ] || die "usage: dispute DEAL [--store HOME] [--row ROW] --words TEXT"
+deal=${1:-}
+if [ -z "$deal" ] || [ "${deal#-}" != "$deal" ]; then die "usage: dispute DEAL [--store HOME] [--row ROW] --words TEXT"; fi
 shift
 [[ $deal =~ ^deal-[0-9a-f]{16}$ ]] || die "DEAL is a deal id (deal-…)"
 row=price_as_offered words="" store=""

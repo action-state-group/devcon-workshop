@@ -28,7 +28,7 @@ while [ $# -gt 0 ]; do
   *) die "unknown argument $1" ;;
   esac
 done
-[ -n "$buyer" ] && [ -n "$seller" ] || die "--buyer and --seller are each party's config home"
+if [ -z "$buyer" ] || [ -z "$seller" ]; then die "--buyer and --seller are each party's config home"; fi
 [ "$buyer" != "$seller" ] || die "the buyer and the seller are different stores"
 [ -s "$dispute" ] || die "no dispute at $dispute: the buyer's agent disputes first (\`dispute $deal --words ...\`)"
 row=$(jq -r .row "$dispute") ddigest=$(jq -r .dispute_digest "$dispute")
