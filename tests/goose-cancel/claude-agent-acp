@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+// Minimal ACP agent for goose-cancel.sh. Install as `claude-agent-acp` on PATH. Its first prompt starts a tool
+// call that never finishes (a looping `mbx wait`); it ends that turn only when goose sends session/cancel.
+// Every later prompt is answered "second-ok". It logs what it receives to $ACP_LOG.
+const fs = require('fs');
+const rl = require('readline').createInterface({input: process.stdin});
+const out = (o) => process.stdout.write(JSON.stringify(o) + '\n');
+const log = (s) => fs.appendFileSync(process.env.ACP_LOG, s + '\n');
+let prompts = 0, endFirst;
+rl.on('line', (l) => {
+  const m = JSON.parse(l);
+  if (m.method === undefined) return;
+  if (m.method === 'session/cancel') { log('cancel'); return endFirst && endFirst(); }
+  const ok = (r) => out({jsonrpc: '2.0', id: m.id, result: r});
+  if (m.method === 'initialize') return ok({protocolVersion: 1, agentCapabilities: {}, authMethods: []});
+  if (m.method === 'session/new') return ok({sessionId: 's1', modes: {currentModeId: 'default', availableModes: [{id: 'default', name: 'Default'}, {id: 'bypassPermissions', name: 'Bypass'}, {id: 'acceptEdits', name: 'Edits'}]}});
+  if (m.method === 'session/set_config_option') return ok({configOptions: [{id: 'model', name: 'Model', type: 'select', currentValue: 'default', options: [{value: 'default', name: 'Default'}]}]});
+  if (m.method !== 'session/prompt') return ok({});
+  const sid = m.params.sessionId, upd = (u) => out({jsonrpc: '2.0', method: 'session/update', params: {sessionId: sid, update: u}});
+  prompts += 1;
+  log('prompt ' + prompts);
+  if (prompts === 1) {
+    upd({sessionUpdate: 'tool_call', toolCallId: 't1', title: 'Bash: mbx wait', kind: 'execute', status: 'in_progress', rawInput: {command: 'mbx wait'}});
+    endFirst = () => out({jsonrpc: '2.0', id: m.id, result: {stopReason: 'cancelled'}});
+    return;
+  }
+  upd({sessionUpdate: 'agent_message_chunk', content: {type: 'text', text: 'second-ok'}});
+  out({jsonrpc: '2.0', id: m.id, result: {stopReason: 'end_turn'}});
+});

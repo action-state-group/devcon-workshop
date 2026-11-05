@@ -1,0 +1,38 @@
+diff --git a/crates/goose/src/acp/provider.rs b/crates/goose/src/acp/provider.rs
+index df1d67713..96a62a7b0 100644
+--- a/crates/goose/src/acp/provider.rs
++++ b/crates/goose/src/acp/provider.rs
+@@ -1,5 +1,5 @@
+ use agent_client_protocol::schema::v1::{
+-    Annotations as AcpAnnotations, ClientCapabilities, CloseSessionRequest, ContentBlock,
++    Annotations as AcpAnnotations, CancelNotification, ClientCapabilities, CloseSessionRequest, ContentBlock,
+     ContentChunk, EnvVariable, HttpHeader, ImageContent, InitializeRequest, InitializeResponse,
+     LoadSessionRequest, McpCapabilities, McpServer, McpServerHttp, McpServerStdio,
+     NewSessionRequest, NewSessionResponse, PromptRequest, PromptResponse, RequestPermissionOutcome,
+@@ -1721,10 +1721,23 @@ async fn handle_requests(
+             } => {
+                 *prompt_response_tx.lock().unwrap() = Some(response_tx.clone());
+ 
+-                let response: Result<PromptResponse, _> = cx
++                // The agent runs one prompt at a time and this loop waits for it, so a turn that
++                // goose has abandoned (the stream was dropped on Ctrl-C) would keep the agent busy,
++                // and block the next prompt, until it ends by itself. Tell the agent to stop.
++                let cancel_session_id = session_id.clone();
++                let prompt = cx
+                     .send_request(PromptRequest::new(session_id, content))
+-                    .block_task()
+-                    .await;
++                    .block_task();
++                tokio::pin!(prompt);
++                let response: Result<PromptResponse, _> = tokio::select! {
++                    response = &mut prompt => response,
++                    _ = response_tx.closed() => {
++                        if let Err(e) = cx.send_notification(CancelNotification::new(cancel_session_id)) {
++                            tracing::debug!(error = %e, "failed to send session/cancel");
++                        }
++                        prompt.await
++                    }
++                };
+ 
+                 match response {
+                     Ok(r) => {
