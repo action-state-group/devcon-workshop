@@ -12,7 +12,7 @@ What it adds:
 - `terms <verb>` (lint, test, run, compare, publish, ...), the evidencebook-skills scripts at the commit
   pinned in `versions.lock`, run with PyYAML from a venv under `/opt/devcon8/studio`, and the checkout sits under capsulectl's trusted plugin root (`/usr/local/lib/capsulectl/plugins/terms-pack-studio`).
 - The `terms-pack-author` skill, from the same commit.
-- `devcon8-studio`, the same as `devcon8 trade` with the Studio recipe, and `devcon8-studio replay`, which
+- `devcon8-studio`, the same as `devcon8 trade` with the Studio recipe, and `devcon8-studio replay` (and `replay --live`, the same ten sales in the seller's live deal profile before its first trade, so the live trade makes eleven), which
   puts ten sample sticker sales in `~/studio/replay` (evidencebook-deal's replay, at the commit pinned in
   `versions.lock`) for the first rehearsal.
 - `card make | staple | open`, the History card (demo step 5): `card make` writes the card and its page
