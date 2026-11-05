@@ -23,10 +23,10 @@ cap() { capsulectl --profile deal deal "$@"; }
 
 # Every card, page and staple is built in a scratch directory under ~/studio/cards and moved into place at
 # the end, so an interrupt (Ctrl-C during the checkpoint wait, say) leaves the previous files as they were.
-scratch=()
-trap 'rm -rf ${scratch[@]+"${scratch[@]}"}' EXIT
+w=
+trap '[ -z "$w" ] || rm -rf "$w"' EXIT
 trap 'exit 130' INT TERM
-stage() { stage_dir=$(mktemp -d "$OUT/.card.XXXXXX"); scratch+=("$stage_dir"); }
+stage() { w=$(mktemp -d "$OUT/.card.XXXXXX"); }
 
 # The same plugin setup as devcon8 trade: the deal and book plugins and their presentation assets.
 setup() {
@@ -49,7 +49,7 @@ declare_holder() { cap standard-history declare --holder-kind person "$@" >/dev/
 build_card() {
   local out=$1 fresh=$2; shift 2
   local err waited=0 msg state cut=0
-  err=$(mktemp)
+  err=$(dirname "$out")/err.$$
   while :; do
     msg=$(cap tick 2>"$err") || { cat "$err" >&2; rm -f "$err"; die "could not cut a checkpoint"; }
     state=$(jq -r .state <<<"$msg")
@@ -73,7 +73,7 @@ build_card() {
 
 page() { # BUNDLE HTML
   # Nothing a bundle or the verifier says is echoed: this runs on files from another agent.
-  capsulectl verify --bundle "$1" >/dev/null 2>&1 || die "$1 does not verify"
+  capsulectl verify --bundle "$1" >/dev/null 2>&1 || die "the card does not verify"
   local r; r=$(capsulectl presentation build --bundle "$1" --out "$2" 2>/dev/null) || die "the page was not drawn"
   [ "$(jq -r '(.plugins_refused // []) | length' <<<"$r")" = 0 ] || die "the page was drawn without the card view (a plugin was refused)"
   jq -e 'any(.modules[]?; .id == "capsuleviewer.standard-history/v0")' <<<"$r" >/dev/null \
@@ -87,15 +87,15 @@ make)
   name=${1:-history-card}
   [[ $name =~ ^[A-Za-z0-9_-]{1,64}$ ]] || die "NAME is letters, digits, - and _"
   setup; declare_holder
-  stage; w=$stage_dir
-  build_card "$w/card.bundle" "$fresh"
-  page "$w/card.bundle" "$w/card.html"
-  mv -f "$w/card.bundle" "$OUT/$name.bundle"; mv -f "$w/card.html" "$OUT/$name.html"
+  stage
+  build_card "$w/$name.bundle" "$fresh"
+  page "$w/$name.bundle" "$w/$name.html"
+  mv -f "$w/$name.bundle" "$OUT/$name.bundle"; mv -f "$w/$name.html" "$OUT/$name.html"
   jq -nc --arg bundle "$OUT/$name.bundle" --arg page "$OUT/$name.html" '{bundle:$bundle, page:$page}' ;;
 staple)
   fresh=0; [ "${1:-}" != --fresh ] || fresh=1
   setup; declare_holder --answer
-  stage; w=$stage_dir
+  stage
   build_card "$w/history-card.bundle" "$fresh" --shared
   cap standard-history staple --derivation standard_history/1 >"$w/history-staple.json" \
     || die "the staple was not built"
@@ -106,8 +106,7 @@ open)
   [ -s "$f" ] || die "no such card: $f"
   staple=$(dirname "$f")/history-staple.json
   [ -s "$staple" ] || die "no history-staple.json beside $f: a card that came without its staple is not opened"
-  setup
-  work=$(mktemp -d); scratch+=("$work")
+  setup; stage; work=$w
   # The staple prints the request and reply octets as embedded JSON; `verify --history` reads them as
   # {media_type, octets_text} (capsule-cli#551), so wrap them here, byte for byte (compact JSON).
   key=$(python3 -I - "$staple" "$work/carried.json" 2>/dev/null <<'PY'
@@ -131,9 +130,8 @@ sys.exit(0 if b["disclosures"][b["root"]]["agent_input"] == stapled else 1)
 PY
   conv=$(basename "$(dirname "$f")")
   [[ $conv =~ ^[A-Za-z0-9_-]{1,128}$ ]] || conv=received
-  stage; w=$stage_dir
-  page "$f" "$w/page.html"
-  mv -f "$w/page.html" "$OUT/from-$conv.html"
+  page "$f" "$work/page.html"
+  mv -f "$work/page.html" "$OUT/from-$conv.html"
   jq -nc --arg bundle "$f" --arg page "$OUT/from-$conv.html" '{bundle:$bundle, page:$page}'
   echo "card: signed by key ${key:0:8}…, and the bundle's card is the stapled card. Not checked: that this key is the seller's. Your deal doesn't record the seller's key, so it comes from the card itself." >&2 ;;
 *) sed -n '2,/^set -/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
