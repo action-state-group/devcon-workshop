@@ -45,7 +45,7 @@ COPY studio/bin/ /opt/devcon8/agent/bin/
 # mbx predates that; once the pinned base has it, this line is a no-op copy of the same file.
 COPY agent/bin/mbx /opt/devcon8/agent/bin/mbx
 COPY agent/recipes/studio.yaml /opt/devcon8/agent/recipes/studio.yaml
-COPY tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh tests/studio-card.sh /opt/devcon8/tests/
+COPY tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh tests/studio-card.sh tests/studio-ruling.sh /opt/devcon8/tests/
 RUN chmod -R a+rX /opt/devcon8/studio /opt/devcon8/agent /opt/devcon8/tests /usr/local/lib/capsulectl/plugins/terms-pack-studio
 USER participant
 WORKDIR /home/participant

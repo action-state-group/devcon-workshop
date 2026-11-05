@@ -21,6 +21,16 @@ What it adds:
   received card and draws it. A card is as of a checkpoint cut after the holder was declared, and checkpoints
   are about five minutes apart, so run `card make` once early (it declares the holder), and use `--fresh` at step 5 so
   the live deal is counted (it waits up to seven minutes for a new checkpoint and says so).
+- `dispute DEAL --words TEXT` and `dispute show DEAL`, and `referee rule DEAL --buyer HOME --seller HOME` (demo
+  step 6). The buyer's agent seals a dispute note on a deal; the fixed referee makes one reconcile Result for
+  that deal (the buyer asks the seller for its copy, the seller answers, the buyer reconciles), checks it with
+  `deal terms-result --check` over both parties' copies, and seals one ruling in each store, the buyer's first.
+  Its rule is fixed: if the two parties' final closes name different amounts the price was not as offered, and
+  the ruling is for the buyer; if they match, for the seller. It rules on the price row only. Both stores then
+  read `Ruling <12 hex> on "price as offered": found for the buyer` on the receipt, and each History card counts
+  it (seller 1 received, buyer 1 raised). The replay's price-changed sale is the one to dispute. The Result is
+  the one thing step 6 adds to that sale: its card entry now reads from a sealed Result (the amounts conflict),
+  where the other nine still read "we couldn't tell". Needs `capsulectl-deal` with dispute notes (rc36 or later).
 - `mbx` from this checkout, so a seller's proposal may carry `history-staple.json` and `history-card.bundle`.
 
 ## Build
@@ -56,3 +66,4 @@ prints "Press Ctrl+C again to exit", the second "session closed"). This relies o
 - `tests/goose-cancel.sh` (in the workshop image): Ctrl-C ends a running agent turn and the next typed line reaches the agent
 - `tests/studio-layer.sh` checks the layer's contents (inside the built layer)
 - `tests/studio-e2e.sh` runs demo steps 1-4 without a model over `devcon8-studio replay` (inside the built layer; CI runs it)
+- `tests/studio-ruling.sh` runs demo step 6 without a model: dispute, ruling, the same sentence and receipt line in both stores, both cards (waits for checkpoints)
