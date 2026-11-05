@@ -25,16 +25,17 @@ What it adds:
   step 6). The buyer's agent seals a dispute note on a deal; the fixed referee makes one reconcile Result for
   that deal (the buyer asks the seller for its copy, the seller answers, the buyer reconciles), checks it with
   `deal terms-result --check` over both parties' copies, and seals one ruling in each store, the buyer's first.
-  Its rule is fixed: if the two parties' final closes name different amounts the price was not as offered, and
+  Its rule is fixed (a demo rule, not a dispute policy): if the two parties' final closes name different amounts the price was not as offered, and
   the ruling is for the buyer; if they match, for the seller. It rules on the price row only. For the price-changed sale, both stores then
   read `Ruling <12 hex> on "price as offered": found for the buyer` on the receipt, and each History card counts
   it under "Everything on the card", Disputes (buyer: 1 raised, ended for the buyer; seller: 1 received, ended
-  against the seller). The replay's price-changed sale is the one to dispute: `dispute sale` prints its id (the ids differ on every replay). The replayed sales live in
-  `~/studio/replay/seller` and `~/studio/replay/buyer`, so a card that counts the ruling is made from there:
+  against the seller).
+  The replay's price-changed sale is the one to dispute: `dispute sale` prints its id (the ids differ on every replay).
+  The replayed sales live in `~/studio/replay/seller` and `~/studio/replay/buyer`, so a card that counts the ruling is made from there:
   `XDG_CONFIG_HOME=~/studio/replay/buyer card make --fresh buyer` (and `seller` for the seller's), because `card make`
-  alone reads the live profile. `dispute` and `dispute show` look in the live profile first and then in those two. The Result is the one thing step 6
-  adds to that sale: on the buyer's card it counts as stamped by both sides (1 of 10). The card's headline does not
-  change: both cards still read "0 of 10 ... 10 we couldn't tell". Needs `capsulectl-deal` with dispute notes (rc36 or later).
+  alone reads the live profile. `dispute` and `dispute show` look in the live profile first and then in those two.
+  Besides those Disputes counts, the Result is the only change step 6 makes to the cards: on the buyer's card it counts
+  as stamped by both sides (1 of 10). The headline does not change: both cards still read "0 of 10 ... 10 we couldn't tell". Needs `capsulectl-deal` with dispute notes (rc36 or later).
 - `mbx` from this checkout, so a seller's proposal may carry `history-staple.json` and `history-card.bundle`.
 
 ## Build
