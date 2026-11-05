@@ -21,6 +21,14 @@ for mode in simulated lexe; do
     has "$t" "$m" && fail "$mode: the trader recipe has Studio text: $m"
   done
 done
+# Studio does not start the mailbox wait on its own; the trader does.
+for mode in simulated lexe; do
+  s=$(render "$S" "$mode"); t=$(render "$T" "$mode")
+  has "$s" 'Do NOT run `mbx wait`' || fail "$mode: the studio prompt does not hold back the mailbox wait"
+  has "$t" 'Then wait for buyers with `mbx wait`' || fail "$mode: the trader no longer waits at start-up"
+  has "$s" 'Then wait for buyers with `mbx wait`' && fail "$mode: the studio prompt still starts the wait at start-up"
+done
+s=$(render "$S" simulated shop@agentboxnanda.org); has "$s" 'Do NOT run `mbx wait`' && fail "a Studio purchase must not hold back the wait"
 s=$(render "$S" lexe); has "$s" 'payment is REAL' || fail "lexe studio prompt lacks the real-payment text"
 s=$(render "$S" simulated); has "$s" 'pay-x402 <conversation>' || fail "simulated studio prompt lacks pay-x402"
 s=$(render "$S" simulated shop@agentboxnanda.org); has "$s" 'Your user asked you to buy from shop@agentboxnanda.org' || fail "buy_from is not rendered"
