@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# dispute show DEAL [--store HOME]: what the referee ruled on DEAL, in the one sentence both parties' agents
+# say, or that nothing is ruled yet. Reads the deal's own receipt in this profile's store.
+# dispute sale prints the id of the replay's price-changed sale, the one to dispute (replay README, "Trade 7"); the
+# ids differ on every replay.
+# dispute DEAL [--store HOME] [--row ROW] --words TEXT: the buyer's dispute of one row of the seller's terms
+# (Terms Pack Studio, demo step 6). Seals a dispute note on DEAL in this profile's deal store, which is the
+# buyer's, and writes ~/studio/disputes/DEAL.json (the deal, the row, and the dispute_digest the referee's
+# ruling cites). Nothing is decided: a ruling follows from `referee rule`.
+#   --store HOME  the XDG config home of the deal profile to use, when it is not found without (this shell's own,
+#                 then the replayed sales under ~/studio/replay)
+#   --row ROW     the pack row disputed (default price_as_offered, the sticker demo's price row)
+#   --words TEXT  what the buyer says was wrong, in their own words (kept in the deal store, never shared)
+# The profile is `deal`, as in `devcon8 trade`.
+set -euo pipefail
+die() { echo "dispute: $*" >&2; exit 1; }
+# A volume from an older image keeps that image's plugin file, which capsulectl warns about on every call.
+D=/opt/devcon8
+[ ! -x "$D/bin/capsulectl-deal" ] || capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
+if [ "${1:-}" = sale ]; then
+  S=$HOME/studio/replay/seller
+  [ -d "$S" ] || die "no replayed sales: leave this session, run devcon8-studio replay, then start again"
+  w=$(mktemp -d); trap 'rm -rf "$w"' EXIT
+  for d in $(XDG_CONFIG_HOME=$S capsulectl --profile deal deal list --json | jq -r '.[] | select(.kind == "deal") | .deal_id'); do
+    XDG_CONFIG_HOME=$S capsulectl --profile deal deal export --deal "$d" --output "$w/x-$d.json" >/dev/null
+    if jq -e 'any(.[]; .["x-deal-v0"].record_type? == "detail_change")' "$w/x-$d.json" >/dev/null; then echo "$d"; exit 0; fi
+  done
+  die "no sale with a price change in the replayed sales"
+fi
+show=0; [ "${1:-}" != show ] || { show=1; shift; }
+deal=${1:-}
+if [ -z "$deal" ] || [ "${deal#-}" != "$deal" ]; then die "usage: dispute DEAL [--store HOME] [--row ROW] --words TEXT"; fi
+shift
+[[ $deal =~ ^deal-[0-9a-f]{16}$ ]] || die "DEAL is a deal id (deal-…)"
+row=price_as_offered words="" store=""
+if [ "$show" = 1 ]; then
+  while [ $# -gt 0 ]; do
+    case $1 in --store) store=${2:?--store needs a value}; shift 2 ;; *) die "unknown argument $1" ;; esac
+  done
+  # Without --store, look where the deal is: this profile, then the replayed sales' stores.
+  line="" found=0
+  homes=("" "$HOME/studio/replay/seller" "$HOME/studio/replay/buyer"); [ -z "$store" ] || homes=("$store")
+  for h in "${homes[@]}"; do
+    rep=$(XDG_CONFIG_HOME=${h:-${XDG_CONFIG_HOME:-}} capsulectl --profile deal deal report --deal "$deal" 2>/dev/null) || continue
+    found=1
+    line=$(jq -r '[.did[]? | select(.kind == "ruling") | .text][0] // empty' <<<"$rep")
+    [ -z "$line" ] || break
+  done
+  [ "$found" = 1 ] || die "could not read the deal's receipt (no store holds $deal; try --store)"
+  [ -n "$line" ] || { echo "Nothing is ruled on $deal yet."; exit 0; }
+  [[ $line =~ ^Ruling\ ([0-9a-f]{12})\ on\ \"([^\"]+)\":\ found\ for\ the\ (buyer|seller)$ ]] || die "the ruling line is not in the form this command reads"
+  echo "The referee ruled on the dispute over \"${BASH_REMATCH[2]}\": found for the ${BASH_REMATCH[3]}. Ruling ${BASH_REMATCH[1]}."
+  exit 0
+fi
+while [ $# -gt 0 ]; do
+  case $1 in
+  --row) row=${2:?--row needs a value}; shift 2 ;;
+  --words) words=${2:?--words needs a value}; shift 2 ;;
+  --store) store=${2:?--store needs a value}; shift 2 ;;
+  *) die "unknown argument $1" ;;
+  esac
+done
+[[ $row =~ ^[a-z][a-z0-9_]{0,63}$ ]] || die "ROW is a pack row id (letters, digits, _)"
+[ -n "$words" ] || die "--words is required: what was wrong, in the buyer's words"
+if [ -n "$store" ]; then export XDG_CONFIG_HOME=$store
+elif ! capsulectl --profile deal deal report --deal "$deal" >/dev/null 2>&1 && [ -d "$HOME/studio/replay/buyer" ]; then
+  export XDG_CONFIG_HOME=$HOME/studio/replay/buyer  # a replayed sale: the buyer's half
+fi
+out=$(capsulectl --profile deal deal note --deal "$deal" --kind dispute --row "$row" --words "$words") \
+  || die "the dispute was not sealed"
+digest=$(jq -r '.dispute_digest // empty' <<<"$out")
+[[ $digest =~ ^[0-9a-f]{64}$ ]] || die "the deal plugin did not print a dispute digest (it needs the build that has dispute notes)"
+mkdir -p "$HOME/studio/disputes"
+jq -nc --arg deal "$deal" --arg row "$row" --arg d "$digest" '{deal:$deal, row:$row, dispute_digest:$d}' >"$HOME/studio/disputes/$deal.json"
+jq -c --arg f "$HOME/studio/disputes/$deal.json" '{dispute_digest, say, file:$f}' <<<"$out"

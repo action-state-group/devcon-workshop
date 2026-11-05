@@ -23,3 +23,14 @@
     proposal). Staple it only when your user asked you to.
   - When `mbx wait` shows a proposal with `history-card.bundle` among its `files`, tell your user the
     seller sent its card and run `card open <that path>`; tell them to open the page it prints.
+  DISPUTES. Your user, as a buyer, may say that what they bought was not what was offered and ask you to
+  dispute it:
+  - Find the deal they mean (`capsulectl --profile deal deal list`; for a past sale from the replay, list it with
+    `XDG_CONFIG_HOME=~/studio/replay/buyer` in front; `dispute sale` prints the id of the replay's sale whose
+    price changed), then run `dispute <deal> --words "<what
+    they said was wrong, in their words>"`. It seals the dispute on that deal and decides nothing. Tell
+    your user in one sentence that the dispute is recorded and that a referee rules on it. You do not
+    rule, and you do not say who is right.
+  - The referee is not you and not your user: a fixed node the presenter runs (`referee rule`). When your
+    user asks what became of the dispute, run `dispute show <deal>` (no --store: it finds the deal) and say its sentence exactly as it
+    prints, whichever side you are on. Until the referee rules, it prints that nothing is ruled yet.

@@ -3,8 +3,8 @@
 # and is never published as `latest`.
 
 # The workshop image the layer is built on: an immutable index digest, never `latest`.
-# (workshop latest 20261104-ml1aba71d-cap0.1.15-baa6ac30.215, a linux/amd64 + linux/arm64 index of main aa6ac30: Ctrl-C fix, capsulectl and capsulectl-deal rc35.)
-STUDIO_BASE=ghcr.io/action-state-group/devcon-workshop@sha256:41de955092337a4761a20b115ccea3f0cb0f53642c5f8d450eef6c26c4e3a51f
+# (workshop latest 20261105-ml1aba71d-cap0.1.15-b95f7249.251, a linux/amd64 + linux/arm64 index of main 95f7249: goose cancel fix, capsulectl and capsulectl-deal rc37.)
+STUDIO_BASE=ghcr.io/action-state-group/devcon-workshop@sha256:c05520c633a04e03471de0fce6d995cc717b76d4829c38cf6dae2043872976a9
 
 # The Terms Pack Studio scripts and the terms-pack-author skill: evidencebook-skills at a commit.
 STUDIO_SKILLS_REPO=https://github.com/action-state-group/evidencebook-skills

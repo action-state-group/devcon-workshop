@@ -22,6 +22,11 @@ ok "devcon8-studio replay and its fixture are in place"
 [ "$(type -P card)" = "$D/agent/bin/card" ] || fail "card is not on PATH"
 card 2>/dev/null && fail "card with no verb should list its verbs and exit non-zero"
 ok "card on PATH"
+for c in dispute referee; do
+  [ "$(type -P $c)" = "$D/agent/bin/$c" ] || fail "$c is not on PATH"
+  $c 2>/dev/null && fail "$c with no arguments should list its usage and exit non-zero"
+done
+ok "dispute and referee on PATH"
 # The seller's proposal may carry its History card: the layer's mbx is the repo's.
 grep -q 'history-staple.json' "$D/agent/bin/mbx" || fail "the layer's mbx does not let a proposal carry the staple"
 ok "mbx lets a proposal carry the History card"

@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# referee rule DEAL --buyer HOME --seller HOME [--dispute FILE] [--name NAME]
+# The fixed referee of the Terms Pack Studio demo (step 6). Not a person and not a model: it makes one
+# reconcile Result for the disputed deal, checks it with `deal terms-result --check` over both parties'
+# copies, and seals ONE ruling in each party's store, the buyer's first.
+#   DEAL      the disputed deal; both stores hold it under this one id
+#   --buyer / --seller   each party's XDG config home (their deal profile is `deal`)
+#   --dispute FILE       the dispute note's file (default ~/studio/disputes/DEAL.json, written by `dispute`)
+#   --name NAME          the referee's name on the ruling (default "Studio referee")
+# The rule, fixed: the dispute is about the price row. If the two parties' final closes name different
+# amounts (the Result's amount claim is not met), the price was not as offered and the ruling is for the
+# buyer; if they match, it is for the seller. Any other row, or a Result the check does not reproduce, is
+# refused and nothing is sealed. Final at once: no window, no bond, no response.
+# Everything is written under ~/studio/rulings/DEAL.
+set -euo pipefail
+die() { echo "referee: $*" >&2; exit 1; }
+[ "${1:-}" = rule ] || { sed -n '2,/^set -/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//' >&2; exit 2; }
+shift
+deal=${1:-}; shift || true
+[[ $deal =~ ^deal-[0-9a-f]{16}$ ]] || die "DEAL is a deal id (deal-…)"
+buyer="" seller="" dispute=$HOME/studio/disputes/$deal.json name="Studio referee"
+while [ $# -gt 0 ]; do
+  case $1 in
+  --buyer) buyer=${2:?--buyer needs a value}; shift 2 ;;
+  --seller) seller=${2:?--seller needs a value}; shift 2 ;;
+  --dispute) dispute=${2:?--dispute needs a value}; shift 2 ;;
+  --name) name=${2:?--name needs a value}; shift 2 ;;
+  *) die "unknown argument $1" ;;
+  esac
+done
+if [ -z "$buyer" ] || [ -z "$seller" ]; then die "--buyer and --seller are each party's config home"; fi
+[ "$buyer" != "$seller" ] || die "the buyer and the seller are different stores"
+[ -s "$dispute" ] || die "no dispute at $dispute: the buyer's agent disputes first (\`dispute $deal --words ...\`)"
+row=$(jq -r .row "$dispute") ddigest=$(jq -r .dispute_digest "$dispute")
+[ "$(jq -r .deal "$dispute")" = "$deal" ] || die "$dispute is not about $deal"
+[ "$row" = price_as_offered ] || die "this referee rules on the price row only (price_as_offered), not $row"
+D=/opt/devcon8
+[ ! -x "$D/bin/capsulectl-deal" ] || capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
+out=$HOME/studio/rulings/$deal
+[ ! -e "$out" ] || die "$out exists: a deal is ruled on once. To look again, read what is in it."
+mkdir -p "$out"
+# A run that fails before anything is sealed leaves nothing behind, so the corrected command can run again.
+sealed=0; empty=""
+trap '[ "$sealed" = 1 ] || rm -rf "$out"; [ -z "$empty" ] || rm -rf "$empty"' EXIT
+cap() { capsulectl --profile deal deal "$@"; }
+as() { local home=$1; shift; XDG_CONFIG_HOME=$home "$@"; }
+keys() { as "$1" capsulectl profile show deal | jq -r '[.TrustedKeys[0], .Checkpoint.TrustedKeys[0]] | join(":")'; }
+bkeys=$(keys "$buyer") skeys=$(keys "$seller")
+
+# 1. The buyer's Result: the buyer asks the seller for its copy, the seller answers, the buyer reconciles.
+jq -nc --arg d "$deal" '{subject:{kind:"correlation", value:$d}, coverage:{min_freshness:{size:1}}}' >"$out/ask.json"
+rid=$(as "$buyer" capsulectl --profile deal deal request --request "$out/ask.json" --responder "the seller" --output "$out/request.json" | jq -r .record_id)
+as "$seller" capsulectl --profile deal deal respond --request "$out/request.json" --requester "the buyer" --output "$out/response.json" >/dev/null
+rec=$(as "$buyer" capsulectl --profile deal deal request --response "$out/response.json" --for "$rid" \
+  --responder-key "${skeys%%:*}" --responder-checkpoint-key "${skeys##*:}")
+[ "$(jq -r .outcome <<<"$rec")" = artifact ] || die "the seller's copy did not come back as a copy"
+response=$(jq -r .record_id <<<"$rec")
+as "$seller" capsulectl --profile deal deal disclose --deal "$deal" --share counterparty --to "the buyer" --out "$out/seller-for-buyer.json" >/dev/null
+as "$buyer" capsulectl --profile deal deal terms-result --deal "$deal" --response "$response" --openings "$out/seller-for-buyer.json" --out "$out/result.json" >/dev/null \
+  || die "the buyer could not reconcile the two copies"
+
+# 2. Both parties' copies for the referee, and the check, which needs no store of its own.
+as "$buyer" capsulectl --profile deal deal disclose --deal "$deal" --share adjudicator --to "$name" --out "$out/buyer-copy.json" >/dev/null
+as "$seller" capsulectl --profile deal deal disclose --deal "$deal" --share adjudicator --to "$name" --out "$out/seller-copy.json" >/dev/null
+empty=$(mktemp -d)
+check=$(XDG_CONFIG_HOME=$empty capsulectl deal terms-result --check "$out/result.json" --copy "$out/buyer-copy.json" --copy "$out/seller-copy.json" \
+  --party-key "$bkeys" --party-key "$skeys") || die "the check did not reproduce the Result: $(jq -r '.check // "failed"' <<<"$check" 2>/dev/null)"
+[ "$(jq -r .check <<<"$check")" = equal ] || die "the check did not reproduce the Result"
+
+# 3. The fixed rule.
+case $(jq -r '.claims[] | select(.requirement_ref == "amount-commitment-matched") | .verdict' "$out/result.json") in
+not_met) finding=for_buyer ;;
+met) finding=for_seller ;;
+*) die "the Result does not say whether the amounts matched, so there is nothing to rule on" ;;
+esac
+
+# 4. One ruling per store, the buyer's first (it checks the ruling against the dispute); the seller's must
+# come out as the same digest.
+flags=(--kind ruling --row "$row" --finding "$finding" --referee "$name" --dispute-digest "$ddigest" --copy "$out/buyer-copy.json" --copy "$out/seller-copy.json")
+b=$(as "$buyer" capsulectl --profile deal deal note --deal "$deal" "${flags[@]}") || die "the buyer's store did not take the ruling; nothing was sealed in the seller's"
+sealed=1
+rdigest=$(jq -r .ruling_digest <<<"$b")
+s=$(as "$seller" capsulectl --profile deal deal note --deal "$deal" "${flags[@]}" --ruling-digest "$rdigest") \
+  || die "the seller's store did not take the ruling (the buyer's did: $rdigest)"
+[ "$(jq -r .ruling_digest <<<"$s")" = "$rdigest" ] || die "the two stores disagree on the ruling digest"
+jq -nc --arg deal "$deal" --arg f "$finding" --arg d "$rdigest" --arg say "$(jq -r .say <<<"$b")" --arg dir "$out" \
+  '{deal:$deal, finding:$f, ruling_digest:$d, say:$say, files:$dir}'
