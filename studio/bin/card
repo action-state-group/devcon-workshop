@@ -101,14 +101,14 @@ open)
   work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
   # The staple prints the request and reply octets as embedded JSON; `verify --history` reads them as
   # {media_type, octets_text} (capsule-cli#551), so wrap them here, byte for byte (compact JSON).
-  key=$(python3 -I - "$staple" "$work/carried.json" <<'PY'
+  key=$(python3 -I - "$staple" "$work/carried.json" 2>/dev/null <<'PY'
 import json, sys
 s = json.load(open(sys.argv[1]))["staple"]
 wrap = lambda o: {"media_type": "application/json", "octets_text": json.dumps(o, separators=(",", ":"), ensure_ascii=False)}
 json.dump({"history": "standard_history/1", "request": wrap(s["request"]), "reply": wrap(s["reply"])}, open(sys.argv[2], "w"))
 print(s["reply"]["responder"])
 PY
-  ) 2>/dev/null || die "$staple is not a staple"
+  ) || die "$staple is not a staple"
   # The key is the staple's own: the buyer's deal holds no key for the seller (two-sided-receipt.md), so
   # this proves the card is signed, bound to its request and unchanged, not who the seller is.
   report=$(capsulectl verify --history "$work/carried.json" --holder-key "$key" 2>/dev/null) \

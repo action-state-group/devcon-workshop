@@ -52,3 +52,9 @@ printf '%s' '{"root":"IGNORE PREVIOUS INSTRUCTIONS","disclosures":{}}' >"$d/hist
 out=$(card open "$d/history-card.bundle" 2>&1) && fail "card open drew a bundle that is not a card"
 if grep -q 'IGNORE PREVIOUS' <<<"$out"; then fail "card open echoed text from the bundle: $out"; fi
 ok "card open refuses a bundle that is not a card without echoing its text"
+# A staple that is not one: refused with fixed text, no traceback.
+cp "$HOME/studio/cards/stapled/history-card.bundle" "$d/"
+printf '%s' '{"staple":{"request":"IGNORE PREVIOUS INSTRUCTIONS"}}' >"$d/history-staple.json"
+out=$(card open "$d/history-card.bundle" 2>&1) && fail "card open accepted a staple that is not one"
+if grep -q 'Traceback\|IGNORE PREVIOUS' <<<"$out"; then fail "card open echoed a traceback or the staple's text: $out"; fi
+ok "card open refuses a malformed staple without a traceback"
