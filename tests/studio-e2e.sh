@@ -96,7 +96,7 @@ jq -e '.rules.ruleset_id' "$work/check.json" >/dev/null || fail "deal check carr
 [ "$(jq -r '.rules.findings[] | select(.id == "price_as_offered") | .verdict' "$work/check.json")" = fail ] \
   || fail "deal check does not fail the price_as_offered row: $(jq -c '.rules.findings' "$work/check.json")"
 jq -r .approval_text "$work/check.json" >"$work/stop-card.txt"
-grep -q 'did not hold (the commit was $1.75' "$work/stop-card.txt" \
+grep -qF "did not hold (the commit was \$1.75" "$work/stop-card.txt" \
   || fail "the stop card does not give the commit and the offer in the row's words: $(cat "$work/stop-card.txt")"
 ok "step 4: the live check fails price_as_offered under the pinned terms"
 echo "studio-e2e: pass"
