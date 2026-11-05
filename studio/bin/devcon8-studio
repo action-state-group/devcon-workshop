@@ -2,9 +2,33 @@
 # devcon8-studio [--buy <address>] [--pay lexe]: devcon8 trade with the Studio recipe. Same checks,
 # same payment modes; goose can also write terms in words, rehearse them and switch them on.
 # devcon8-studio replay: once, before the first rehearsal, put ten sample sticker sales in ~/studio/replay.
+# devcon8-studio replay --live: once, on the seller's agent before its first trade, put the same ten sales in the
+#   live deal profile, so the live trade makes eleven and the History card counts them (demo step 5).
 set -euo pipefail
 D=/opt/devcon8
 mkdir -p "$HOME/studio"
+if [ "${1:-}" = replay ] && [ "${2:-}" = --live ] && [ $# -eq 2 ]; then
+  home=$HOME/studio/replay
+  mark=$home/live.done
+  if [ -e "$mark" ]; then echo "The ten sample sticker sales are already in your live deal profile; nothing to do."; exit 0; fi
+  capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
+  # The store is made the way devcon8 trade makes it, so the first trade finds it and keeps it.
+  if ! capsulectl --profile deal deal list >/dev/null 2>&1; then
+    capsulectl --profile deal deal init --dir "$HOME/.local/share/capsule-deal" --materiality builtin:neutral --no-witness >/dev/null \
+      || { echo "devcon8-studio: could not make the deal profile" >&2; exit 1; }
+  fi
+  n=$(capsulectl --profile deal deal list --json 2>/dev/null | jq '[.[] | select(.kind == "deal")] | length' 2>/dev/null) || true
+  [[ ${n:-} =~ ^[0-9]+$ ]] || { echo "devcon8-studio: could not read the live deal profile, so it is not touched" >&2; exit 1; }
+  [ "$n" -eq 0 ] || { echo "devcon8-studio: the live deal profile already holds $n deals; --live replays into an empty one only. To start over, move ~/.local/share/capsule-deal and the 'deal' profile aside (capsulectl profile --help)" >&2; exit 1; }
+  mkdir -p "$home"
+  # The buyer's half goes to a scratch folder: the live buyer is another agent with its own store.
+  bash "$D/studio/replay/scripts/studio-replay.sh" "$D/studio/replay/testdata/studio/sticker-trades.json" \
+    "${XDG_CONFIG_HOME:-$HOME/.config}" "$home/live-buyer-half" >"$home/replay-live.log" \
+    || { echo "devcon8-studio: the replay failed (see $home/replay-live.log); it may have left deals in the live profile" >&2; exit 1; }
+  : >"$mark"
+  echo "Ten sample sticker sales are in your live deal profile; your first trade makes eleven."
+  exit 0
+fi
 if [ "${1:-}" = replay ]; then
   [ $# -eq 1 ] || { echo "devcon8-studio replay" >&2; exit 2; }
   home=$HOME/studio/replay

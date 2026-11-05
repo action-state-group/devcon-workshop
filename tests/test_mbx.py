@@ -146,6 +146,35 @@ class Mbx(unittest.TestCase):
         self.assertEqual(mbx.attachments("proposal", ["{\"deal_id\": \"d1\"}", "--invoice"]), ({"deal_id": "d1"}, [], True))
         self.assertEqual(mbx.attachments("proposal", []), ({}, [], False))
 
+    def test_a_card_is_saved_only_by_the_buyer_it_was_sent_to(self):
+        out = mbx.parse(self.msg("proposal", {"files": [attach("history-staple.json", b"{}"), attach("history-card.bundle", b"{}")]}))
+        self.assertEqual(out["you_are"], "seller")
+        self.assertNotIn("files", out)
+        self.assertEqual([r["reason"] for r in out["files_refused"]], ["name_not_allowed"] * 2)
+
+    def test_a_proposal_carries_the_history_card_and_nothing_else(self):
+        staple = b'{"derivation": "standard_history/1", "staple": {}}'
+        bundle = b'{"bundle": 1}'
+        self.bought()
+        out = mbx.parse(self.msg("proposal", {"files": [attach("history-staple.json", staple), attach("history-card.bundle", bundle)]}))
+        self.assertEqual(out["files"], [os.path.join(mbx.DEALS, "conv_1", n) for n in ("history-staple.json", "history-card.bundle")])
+        self.assertEqual(open(out["files"][0], "rb").read(), staple)
+        self.bought("conv_2")
+        out = mbx.parse(self.msg("proposal", {"files": [attach("history-staple.json", b"[1]"), attach("history-card.bundle", b"nope"),
+                                                          attach("other.json", staple), attach("sticker.png", PNG)]}, conv="conv_2"))
+        self.assertNotIn("files", out)
+        self.assertEqual([r["reason"] for r in out["files_refused"]], ["not_json", "malformed", "name_not_allowed", "name_not_allowed"])
+        d = os.path.join(self.tmp.name, "out"); os.makedirs(d)
+        for name, ok in (("history-staple.json", True), ("history-card.bundle", True), ("x-history-staple.json", False)):
+            with open(os.path.join(d, name), "wb") as f:
+                f.write(staple)
+            if ok:
+                self.assertEqual(len(mbx.attachments("proposal", ["--attach", os.path.join(d, name)])[1]), 1, name)
+            else:
+                with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                    mbx.attachments("proposal", ["--attach", os.path.join(d, name)])
+        self.assertNotIn("history-staple.json", mbx.ATTACH["accept"] | mbx.ATTACH["delivery"])
+
     def test_email_and_unknown_kinds_dropped(self):
         self.assertIsNone(mbx.parse(self.msg("email", {})))
         self.assertIsNone(mbx.parse(self.msg("request", {"channel": "email"})))
