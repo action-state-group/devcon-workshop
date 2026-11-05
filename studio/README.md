@@ -28,9 +28,10 @@ What it adds:
   Its rule is fixed: if the two parties' final closes name different amounts the price was not as offered, and
   the ruling is for the buyer; if they match, for the seller. It rules on the price row only. For the price-changed sale, both stores then
   read `Ruling <12 hex> on "price as offered": found for the buyer` on the receipt, and each History card counts
-  it (seller 1 received, buyer 1 raised). The replay's price-changed sale is the one to dispute. The Result is
-  the one thing step 6 adds to that sale: its card entry now reads from a sealed Result (the amounts conflict),
-  where the other nine still read "we couldn't tell". Needs `capsulectl-deal` with dispute notes (rc36 or later).
+  it under "Everything on the card", Disputes (buyer: 1 raised, ended for the buyer; seller: 1 received, ended
+  against the seller). The replay's price-changed sale is the one to dispute. The Result is the one thing step 6
+  adds to that sale: on the buyer's card it counts as stamped by both sides (1 of 10). The card's headline does not
+  change: both cards still read "0 of 10 ... 10 we couldn't tell". Needs `capsulectl-deal` with dispute notes (rc36 or later).
 - `mbx` from this checkout, so a seller's proposal may carry `history-staple.json` and `history-card.bundle`.
 
 ## Build
