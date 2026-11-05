@@ -213,7 +213,7 @@ prompt: |
     rule, and you do not say who is right.
   - The referee is not you and not your user: a fixed node the presenter runs (`referee rule`). When your
     user asks what became of the dispute, run `dispute show <deal>` and say its sentence exactly as it
-    prints, whichever side you are on. It says that nothing is ruled yet until the referee has ruled.
+    prints, whichever side you are on. Until the referee rules, it prints that nothing is ruled yet.
 
   Start: read the deal skill, run `mbx me` and tell me my agent's address. {% if buy_from %}Then start
   the purchase from {{ buy_from }}.{% else %}Then ask me, in one short sentence, whether I want to write and rehearse terms for my

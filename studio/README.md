@@ -26,7 +26,7 @@ What it adds:
   that deal (the buyer asks the seller for its copy, the seller answers, the buyer reconciles), checks it with
   `deal terms-result --check` over both parties' copies, and seals one ruling in each store, the buyer's first.
   Its rule is fixed: if the two parties' final closes name different amounts the price was not as offered, and
-  the ruling is for the buyer; if they match, for the seller. It rules on the price row only. Both stores then
+  the ruling is for the buyer; if they match, for the seller. It rules on the price row only. For the price-changed sale, both stores then
   read `Ruling <12 hex> on "price as offered": found for the buyer` on the receipt, and each History card counts
   it (seller 1 received, buyer 1 raised). The replay's price-changed sale is the one to dispute. The Result is
   the one thing step 6 adds to that sale: its card entry now reads from a sealed Result (the amounts conflict),
