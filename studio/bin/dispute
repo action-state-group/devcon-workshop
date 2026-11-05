@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # dispute show DEAL [--store HOME]: what the referee ruled on DEAL, in the one sentence both parties' agents
 # say, or that nothing is ruled yet. Reads the deal's own receipt in this profile's store.
+# dispute sale prints the id of the replay's price-changed sale, the one to dispute (replay README, "Trade 7"); the
+# ids differ on every replay.
 # dispute DEAL [--store HOME] [--row ROW] --words TEXT: the buyer's dispute of one row of the seller's terms
 # (Terms Pack Studio, demo step 6). Seals a dispute note on DEAL in this profile's deal store, which is the
 # buyer's, and writes ~/studio/disputes/DEAL.json (the deal, the row, and the dispute_digest the referee's
@@ -12,15 +14,25 @@
 # The profile is `deal`, as in `devcon8 trade`.
 set -euo pipefail
 die() { echo "dispute: $*" >&2; exit 1; }
+# A volume from an older image keeps that image's plugin file, which capsulectl warns about on every call.
+D=/opt/devcon8
+[ ! -x "$D/bin/capsulectl-deal" ] || capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
+if [ "${1:-}" = sale ]; then
+  S=$HOME/studio/replay/seller
+  [ -d "$S" ] || die "no replayed sales: leave this session, run devcon8-studio replay, then start again"
+  w=$(mktemp -d); trap 'rm -rf "$w"' EXIT
+  for d in $(XDG_CONFIG_HOME=$S capsulectl --profile deal deal list --json | jq -r '.[] | select(.kind == "deal") | .deal_id'); do
+    XDG_CONFIG_HOME=$S capsulectl --profile deal deal export --deal "$d" --output "$w/x-$d.json" >/dev/null
+    if jq -e 'any(.[]; .["x-deal-v0"].record_type? == "detail_change")' "$w/x-$d.json" >/dev/null; then echo "$d"; exit 0; fi
+  done
+  die "no sale with a price change in the replayed sales"
+fi
 show=0; [ "${1:-}" != show ] || { show=1; shift; }
 deal=${1:-}
 if [ -z "$deal" ] || [ "${deal#-}" != "$deal" ]; then die "usage: dispute DEAL [--store HOME] [--row ROW] --words TEXT"; fi
 shift
 [[ $deal =~ ^deal-[0-9a-f]{16}$ ]] || die "DEAL is a deal id (deal-…)"
 row=price_as_offered words="" store=""
-# A volume from an older image keeps that image's plugin file, which capsulectl warns about on every call.
-D=/opt/devcon8
-[ ! -x "$D/bin/capsulectl-deal" ] || capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
 if [ "$show" = 1 ]; then
   while [ $# -gt 0 ]; do
     case $1 in --store) store=${2:?--store needs a value}; shift 2 ;; *) die "unknown argument $1" ;; esac

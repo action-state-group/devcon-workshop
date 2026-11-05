@@ -14,13 +14,7 @@ mkdir -p "$HOME" "$XDG_CONFIG_HOME"
 S=$HOME/studio/replay
 
 devcon8-studio replay >/dev/null || fail "replay failed"
-# The price-changed sale is the one whose seller half holds a detail_change (replay README, "Trade 7").
-deal=
-for d in $(XDG_CONFIG_HOME=$S/seller capsulectl --profile deal deal list --json | jq -r '.[] | select(.kind == "deal") | .deal_id'); do
-  XDG_CONFIG_HOME=$S/seller capsulectl --profile deal deal export --deal "$d" --output "$work/x-$d.json" >/dev/null
-  if jq -e 'any(.[]; .["x-deal-v0"].record_type? == "detail_change")' "$work/x-$d.json" >/dev/null; then deal=$d; break; fi
-done
-[ -n "$deal" ] || fail "no sale with a price change in the replay"
+deal=$(dispute sale) || fail "dispute sale"
 ok "the price-changed sale is $deal"
 
 [ "$(dispute show "$deal" --store "$S/buyer")" = "Nothing is ruled on $deal yet." ] || fail "a deal with no ruling says it has one"
@@ -65,7 +59,8 @@ dispute "$other" --words "I think the price was wrong" >/dev/null || fail "dispu
 r=$(referee rule "$other" --buyer "$S/buyer" --seller "$S/seller") || fail "referee rule ($other)"
 [ "$(jq -r .finding <<<"$r")" = for_seller ] || fail "the closes agree, so the ruling is for the seller: $r"
 b=$(dispute show "$other" --store "$S/buyer"); s=$(dispute show "$other" --store "$S/seller")
-[ "$b" = "$s" ] && [[ $b == *"found for the seller."* ]] || fail "both stores should say found for the seller: $b | $s"
+[ "$b" = "$s" ] || fail "the two stores differ: $b | $s"
+[[ $b == *"found for the seller."* ]] || fail "both stores should say found for the seller: $b | $s"
 ok "agreeing closes: $b"
 
 # The referee rules on the price row only.

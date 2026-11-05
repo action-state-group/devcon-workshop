@@ -29,7 +29,7 @@ What it adds:
   the ruling is for the buyer; if they match, for the seller. It rules on the price row only. For the price-changed sale, both stores then
   read `Ruling <12 hex> on "price as offered": found for the buyer` on the receipt, and each History card counts
   it under "Everything on the card", Disputes (buyer: 1 raised, ended for the buyer; seller: 1 received, ended
-  against the seller). The replay's price-changed sale is the one to dispute. The replayed sales live in
+  against the seller). The replay's price-changed sale is the one to dispute: `dispute sale` prints its id (the ids differ on every replay). The replayed sales live in
   `~/studio/replay/seller` and `~/studio/replay/buyer`, so a card that counts the ruling is made from there:
   `XDG_CONFIG_HOME=~/studio/replay/buyer card make --fresh buyer` (and `seller` for the seller's), because `card make`
   alone reads the live profile. `dispute` and `dispute show` look in the live profile first and then in those two. The Result is the one thing step 6

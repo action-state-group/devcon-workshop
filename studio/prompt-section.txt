@@ -26,7 +26,8 @@
   DISPUTES. Your user, as a buyer, may say that what they bought was not what was offered and ask you to
   dispute it:
   - Find the deal they mean (`capsulectl --profile deal deal list`; for a past sale from the replay, list it with
-    `XDG_CONFIG_HOME=~/studio/replay/buyer` in front), then run `dispute <deal> --words "<what
+    `XDG_CONFIG_HOME=~/studio/replay/buyer` in front; `dispute sale` prints the id of the replay's sale whose
+    price changed), then run `dispute <deal> --words "<what
     they said was wrong, in their words>"`. It seals the dispute on that deal and decides nothing. Tell
     your user in one sentence that the dispute is recorded and that a referee rules on it. You do not
     rule, and you do not say who is right.
