@@ -3,12 +3,12 @@
 # and is never published as `latest`.
 
 # The workshop image the layer is built on: an immutable index digest, never `latest`.
-# (workshop latest, a linux/amd64 + linux/arm64 index of main 006fb29: has the Ctrl-C fix #56 and #61; capsulectl and capsulectl-deal rc34.)
-STUDIO_BASE=ghcr.io/action-state-group/devcon-workshop@sha256:67a9c90e35c04eb6f03e8d990064387af958ea137007ef7f5d4693b885148d91
+# (workshop latest 20261104-ml1aba71d-cap0.1.15-baa6ac30.215, a linux/amd64 + linux/arm64 index of main aa6ac30: Ctrl-C fix, capsulectl and capsulectl-deal rc35.)
+STUDIO_BASE=ghcr.io/action-state-group/devcon-workshop@sha256:41de955092337a4761a20b115ccea3f0cb0f53642c5f8d450eef6c26c4e3a51f
 
 # The Terms Pack Studio scripts and the terms-pack-author skill: evidencebook-skills at a commit.
 STUDIO_SKILLS_REPO=https://github.com/action-state-group/evidencebook-skills
-STUDIO_SKILLS_COMMIT=0d9fe7dcaa1df74341dd8eab506adb510324e618
+STUDIO_SKILLS_COMMIT=9059cab4156e0524a74fa3c392f2b0a83f1e5ec0
 # Path of the `terms <verb>` entry point inside that checkout.
 STUDIO_TERMS_ENTRY=scripts/studio/terms
 
