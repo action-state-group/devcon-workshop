@@ -71,7 +71,7 @@ ok "step 3: published and pinned ($(jq -r '.definition_digest[:12]' <<<"$pub"))"
 # Step 4: a live sale after the pin. Same snapshots as the replay (evidencebook-deal studio-replay.sh). The
 # commit check at 175 after an offer at 150 must carry the pinned rules and fail the price_as_offered row.
 side() { capsulectl --profile deal deal "$@"; }
-terms_json='{"item":"fox sticker","quantity":1}'
+terms_json='{"item":"fox sticker","quantity":1,"currency":"USD"}'
 jq -n '{type:"purchase",demo:true,intent:{verbatim:"Sell my fox sticker for 150",min_total_minor:100,asked:{item:"fox sticker",quantity:1},allowed:["offer","commit"]},terms:{item:"fox sticker",quantity:1,price_minor:150,currency:"USD"},recourse:{rail:"x402",refundable:false}}' >"$work/sale.json"
 sale=$(side sale new --input "$work/sale.json" | jq -r .sale_id)
 jq -n '{channel:"marketplace",who:{name:"Buyer 11",domain:"buyer11.example"},terms:{price_minor:150}}' >"$work/thread.json"
@@ -82,6 +82,8 @@ offer=$(side check --deal "$thread" --input "$work/offer-check.json")
 # The pinned rules pause the offer. The seller's answer is bound to the card it was shown (--shown-card), then the
 # offer act and the buyer's acceptance record; history entries come from act records.
 jq -r .approval_text <<<"$offer" >"$work/card.txt"
+# The shipped card says the pending row in the pack's words (evidencebook-skills#135), not "couldn't check".
+grep -q 'is checked at the commit' "$work/card.txt" || fail "the offer card does not say the row is checked at the commit: $(cat "$work/card.txt")"
 side note --deal "$thread" --kind approval --check "$(jq -r .check_id <<<"$offer")" --choice proceed \
   --said "yes, go ahead with this buyer" --shown-card "$work/card.txt" >/dev/null
 jq -n '{action:"offer",amount_minor:150}' >"$work/offer-act.json"
@@ -93,5 +95,8 @@ jq -e '.rules.ruleset_id' "$work/check.json" >/dev/null || fail "deal check carr
 [ "$(jq -r '.rules.definition_digest' "$work/check.json")" = "$(jq -r .definition_digest <<<"$pub")" ] || fail "deal check reads another pack than the published one"
 [ "$(jq -r '.rules.findings[] | select(.id == "price_as_offered") | .verdict' "$work/check.json")" = fail ] \
   || fail "deal check does not fail the price_as_offered row: $(jq -c '.rules.findings' "$work/check.json")"
+jq -r .approval_text "$work/check.json" >"$work/stop-card.txt"
+grep -q 'did not hold (the commit was $1.75' "$work/stop-card.txt" \
+  || fail "the stop card does not give the commit and the offer in the row's words: $(cat "$work/stop-card.txt")"
 ok "step 4: the live check fails price_as_offered under the pinned terms"
 echo "studio-e2e: pass"
