@@ -15,6 +15,13 @@ n=$(capsulectl --profile deal deal list --json | jq '[.[] | select(.kind == "dea
 [ "$n" = 10 ] || fail "the live profile holds $n deals, not 10"
 devcon8-studio replay --live | grep -q 'nothing to do' || fail "a second replay --live is not a no-op"
 ok "replay --live: ten sales in the live profile, a second run does nothing"
+# The walkthrough runs both replays (README, "Which replay the walkthrough needs"): the plain one after --live
+# must still work, and the price-changed sale must be found in its store.
+devcon8-studio replay >/dev/null || fail "replay after replay --live failed"
+[ -n "$(dispute sale)" ] || fail "dispute sale finds no price-changed sale after both replays"
+n=$(capsulectl --profile deal deal list --json | jq '[.[] | select(.kind == "deal")] | length')
+[ "$n" = 10 ] || fail "the plain replay changed the live profile: $n deals"
+ok "both replays together: the live profile keeps its ten, the replay stores hold the price-changed sale"
 
 make=$(card make seller 2>"$work/make.err") || { cat "$work/make.err" >&2; fail "card make"; }
 [ -s "$(jq -r .page <<<"$make")" ] || fail "card make wrote no page"
