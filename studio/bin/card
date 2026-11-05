@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# card <verb>: the History card for the Terms Pack Studio demo (step 5).
+#   card make [NAME]     make this profile's card: ~/studio/cards/NAME.bundle and NAME.html (default
+#                        NAME history-card); the page renders offline from the bundle alone
+#   card staple          the seller's staple for its next proposal: ~/studio/cards/stapled/
+#                        history-staple.json and history-card.bundle (the shared copy, without the
+#                        deals it counts), both for `mbx reply ... proposal ... --attach`
+#   card open BUNDLE     the buyer's side: BUNDLE is the received history-card.bundle, beside its
+#                        history-staple.json. Checks the staple, checks that the bundle's card is the
+#                        stapled card, then draws ~/studio/cards/from-<conversation>.html
+# The card is as of a checkpoint cut after the holder was declared, and checkpoints come every five
+# minutes, so the first `card make` after a fresh declaration waits for the next one (it says so).
+# Everything is written under ~/studio. The profile is `deal`, as in `devcon8 trade`.
+set -euo pipefail
+D=/opt/devcon8
+OUT=$HOME/studio/cards
+die() { echo "card: $*" >&2; exit 1; }
+cap() { capsulectl --profile deal deal "$@"; }
+
+# The same plugin setup as devcon8 trade: the deal and book plugins and their presentation assets.
+setup() {
+  capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
+  capsulectl plugin install "$D/bin/capsulectl-book" >/dev/null
+  local r=$HOME/.local/lib/capsulectl/plugins
+  mkdir -p "$r" && cp -a "$D/plugin-assets/." "$r/"
+  cap list >/dev/null 2>&1 || die "no deal store yet: run devcon8-studio replay (or a trade) first"
+  mkdir -p "$OUT/stapled"
+}
+
+# Declare once (a second declaration would make the last checkpoint stale), as a holder that answers
+# the card, which the staple needs.
+declared() { cap standard-history declare 2>/dev/null | grep -q '"holder_kind"'; }
+declare_holder() {
+  declared || cap standard-history declare --holder-kind person --answer >/dev/null
+}
+
+# build_card OUT [--shared]: write the bundle, cutting the next checkpoint when the last is older than
+# the declaration, up to ten minutes.
+build_card() {
+  local out=$1; shift
+  local err waited=0 msg
+  err=$(mktemp)
+  rm -f "$out"  # the deal plugin writes a new file only; asking again replaces the card
+  until cap standard-history card --out "$out" "$@" >/dev/null 2>"$err"; do
+    if grep -q 'declaration or policy changed\|no finished checkpoint' "$err"; then
+      msg=$(cap tick 2>/dev/null || true)
+      if [ "$(jq -r .state <<<"$msg" 2>/dev/null)" = ticked ]; then continue; fi
+      [ "$waited" -lt 600 ] || { rm -f "$err"; die "the next checkpoint did not come within ten minutes"; }
+      [ "$waited" -gt 0 ] || echo "card: waiting for the next checkpoint (due $(jq -r '.due // "soon"' <<<"$msg" 2>/dev/null)); checkpoints are five minutes apart" >&2
+      sleep 5; waited=$((waited + 5))
+    else
+      cat "$err" >&2; rm -f "$err"; die "the card was not built"
+    fi
+  done
+  rm -f "$err"
+}
+
+page() { # BUNDLE HTML
+  capsulectl verify --bundle "$1" >/dev/null || die "$1 does not verify"
+  rm -f "$2"
+  local r; r=$(capsulectl presentation build --bundle "$1" --out "$2")
+  [ "$(jq -r '(.plugins_refused // []) | length' <<<"$r")" = 0 ] || die "the page was drawn without the card view: $(jq -c .plugins_refused <<<"$r")"
+  jq -e 'any(.modules[]?; .id == "capsuleviewer.standard-history/v0")' <<<"$r" >/dev/null \
+    || die "the page was drawn without the History card module (the generic page is not a card)"
+  jq -nc --arg bundle "$1" --arg page "$2" '{bundle:$bundle, page:$page}'
+}
+
+verb=${1:-}; shift || true
+case $verb in
+make)
+  name=${1:-history-card}
+  [[ $name =~ ^[A-Za-z0-9_-]{1,64}$ ]] || die "NAME is letters, digits, - and _"
+  setup; declare_holder
+  build_card "$OUT/$name.bundle"
+  page "$OUT/$name.bundle" "$OUT/$name.html" ;;
+staple)
+  setup; declare_holder
+  build_card "$OUT/stapled/history-card.bundle" --shared
+  cap standard-history staple --derivation standard_history/1 >"$OUT/stapled/history-staple.json" \
+    || die "the staple was not built"
+  jq -nc --arg d "$OUT/stapled" '{staple:($d+"/history-staple.json"), bundle:($d+"/history-card.bundle")}' ;;
+open)
+  f=${1:?usage: card open BUNDLE}
+  [ -s "$f" ] || die "no such card: $f"
+  staple=$(dirname "$f")/history-staple.json
+  [ -s "$staple" ] || die "no history-staple.json beside $f: a card that came without its staple is not opened"
+  setup
+  work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
+  # The staple prints the request and reply octets as embedded JSON; `verify --history` reads them as
+  # {media_type, octets_text} (capsule-cli#551), so wrap them here, byte for byte (compact JSON).
+  key=$(python3 -I - "$staple" "$work/carried.json" <<'PY'
+import json, sys
+s = json.load(open(sys.argv[1]))["staple"]
+wrap = lambda o: {"media_type": "application/json", "octets_text": json.dumps(o, separators=(",", ":"), ensure_ascii=False)}
+json.dump({"history": "standard_history/1", "request": wrap(s["request"]), "reply": wrap(s["reply"])}, open(sys.argv[2], "w"))
+print(s["reply"]["responder"])
+PY
+  ) || die "$staple is not a staple"
+  # The key is the staple's own: the buyer's deal holds no key for the seller (two-sided-receipt.md), so
+  # this proves the card is signed, bound to its request and unchanged, not who the seller is.
+  report=$(capsulectl verify --history "$work/carried.json" --holder-key "$key") \
+    || die "the staple was not accepted: $(jq -c '{verdict, findings, envelope_properties}' <<<"$report")"
+  [ "$(jq -r .verdict <<<"$report")" = ACCEPTED ] || die "the staple was not accepted: $(jq -c .findings <<<"$report")"
+  python3 -I - "$staple" "$f" <<'PY' || die "the bundle's card is not the stapled card"
+import base64, json, sys
+stapled = json.loads(base64.b64decode(json.load(open(sys.argv[1]))["staple"]["reply"]["artifact"]))
+b = json.load(open(sys.argv[2]))
+sys.exit(0 if b["disclosures"][b["root"]]["agent_input"] == stapled else 1)
+PY
+  conv=$(basename "$(dirname "$f")")
+  [[ $conv =~ ^[A-Za-z0-9_-]{1,128}$ ]] || conv=received
+  page "$f" "$OUT/from-$conv.html"
+  echo "card: the staple is signed by key ${key:0:16}... and the bundle's card is the stapled card. The seller's identity is not checked: your own deal holds no key for the seller, so this key comes from the card itself." >&2 ;;
+*) sed -n '2,/^set -/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+esac

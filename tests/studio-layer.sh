@@ -19,6 +19,12 @@ python3 -c 'import yaml' 2>/dev/null && fail "PyYAML leaked into the system Pyth
 ok "system Python untouched"
 if [ ! -x "$D/agent/bin/devcon8-studio" ] || [ ! -s "$D/studio/replay/testdata/studio/sticker-trades.json" ] || [ ! -s "$D/studio/replay/scripts/studio-replay.sh" ]; then fail "the replay or its launcher is missing"; fi
 ok "devcon8-studio replay and its fixture are in place"
+[ "$(type -P card)" = "$D/agent/bin/card" ] || fail "card is not on PATH"
+card 2>/dev/null && fail "card with no verb should list its verbs and exit non-zero"
+ok "card on PATH"
+# The seller's proposal may carry its History card: the layer's mbx is the repo's.
+grep -q 'history-staple.json' "$D/agent/bin/mbx" || fail "the layer's mbx does not let a proposal carry the staple"
+ok "mbx lets a proposal carry the History card"
 terms --help >/dev/null || fail "terms --help failed"
 ok "terms --help"
 # trade.sh runs the Studio recipe when TRADE_RECIPE is set (the layer patches it; the base image's is untouched).

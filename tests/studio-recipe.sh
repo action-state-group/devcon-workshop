@@ -16,7 +16,7 @@ for mode in simulated lexe; do
   for m in 'AS THE SELLER' 'Do not curl anything, install anything or read other files' 'deal check'; do
     has "$s" "$m" || fail "$mode: studio prompt lacks: $m"
   done
-  for m in 'STUDIO.' '/opt/devcon8/agent/skills/terms-pack-author/SKILL.md' '`terms <verb>`' 'wait for their yes' 'under ~/studio'; do
+  for m in 'STUDIO.' '/opt/devcon8/agent/skills/terms-pack-author/SKILL.md' '`terms <verb>`' 'wait for their yes' 'under ~/studio' 'CARDS.' '`card make`' '`card staple`' '`card open <that path>`' 'history-card.bundle'; do
     has "$s" "$m" || fail "$mode: studio prompt lacks: $m"
     has "$t" "$m" && fail "$mode: the trader recipe has Studio text: $m"
   done

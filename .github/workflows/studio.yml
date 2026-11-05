@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: shellcheck -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio
+        run: shellcheck -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio studio/bin/card
       - name: the repo's trader.yaml is the pinned base's (studio.yaml runs on the base's tools)
         run: |
           . studio/versions.lock

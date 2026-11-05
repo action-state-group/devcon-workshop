@@ -41,8 +41,10 @@ MAX_FILE = 64 * 1024
 USER_AGENT = "devcon-workshop-mbx/1 (+https://github.com/action-state-group/devcon-workshop)"
 # The only files a reply may carry, by kind: the buyer's terms leg and the simulated settle response
 # with its accept (a Lightning accept carries the terms leg only), the sticker with the seller's
-# delivery.
-ATTACH = {"accept": {"buyer-terms.json", "settle.json"}, "delivery": {"sticker.png"}}
+# delivery. A seller's proposal may carry its History card (Studio step 5): the staple, and the
+# shared copy of the card bundle that the buyer's `card open` draws offline.
+ATTACH = {"accept": {"buyer-terms.json", "settle.json"}, "delivery": {"sticker.png"},
+          "proposal": {"history-staple.json", "history-card.bundle"}}
 KINDS = {"request", "proposal", "accept", "decline", "confirm", "cancel"}
 SAFE = re.compile(r"[^A-Za-z0-9 _.,:/@+-]")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -243,7 +245,7 @@ def save_files(conv, kind, files):
                 raise ValueError("sha256_mismatch")
             if name.endswith(".png") and not png_ok(raw):
                 raise ValueError("not_a_png")
-            if name.endswith(".json") and not isinstance(json.loads(raw), dict):
+            if name.endswith((".json", ".bundle")) and not isinstance(json.loads(raw), dict):
                 raise ValueError("not_json")
         except (KeyError, ValueError, TypeError) as e:
             refused.append({"name": name if name in allowed else "(other)", "reason": e.args[0] if e.args and e.args[0] in REASONS else "malformed"})
