@@ -49,7 +49,9 @@ build_card() {
     state=$(jq -r .state <<<"$msg")
     [ "$state" != ticked ] || cut=1
     if { [ "$fresh" != 1 ] || [ "$cut" = 1 ]; } && cap standard-history card --out "$out" "$@" >/dev/null 2>"$err"; then break; fi
-    if [ "$cut" = 1 ] || [ "$fresh" = 1 ] || grep -q 'declaration or policy changed\|no finished checkpoint' "$err"; then
+    # Wait only when a checkpoint is still needed (--fresh, none cut yet) or the card says it is stale;
+    # any other refusal is the real error and is shown.
+    if { [ "$fresh" = 1 ] && [ "$cut" = 0 ]; } || grep -q 'declaration or policy changed\|no finished checkpoint' "$err"; then
       [ "$waited" -lt 420 ] || { rm -f "$err"; die "the next checkpoint did not come within seven minutes"; }
       [ "$waited" -gt 0 ] || echo "card: waiting for the next checkpoint (due $(jq -r '.due // "soon"' <<<"$msg")); checkpoints are about five minutes apart" >&2
       sleep 5; waited=$((waited + 5)); cut=0
@@ -64,9 +66,10 @@ build_card() {
 }
 
 page() { # BUNDLE HTML
-  capsulectl verify --bundle "$1" >/dev/null || die "$1 does not verify"
+  # Nothing a bundle or the verifier says is echoed: this runs on files from another agent.
+  capsulectl verify --bundle "$1" >/dev/null 2>&1 || die "$1 does not verify"
   rm -f "$2"
-  local r; r=$(capsulectl presentation build --bundle "$1" --out "$2")
+  local r; r=$(capsulectl presentation build --bundle "$1" --out "$2" 2>/dev/null) || die "the page was not drawn"
   [ "$(jq -r '(.plugins_refused // []) | length' <<<"$r")" = 0 ] || die "the page was drawn without the card view (a plugin was refused)"
   jq -e 'any(.modules[]?; .id == "capsuleviewer.standard-history/v0")' <<<"$r" >/dev/null \
     || die "the page was drawn without the History card module (the generic page is not a card)"
@@ -105,13 +108,13 @@ wrap = lambda o: {"media_type": "application/json", "octets_text": json.dumps(o,
 json.dump({"history": "standard_history/1", "request": wrap(s["request"]), "reply": wrap(s["reply"])}, open(sys.argv[2], "w"))
 print(s["reply"]["responder"])
 PY
-  ) || die "$staple is not a staple"
+  ) 2>/dev/null || die "$staple is not a staple"
   # The key is the staple's own: the buyer's deal holds no key for the seller (two-sided-receipt.md), so
   # this proves the card is signed, bound to its request and unchanged, not who the seller is.
-  report=$(capsulectl verify --history "$work/carried.json" --holder-key "$key") \
+  report=$(capsulectl verify --history "$work/carried.json" --holder-key "$key" 2>/dev/null) \
     || die "the staple was not accepted: $(jq -c '{verdict, envelope_properties, history_properties}' <<<"$report" 2>/dev/null)"
   [ "$(jq -r .verdict <<<"$report")" = ACCEPTED ] || die "the staple was not accepted: $(jq -c '{verdict, envelope_properties, history_properties}' <<<"$report")"
-  python3 -I - "$staple" "$f" <<'PY' || die "the bundle's card is not the stapled card"
+  python3 -I - "$staple" "$f" 2>/dev/null <<'PY' || die "the bundle's card is not the stapled card"
 import base64, json, sys
 stapled = json.loads(base64.b64decode(json.load(open(sys.argv[1]))["staple"]["reply"]["artifact"]))
 b = json.load(open(sys.argv[2]))
