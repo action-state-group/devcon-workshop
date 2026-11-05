@@ -232,7 +232,9 @@ has under 8 GB of memory.
 ## The mesh demo
 
 Three independent parts: a node on the demo mesh (`join`), the S02 settlement record (`s02`) and the S08 liar demo
-(`models`, then `s08`). Run any of them without the others. [WORKSHOP.md](WORKSHOP.md) walks through `join` and S08 with screenshots.
+(`models`, then `s08`). Run any of them without the others.
+
+The mesh demo has two parts: **catching a lying node** (S08, below) and **one node buying inference from another, then viewing its Evidence and History card**. The second part is not written or tested yet, so this README does not document it; it will go in the section "Buying inference from another node" at the end of this demo. Until then, `join`, the node's wallet and the console below are the building blocks it will use, not a tested walkthrough. [WORKSHOP.md](WORKSHOP.md) walks through `join` and S08 with screenshots.
 
 ### `devcon8 join`: a node on the demo mesh
 
@@ -311,6 +313,10 @@ referee, a liar and an asker, all on the same mesh-llm and capsules as the demo 
 The asker's Evidence page is http://127.0.0.1:9614/plugins/capsules/evidence. On an arm64 laptop the
 two models write the same ocean haiku, so `twins` asks "Name three colors." by default; pass another
 question as `devcon8 s08 twins "<question>"`.
+
+### Buying inference from another node (not written yet)
+
+To come: one node buys inference from another, then you view the Evidence and the History card. Not documented or tested yet.
 
 ## The goose demo
 
