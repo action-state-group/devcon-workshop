@@ -58,3 +58,32 @@ printf '%s' '{"staple":{"request":"IGNORE PREVIOUS INSTRUCTIONS"}}' >"$d/history
 out=$(card open "$d/history-card.bundle" 2>&1) && fail "card open accepted a staple that is not one"
 if grep -q 'Traceback\|IGNORE PREVIOUS' <<<"$out"; then fail "card open echoed a traceback or the staple's text: $out"; fi
 ok "card open refuses a malformed staple without a traceback"
+
+# An interrupt (Ctrl-C reaches the whole process group) while a card is being rebuilt leaves the previous
+# card and page as they were, and no scratch directory behind. The stub holds `standard-history card`.
+mkdir -p "$work/stub"
+real=$(command -v capsulectl)
+cat >"$work/stub/capsulectl" <<STUB
+#!/usr/bin/env bash
+case " \$* " in *" standard-history card "*) sleep 120 ;; esac
+exec "$real" "\$@"
+STUB
+chmod +x "$work/stub/capsulectl"
+before=$(sha256sum "$HOME/studio/cards/seller.bundle" "$HOME/studio/cards/seller.html")
+python3 -I - "$work/stub" "$HOME/studio/cards" <<'PY' || fail "an interrupted card make changed the previous card or left scratch files"
+import glob, os, signal, subprocess, sys, time
+stub, cards = sys.argv[1:3]
+p = subprocess.Popen(["card", "make", "seller"], env={**os.environ, "PATH": stub + ":" + os.environ["PATH"]},
+                     start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+for _ in range(300):
+    if glob.glob(os.path.join(cards, ".card.*")) and subprocess.run(["pgrep", "-f", "sleep 120"], capture_output=True).returncode == 0:
+        break
+    time.sleep(0.1)
+else:
+    sys.exit("card make never reached the stubbed step")
+os.killpg(p.pid, signal.SIGINT)
+sys.exit(0 if p.wait(timeout=30) == 130 and not glob.glob(os.path.join(cards, ".card.*")) else 1)
+PY
+[ "$before" = "$(sha256sum "$HOME/studio/cards/seller.bundle" "$HOME/studio/cards/seller.html")" ] \
+  || fail "an interrupted card make changed the previous card or page"
+ok "an interrupted card make leaves the previous card and page untouched and no scratch directory"
