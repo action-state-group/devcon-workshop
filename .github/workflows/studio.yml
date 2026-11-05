@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - studio/**
+      - agent/bin/mbx
       - agent/recipes/**
       - tests/studio-*
       - tests/test_build_recipe.py
@@ -22,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: shellcheck -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio studio/bin/card
+        run: shellcheck -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh tests/studio-card.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio studio/bin/card
       - name: the repo's trader.yaml is the pinned base's (studio.yaml runs on the base's tools)
         run: |
           . studio/versions.lock
@@ -52,3 +53,5 @@ jobs:
         run: docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-layer.sh
       - name: demo steps 1-4 (tests/studio-e2e.sh)
         run: docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-e2e.sh
+      - name: demo step 5, the History cards and the staple (tests/studio-card.sh; waits for a checkpoint)
+        run: docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-card.sh

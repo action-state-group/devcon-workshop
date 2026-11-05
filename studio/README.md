@@ -19,8 +19,8 @@ What it adds:
   (offline, from the bundle alone) under `~/studio/cards`; `card staple` writes the seller's staple and the
   shared copy of its card for its next proposal; `card open FILE` is the buyer's side, which verifies a
   received card and draws it. A card is as of a checkpoint cut after the holder was declared, and checkpoints
-  are five minutes apart, so run `card make` once early (it declares the holder) and the card at step 5 builds
-  at once; the first `card make` on a fresh declaration waits up to five minutes and says so.
+  are about five minutes apart, so run `card make` once early (it declares the holder), and use `--fresh` at step 5 so
+  the live deal is counted (it waits up to seven minutes for a new checkpoint and says so).
 - `mbx` from this checkout, so a seller's proposal may carry `history-staple.json` and `history-card.bundle`.
 
 ## Build

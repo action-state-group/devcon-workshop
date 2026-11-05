@@ -18,7 +18,8 @@ if [ "${1:-}" = replay ] && [ "${2:-}" = --live ] && [ $# -eq 2 ]; then
       || { echo "devcon8-studio: could not make the deal profile" >&2; exit 1; }
   fi
   n=$(capsulectl --profile deal deal list --json 2>/dev/null | jq '[.[] | select(.kind == "deal")] | length' 2>/dev/null) || true
-  [ "${n:-0}" -eq 0 ] || { echo "devcon8-studio: the live deal profile already holds $n deals; --live replays into an empty one only" >&2; exit 1; }
+  [[ ${n:-} =~ ^[0-9]+$ ]] || { echo "devcon8-studio: could not read the live deal profile, so it is not touched" >&2; exit 1; }
+  [ "$n" -eq 0 ] || { echo "devcon8-studio: the live deal profile already holds $n deals; --live replays into an empty one only. To start over, move ~/.local/share/capsule-deal and the 'deal' profile aside (capsulectl profile --help)" >&2; exit 1; }
   mkdir -p "$home"
   # The buyer's half goes to a scratch folder: the live buyer is another agent with its own store.
   bash "$D/studio/replay/scripts/studio-replay.sh" "$D/studio/replay/testdata/studio/sticker-trades.json" \

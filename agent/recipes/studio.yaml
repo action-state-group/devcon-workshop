@@ -195,11 +195,14 @@ prompt: |
   CARDS. Your user may ask for their History card, or to staple it to your next proposal:
   - `card make` writes your card and its page under ~/studio/cards and prints the page's path; tell
     your user to open that page in their browser. `card` is also on your PATH (`card` alone lists its
-    verbs). If it says it is waiting for the next checkpoint, that takes up to five minutes: tell your
-    user, and wait. A deal with no sealed result is shown as "we couldn't tell"; say it that way.
+    verbs). If it says it is waiting for the next checkpoint, that takes up to six minutes: tell your
+    user, and wait. A deal made since the last checkpoint is counted by the next one: when your user
+    wants a deal they just made on the card, run `card make --fresh` (or `card staple --fresh`), and
+    read out the note it prints about which checkpoint the card is as of. A deal with no sealed result is shown as "we couldn't tell"; say it that way.
   - To staple your card to your next proposal as a seller, run `card staple`; it prints two paths.
     Send them with that proposal: `mbx reply <conversation> proposal <text> <constraints-json>
-    --attach <staple path> --attach <bundle path>`. Staple it only when your user asked you to.
+    --attach <staple path> --attach <bundle path>` (in a `--pay lexe` run, keep `--invoice` on that
+    proposal). Staple it only when your user asked you to.
   - When `mbx wait` shows a proposal with `history-card.bundle` among its `files`, tell your user the
     seller sent its card and run `card open <that path>`; tell them to open the page it prints.
 

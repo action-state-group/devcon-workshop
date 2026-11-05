@@ -227,10 +227,14 @@ def png_ok(raw, max_side=1024):
         return False
 
 
-def save_files(conv, kind, files):
-    """Write each allowed, checked file to ~/deals/<conversation>/; return the saved paths."""
+CARD_FILES = {"history-staple.json", "history-card.bundle"}
+
+
+def save_files(conv, kind, files, buyer=False):
+    """Write each allowed, checked file to ~/deals/<conversation>/; return the saved paths. A seller's
+    History card is for the buyer it is sent to: a mailbox that did not open the conversation saves none."""
     saved, refused = [], []
-    allowed = ATTACH.get(kind, set())
+    allowed = ATTACH.get(kind, set()) if buyer or kind != "proposal" else ATTACH["proposal"] - CARD_FILES
     for f in files if isinstance(files, list) else []:
         name = f.get("name") if isinstance(f, dict) else None
         if not isinstance(name, str):
@@ -282,7 +286,7 @@ def parse(m):
         out["dropped"] = sorted(k if k in FIELDS else "(other)" for k in dropped)
     if kind == "request" and URNISH.match(sender):
         peers = state("peers.json"); peers[conv] = sender; save_state("peers.json", peers)
-    saved, refused = save_files(conv, kind, c.get("files", []))
+    saved, refused = save_files(conv, kind, c.get("files", []), out["you_are"] == "buyer")
     invoice = out["constraints"].pop("invoice", None)
     if invoice is not None:
         # Only a shop's proposal to this buyer may carry one; the model sees that it came, not its text.
