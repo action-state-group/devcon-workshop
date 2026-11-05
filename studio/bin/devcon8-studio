@@ -9,15 +9,16 @@ if [ "${1:-}" = replay ]; then
   [ $# -eq 1 ] || { echo "devcon8-studio replay" >&2; exit 2; }
   home=$HOME/studio/replay
   if [ -d "$home/seller" ]; then
-    n=$(XDG_CONFIG_HOME=$home/seller capsulectl --profile deal deal list --json 2>/dev/null | jq '[.[] | select(.kind == "deal")] | length' 2>/dev/null || echo 0)
-    [ "$n" -ge 10 ] || { echo "devcon8-studio: $home holds $n past sales, not ten; move it aside and run replay again" >&2; exit 1; }
+    n=$(XDG_CONFIG_HOME=$home/seller capsulectl --profile deal deal list --json 2>/dev/null | jq '[.[] | select(.kind == "deal")] | length' 2>/dev/null) || true
+    n=${n:-0}
+    [ "$n" -ge 10 ] || { echo "devcon8-studio: $home holds $n past sales, not ten; delete $home and run devcon8-studio replay again" >&2; exit 1; }
     echo "The ten sample sticker sales are already in $home/seller; nothing to do."
     exit 0
   fi
   capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
   mkdir -p "$home"
   bash "$D/studio/replay/scripts/studio-replay.sh" "$D/studio/replay/testdata/studio/sticker-trades.json" \
-    "$home/seller" "$home/buyer" >"$home/replay.log" || { echo "devcon8-studio: the replay failed; see $home/replay.log" >&2; exit 1; }
+    "$home/seller" "$home/buyer" >"$home/replay.log" || { echo "devcon8-studio: the replay failed (see $home/replay.log); delete $home and run devcon8-studio replay again" >&2; exit 1; }
   echo "Ten sample sticker sales are in $home/seller (the buyer's side is in $home/buyer)."
   exit 0
 fi
