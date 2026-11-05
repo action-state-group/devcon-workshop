@@ -231,10 +231,7 @@ has under 8 GB of memory.
 
 ## The mesh demo
 
-Three independent parts: a node on the demo mesh (`join`), the S02 settlement record (`s02`) and the S08 liar demo
-(`models`, then `s08`). Run any of them without the others.
-
-The mesh demo has two parts: **catching a lying node** (S08, below) and **one node buying inference from another, then viewing its Evidence and History card**. The second part is not written or tested yet, so this README does not document it; it will go in the section "Buying inference from another node" at the end of this demo. Until then, `join`, the node's wallet and the console below are the building blocks it will use, not a tested walkthrough. [WORKSHOP.md](WORKSHOP.md) walks through `join` and S08 with screenshots.
+The mesh demo has two parts: **catching a lying node** (S08) and **one node buying inference from another, then viewing its Evidence and History card** (not written yet; see the last section of this demo). What you can run today, each without the others: a node on the demo mesh (`join`), the S02 settlement record (`s02`, one Lightning payment between two demo nodes) and S08 (`models`, then `s08`). [WORKSHOP.md](WORKSHOP.md) walks through `join` and S08 with screenshots.
 
 ### `devcon8 join`: a node on the demo mesh
 
@@ -316,7 +313,7 @@ question as `devcon8 s08 twins "<question>"`.
 
 ### Buying inference from another node (not written yet)
 
-To come: one node buys inference from another, then you view the Evidence and the History card. Not documented or tested yet.
+To come: a walkthrough where one node buys inference from another, then you view its Evidence and History card. A single paid request has been checked (see "Paid mesh inference with the node's wallet"); the History card step and the walkthrough have not.
 
 ## The goose demo
 
