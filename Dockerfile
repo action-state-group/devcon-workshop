@@ -123,7 +123,7 @@ RUN cd /src/reconcile && go build -o /out/reconcile-asked .
 
 # --- goose: the pinned release commit plus patches/ (see versions.lock) -----------------------------
 # The release build (`cargo build --release -p goose-cli --bin goose`, as goose's build-cli-linux workflow)
-# with the patch applied. goose's rust-toolchain.toml makes rustup fetch the toolchain it asks for.
+# with the patches applied. goose's rust-toolchain.toml makes rustup fetch the toolchain it asks for.
 FROM toolchain AS goose
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends clang libclang-dev libxcb1-dev \

@@ -18,7 +18,7 @@ rl.on('line', (l) => {
   if (m.method !== 'session/prompt') return ok({});
   const sid = m.params.sessionId, upd = (u) => out({jsonrpc: '2.0', method: 'session/update', params: {sessionId: sid, update: u}});
   prompts += 1;
-  log('prompt ' + prompts);
+  log('prompt ' + prompts + ': ' + m.params.prompt.map((b) => b.text || '').join(' '));
   if (prompts === 1) {
     upd({sessionUpdate: 'tool_call', toolCallId: 't1', title: 'Bash: mbx wait', kind: 'execute', status: 'in_progress', rawInput: {command: 'mbx wait'}});
     endFirst = () => out({jsonrpc: '2.0', id: m.id, result: {stopReason: 'cancelled'}});

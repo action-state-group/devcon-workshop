@@ -42,7 +42,7 @@ if 'cancel' not in agent_log():
 time.sleep(1)
 os.write(fd, b'second\r')
 pump(20, lambda: 'second-ok' in screen())
-if 'prompt 2' not in agent_log() or 'second-ok' not in screen():
+if not re.search(r'^prompt 2: .*second', agent_log(), re.M | re.S) or 'second-ok' not in screen():
     fail('the typed line did not reach the agent after Ctrl-C')
 try: os.kill(pid, 9)
 except OSError: pass

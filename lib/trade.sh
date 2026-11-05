@@ -61,7 +61,7 @@ args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive --params "pay=$p
 # goose runs under `script`, which logs what it prints. After "session closed" goose can stay alive
 # waiting on claude-agent-acp, which waits on a tool call still running (an `mbx wait`), so Ctrl-C
 # never returned to the shell (seen on v4). The watcher ends goose and everything under it as soon
-# as the log shows "session closed", so one Ctrl-C (goose's own exit prompt) is enough.
+# as the log shows "session closed", so the press that exits goose (its own exit prompt) is enough.
 # shellcheck disable=SC2317,SC2329 # called from the trap and the watcher
 tree() { local p; for p in $(pgrep -P "$1" 2>/dev/null); do tree "$p"; done; echo "$1"; }
 log=$(mktemp); trap 'rm -f "$log"; [ -z "${lexe_started:-}" ] || lexe_stop' EXIT
