@@ -55,13 +55,16 @@ Inside the container: `devcon8 brain claude` (a Claude subscription login; no AP
 a second run changes nothing; if it fails, delete `~/studio/replay` and run `devcon8-studio replay` again), then `devcon8-studio`. Rehearsal pages and Result JSON land in
 `~/devcon8-studio` on your laptop (mounted at `~/studio`), so you open them from the browser.
 
-Which replay the walkthrough needs. Run both on the seller's agent before its first trade, in either order:
+Which replay the walkthrough needs. Run both on the seller's agent right after setup, before step 3 and the first
+trade, `replay --live` first and then `replay` (the order the tests run):
 `devcon8-studio replay` puts the ten sales in `~/studio/replay`, which steps 1, 2 and 6 read (the rehearsal pages, the
 compare, and the dispute with its ruling). `devcon8-studio replay --live` puts the same ten in the live deal profile,
 which step 5's seller card counts: after one live trade that card reads 11 provided; without it, only the live trades.
 It needs an empty live profile, so it cannot run after the first trade. The two sets are separate stores with
 different deal ids: step 6's ruling lands on the replay sale, so the cards that count it are the replay-store cards
 (`XDG_CONFIG_HOME=~/studio/replay/buyer card make --fresh buyer`, and `seller`), which count the ten replayed sales.
+Step 6 runs entirely in the seller's container, the buyer's `dispute`, `referee rule` and `dispute show` included;
+do not run a replay in the buyer's container for it, or the two sides get different deal ids.
 
 `devcon8-studio` greets you with your agent's address and asks whether you want to write terms or sell. Unlike
 `devcon8 trade` it does not wait for buyers at start-up (steps 1-3 need no mailbox): type your first request. It
