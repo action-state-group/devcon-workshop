@@ -20,7 +20,7 @@ Inference runs on your CPU (Docker on a Mac has no GPU access). The image is 0.7
 
 ## What each demo needs
 
-This is checked in `bin/devcon8` and `lib/*.sh`. There is no one order to run the commands in: the only dependencies are the ones in this table.
+This is checked in `bin/devcon8` and `lib/*.sh`. There is no one order to run the commands in. The dependencies between commands are in this table; a few later ones are stated where they apply (`devcon8 wallet node` needs `join`; `deal list` and the History card need a closed deal).
 
 | Demo | Commands | Needs | Does not need |
 |---|---|---|---|
@@ -57,7 +57,7 @@ downloads them into your volume. The "Final image" row (`sha256:65a0b8cd…`, bu
 | Full image, Nov 4 build with models | 1.9 GB | 3.2 GB |
 | Final image, no models (arm64, main `006fb29`) | 0.74 GB | 2.1 GB |
 | Slim `v4-goose` | 0.63 GB | 1.9 GB |
-| S08 models (`devcon8 models`, only for S08 and the mesh steps) | 1.1 GB, once | 1.1 GB on the volume |
+| S08 models (`devcon8 models`, only for S08) | 1.1 GB, once | 1.1 GB on the volume |
 | USB stick path | one tarball (size not measured yet; `docker save` does not compress), then `docker load` | tarball + loaded image; delete `~/devcon8-usb` afterwards |
 | Each container (shell, nothing built) | - | about 15 MB |
 | Each volume (`devcon8-home`, after node, trades and logins) | - | about 120 MB without models; grows with use |
@@ -121,7 +121,7 @@ the `docker run` in "Start".
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
       ghcr.io/action-state-group/devcon-workshop:latest
 
-You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
+(Or the `@sha256:41de9550…` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
 The three `-p` flags are for the mesh demo only: the console on laptop port 3141 (`join`), S02 on 8080 (`s02`) and the S08 Evidence pages on 9611-9614 (`s08`). The goose demo publishes no port, so you can leave them out of its `docker run`.
 If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then `docker pull` the image again and run the `docker run` above (a local copy of `latest` from before Nov 4 is an older image, and `docker run` does not update it); your `devcon8-home` volume keeps your state.
@@ -274,7 +274,7 @@ Lightning wallet (see "Paid mesh inference with the node's wallet" below). That 
 `devcon8 wallet node` shows the balance of the mesh-llm node's own wallet and the commands that change it; it needs your running node (`devcon8 join` first, `lib/wallet.sh`). Funding it
 (`mesh-llm wallet fund-wallet --amount-sats N`) and allowing payments
 (`mesh-llm wallet policy --mode automatic --daily-budget-sats N`) are up to you, and they spend real
-sats. The wallet is the node's own, inside `~/.mesh-llm/payments` on your volume; the image ships none. It is not the wallet `devcon8 wallet` opens for the goose demo's `--pay lexe` (see "Paying for the sticker with your own wallet").
+sats. The wallet is the node's own: the image ships none, the plugin creates one on first use, inside `~/.mesh-llm/payments` on your volume. It is not the wallet `devcon8 wallet` opens for the goose demo's `--pay lexe` (see "Paying for the sticker with your own wallet").
 
 What has been checked: on 2026-10-31 a funded demo node paid the serving node 1,900 msat for one
 request, and its own sealed record of the payment shows on its Evidence tab. That holds at the serving
@@ -316,7 +316,7 @@ question as `devcon8 s08 twins "<question>"`.
 
 An agent that sells and buys a digital sticker through Agent Box mailboxes. It needs no mesh node, no models and no published port. The order is `brain`, then `nanda`, then `trade` (`trade` refuses with "pick a brain first" or "no mailbox yet" otherwise; `lib/trade.sh`); `brain` and `nanda` may be done in either order.
 
-Needs: a Claude or ChatGPT login, an email address that can receive a six-digit code, and a network. Optional: your own lexe wallet and sats for `--pay lexe`.
+Needs: a Claude or ChatGPT login, an email address that can receive a six-digit code, and a network. Optional: for `--pay lexe`, your own lexe wallet and your caps set with `devcon8 lightning`; to buy, sats in the wallet.
 
 ### The slim `v4-goose` image (trade only, 631 MB)
 
@@ -618,7 +618,7 @@ again; your edits are kept. `devcon8 go-seal --reset` starts over from the image
 
 ## Terms Pack Studio
 
-Terms Pack Studio is an internal layer on top of this image, with its own README: [studio/README.md](studio/README.md). It changes nothing in the published image, its `latest` tag or the USB files.
+Terms Pack Studio is an internal layer on top of this image, with its own README: [studio/README.md](studio/README.md). It adds only an unused recipe file (`agent/recipes/studio.yaml`) to the published image and changes nothing in its behaviour, its `latest` tag or the USB files.
 
 ## Your data, and removing it
 
