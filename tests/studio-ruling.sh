@@ -29,6 +29,10 @@ d=$(dispute "$deal" --store "$S/buyer" --words "the sticker was the wrong one") 
 [ "$(jq -r .dispute_digest <<<"$d")" != "" ] || fail "dispute printed no digest"
 ok "the buyer's dispute is sealed; nothing is ruled yet"
 
+# A mistyped store fails before anything is sealed and leaves nothing behind, so the corrected command runs.
+if referee rule "$deal" --buyer "$S/buyer" --seller "$work/nowhere" 2>/dev/null; then fail "the referee ruled with a store that does not exist"; fi
+[ ! -e "$HOME/studio/rulings/$deal" ] || fail "a failed run left its folder, so the corrected command would be refused"
+ok "a failed run leaves nothing behind"
 r=$(referee rule "$deal" --buyer "$S/buyer" --seller "$S/seller") || fail "referee rule"
 [ "$(jq -r .finding <<<"$r")" = for_buyer ] || fail "the price changed after acceptance, so the ruling is for the buyer: $r"
 digest=$(jq -r .ruling_digest <<<"$r")
@@ -53,3 +57,19 @@ sys.exit(0 if (raised, received) == want else 1)
 PY
 done
 ok "the buyer's card counts 1 raised and the seller's 1 received"
+
+# The other way: a sale whose two closes agree is ruled for the seller, in both stores.
+other=$(XDG_CONFIG_HOME=$S/buyer capsulectl --profile deal deal list --json | jq -r --arg d "$deal" '[.[] | select(.kind == "deal" and .deal_id != $d) | .deal_id][0]')
+[ -n "$other" ] || fail "no second sale in the replay"
+dispute "$other" --words "I think the price was wrong" >/dev/null || fail "dispute ($other) with no --store"
+r=$(referee rule "$other" --buyer "$S/buyer" --seller "$S/seller") || fail "referee rule ($other)"
+[ "$(jq -r .finding <<<"$r")" = for_seller ] || fail "the closes agree, so the ruling is for the seller: $r"
+b=$(dispute show "$other" --store "$S/buyer"); s=$(dispute show "$other" --store "$S/seller")
+[ "$b" = "$s" ] && [[ $b == *"found for the seller."* ]] || fail "both stores should say found for the seller: $b | $s"
+ok "agreeing closes: $b"
+
+# The referee rules on the price row only.
+third=$(XDG_CONFIG_HOME=$S/buyer capsulectl --profile deal deal list --json | jq -r --arg a "$deal" --arg b "$other" '[.[] | select(.kind == "deal" and .deal_id != $a and .deal_id != $b) | .deal_id][0]')
+dispute "$third" --row delivery_time --words "it came late" >/dev/null || fail "dispute ($third)"
+if referee rule "$third" --buyer "$S/buyer" --seller "$S/seller" 2>/dev/null; then fail "the referee ruled on a row other than the price"; fi
+ok "a dispute over another row is not ruled on"

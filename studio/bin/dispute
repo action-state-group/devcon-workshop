@@ -27,7 +27,8 @@ if [ "$show" = 1 ]; then
   done
   # Without --store, look where the deal is: this profile, then the replayed sales' stores.
   line="" found=0
-  for h in ${store:-"" "$HOME/studio/replay/seller" "$HOME/studio/replay/buyer"}; do
+  homes=("" "$HOME/studio/replay/seller" "$HOME/studio/replay/buyer"); [ -z "$store" ] || homes=("$store")
+  for h in "${homes[@]}"; do
     rep=$(XDG_CONFIG_HOME=${h:-${XDG_CONFIG_HOME:-}} capsulectl --profile deal deal report --deal "$deal" 2>/dev/null) || continue
     found=1
     line=$(jq -r '[.did[]? | select(.kind == "ruling") | .text][0] // empty' <<<"$rep")

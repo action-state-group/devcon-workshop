@@ -39,6 +39,9 @@ D=/opt/devcon8
 out=$HOME/studio/rulings/$deal
 [ ! -e "$out" ] || die "$out exists: a deal is ruled on once. To look again, read what is in it."
 mkdir -p "$out"
+# A run that fails before anything is sealed leaves nothing behind, so the corrected command can run again.
+sealed=0; empty=""
+trap '[ "$sealed" = 1 ] || rm -rf "$out"; [ -z "$empty" ] || rm -rf "$empty"' EXIT
 cap() { capsulectl --profile deal deal "$@"; }
 as() { local home=$1; shift; XDG_CONFIG_HOME=$home "$@"; }
 keys() { as "$1" capsulectl profile show deal | jq -r '[.TrustedKeys[0], .Checkpoint.TrustedKeys[0]] | join(":")'; }
@@ -59,7 +62,7 @@ as "$buyer" capsulectl --profile deal deal terms-result --deal "$deal" --respons
 # 2. Both parties' copies for the referee, and the check, which needs no store of its own.
 as "$buyer" capsulectl --profile deal deal disclose --deal "$deal" --share adjudicator --to "$name" --out "$out/buyer-copy.json" >/dev/null
 as "$seller" capsulectl --profile deal deal disclose --deal "$deal" --share adjudicator --to "$name" --out "$out/seller-copy.json" >/dev/null
-empty=$(mktemp -d); trap 'rm -rf "$empty"' EXIT
+empty=$(mktemp -d)
 check=$(XDG_CONFIG_HOME=$empty capsulectl deal terms-result --check "$out/result.json" --copy "$out/buyer-copy.json" --copy "$out/seller-copy.json" \
   --party-key "$bkeys" --party-key "$skeys") || die "the check did not reproduce the Result: $(jq -r '.check // "failed"' <<<"$check" 2>/dev/null)"
 [ "$(jq -r .check <<<"$check")" = equal ] || die "the check did not reproduce the Result"
@@ -75,6 +78,7 @@ esac
 # come out as the same digest.
 flags=(--kind ruling --row "$row" --finding "$finding" --referee "$name" --dispute-digest "$ddigest" --copy "$out/buyer-copy.json" --copy "$out/seller-copy.json")
 b=$(as "$buyer" capsulectl --profile deal deal note --deal "$deal" "${flags[@]}") || die "the buyer's store did not take the ruling; nothing was sealed in the seller's"
+sealed=1
 rdigest=$(jq -r .ruling_digest <<<"$b")
 s=$(as "$seller" capsulectl --profile deal deal note --deal "$deal" "${flags[@]}" --ruling-digest "$rdigest") \
   || die "the seller's store did not take the ruling (the buyer's did: $rdigest)"

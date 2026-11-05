@@ -29,7 +29,10 @@ What it adds:
   the ruling is for the buyer; if they match, for the seller. It rules on the price row only. For the price-changed sale, both stores then
   read `Ruling <12 hex> on "price as offered": found for the buyer` on the receipt, and each History card counts
   it under "Everything on the card", Disputes (buyer: 1 raised, ended for the buyer; seller: 1 received, ended
-  against the seller). The replay's price-changed sale is the one to dispute. The Result is the one thing step 6
+  against the seller). The replay's price-changed sale is the one to dispute. The replayed sales live in
+  `~/studio/replay/seller` and `~/studio/replay/buyer`, so a card that counts the ruling is made from there:
+  `XDG_CONFIG_HOME=~/studio/replay/buyer card make --fresh buyer` (and `seller` for the seller's), because `card make`
+  alone reads the live profile. `dispute` and `dispute show` look in the live profile first and then in those two. The Result is the one thing step 6
   adds to that sale: on the buyer's card it counts as stamped by both sides (1 of 10). The card's headline does not
   change: both cards still read "0 of 10 ... 10 we couldn't tell". Needs `capsulectl-deal` with dispute notes (rc36 or later).
 - `mbx` from this checkout, so a seller's proposal may carry `history-staple.json` and `history-card.bundle`.
