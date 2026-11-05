@@ -36,6 +36,9 @@ b=$(dispute show "$deal" --store "$S/buyer"); s=$(dispute show "$deal" --store "
 [ "$b" = "$s" ] || fail "the two parties' agents would say different things: $b | $s"
 [[ $b == "The referee ruled on the dispute over \"price as offered\": found for the buyer. Ruling ${digest:0:12}." ]] || fail "unexpected sentence: $b"
 ok "both stores say: $b"
+# An agent in the live profile is not told where the replayed sale is: the command finds it.
+[ "$(dispute show "$deal")" = "$b" ] || fail "dispute show with no --store does not find the replayed sale: $(dispute show "$deal" 2>&1)"
+ok "no --store needed: the same sentence"
 if referee rule "$deal" --buyer "$S/buyer" --seller "$S/seller" 2>/dev/null; then fail "a second ruling was sealed"; fi
 ok "a second ruling is refused"
 

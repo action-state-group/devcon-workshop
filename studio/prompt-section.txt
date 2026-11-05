@@ -30,5 +30,5 @@
     your user in one sentence that the dispute is recorded and that a referee rules on it. You do not
     rule, and you do not say who is right.
   - The referee is not you and not your user: a fixed node the presenter runs (`referee rule`). When your
-    user asks what became of the dispute, run `dispute show <deal>` and say its sentence exactly as it
+    user asks what became of the dispute, run `dispute show <deal>` (no --store: it finds the deal) and say its sentence exactly as it
     prints, whichever side you are on. Until the referee rules, it prints that nothing is ruled yet.
