@@ -32,27 +32,27 @@ LEXE_VERSION=v0.1.0
 LEXE_REPO=https://github.com/ethanyzhang/lexe-wallet-plugin
 LEXE_COMMIT=9f830c181b4042a81069df50752cf19d035a5047
 
-# capsulectl, the deal plugin and the book plugin: the paired rc36 releases (capsule-cli
-# v0.1.0-rc36, evidencebook-deal v0.1.0-rc36, evidencebook tag capsulectl/v0.1.0-rc36; the plugins' handshake
+# capsulectl, the deal plugin and the book plugin: the paired rc37 releases (capsule-cli
+# v0.1.0-rc37, evidencebook-deal v0.1.0-rc37, evidencebook tag capsulectl/v0.1.0-rc37; the plugins' handshake
 # core_version must equal the core's). Since rc29 the deal plugin seals a Lightning payment_received with its preimage (evidencebook-deal#90, on evidencebook
 # v0.12.1), which `devcon8 trade --pay lexe` needs; it carries `deal terms-leg` (evidencebook-deal#70). Since rc33 a Lightning
 # deal's receipt reads in msat (terms currency BTC, amount_minor in msat: evidencebook-deal#133). Since rc34 (evidencebook v0.13.5)
 # `deal standard-history card` prices such a deal as BTC at assetScale 11 instead of refusing it (evidencebook#388). Since rc35 the book plugin's History card module is capsule-viewer 0.18.2
-# (the "Everything on the card" fold-out has a gap under the card: capsule-viewer#283). Since rc36 the deal plugin seals a dispute and a ruling (`deal note --kind dispute|ruling`, evidencebook-deal#151) and the History card's disputes tally reads them.
-CAPSULECTL_VERSION=v0.1.0-rc36
-CAPSULECTL_SHA256_AMD64=cbd239bcc895df6f75786fb20262f95b5a80451115aebc4dfff38cae24349302
-CAPSULECTL_SHA256_ARM64=bc7881ba3facc2a0af87c0cea5c0d188962bc56f6a6928251065b9422ca32168
-DEAL_VERSION=v0.1.0-rc36
-DEAL_SHA256_AMD64=0c5da2ca1218c5a3be15f912d2d73653f055b1691852051d0d1630ca7a7474fc
-DEAL_SHA256_ARM64=a5d2d96d7a18f32e8f7f9d4d0f366512253fafbc1c9daf1014afafaa27031caf
+# (the "Everything on the card" fold-out has a gap under the card: capsule-viewer#283). Since rc36 the deal plugin seals a dispute and a ruling (`deal note --kind dispute|ruling`, evidencebook-deal#151) and the History card's disputes tally reads them. Since rc37 the deal card names a terms pack's row in the pack's words (evidencebook-deal#158) and the book plugin's History card module is capsule-viewer 0.18.3 (rounded PRIVATE notice, gap under the checks line: capsule-viewer#298).
+CAPSULECTL_VERSION=v0.1.0-rc37
+CAPSULECTL_SHA256_AMD64=e94a6ae3752eb0d299389135a0d84d17efd1f8c200818d378dbf6ad9c6c67f55
+CAPSULECTL_SHA256_ARM64=bafeac42738d138c84541ae36eccdf5ded53c11418681a6c6047bc6090907885
+DEAL_VERSION=v0.1.0-rc37
+DEAL_SHA256_AMD64=96a9cee8ec24a3ebe383af7a7d2cf8cb5f9e147e9e8200bb5e0cab05598927c8
+DEAL_SHA256_ARM64=756b1932e9edd836e1fb4fb03f45990c35d424545aabaf1b306c8fcb63f9ee81
 DEAL_SKILL_SHA256=99d20b1a7cd982504e71f28a9abe0f8967196d536bb5f78373537fe18fef0ee7
 # The plugins' presentation assets (capsulectl-deal.d/, standard-history-module/), unpacked beside the binaries; without
 # them `presentation build` refuses both modules and writes the generic page. One archive each, same for both architectures.
 DEAL_VIEW_SHA256=3afbbfa816799abc57af67e8322f2527b5601e5c81a67e807f90c6cd1ef59f0d
-BOOK_VERSION=v0.1.0-rc36
-BOOK_SHA256_AMD64=a659dedf3a19b9257ecb4dcee91ce23b8c0844d6dd4823fb6ee96d5f084ecb29
-BOOK_SHA256_ARM64=253620b205d41e806ced7794e15f712bfb48e2f9e9e7fd9ff3617a30a8d0fb9d
-BOOK_HISTORY_SHA256=3c0edca28e78e3bb1ef9603669afc731b1f816d271aaa4d41b64d8b40cab53ab
+BOOK_VERSION=v0.1.0-rc37
+BOOK_SHA256_AMD64=917243d18a0c8893c9e297d942269cee653435d6ba43651287b4b4ac5b7a43eb
+BOOK_SHA256_ARM64=32d651aca8e5db8c125b5c5a6854737616d4d60da0cbf5b17df4641d31289e74
+BOOK_HISTORY_SHA256=c9f973afeb7ca5e970e13c712d0bd9020ebdadf65fc439116085dc5a2b9bb1c8
 
 # goose: built from source at the v1.57.0 commit plus patches/goose-*.patch:
 # - goose-acp-approval-card-once.patch (aaif-goose/goose#13273: in approve mode an ACP provider's approval
