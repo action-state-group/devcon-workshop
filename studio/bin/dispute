@@ -17,6 +17,9 @@ if [ -z "$deal" ] || [ "${deal#-}" != "$deal" ]; then die "usage: dispute DEAL [
 shift
 [[ $deal =~ ^deal-[0-9a-f]{16}$ ]] || die "DEAL is a deal id (deal-…)"
 row=price_as_offered words="" store=""
+# A volume from an older image keeps that image's plugin file, which capsulectl warns about on every call.
+D=/opt/devcon8
+[ ! -x "$D/bin/capsulectl-deal" ] || capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
 if [ "$show" = 1 ]; then
   while [ $# -gt 0 ]; do
     case $1 in --store) store=${2:?--store needs a value}; shift 2 ;; *) die "unknown argument $1" ;; esac
@@ -40,8 +43,6 @@ done
 [[ $row =~ ^[a-z][a-z0-9_]{0,63}$ ]] || die "ROW is a pack row id (letters, digits, _)"
 [ -n "$words" ] || die "--words is required: what was wrong, in the buyer's words"
 [ -z "$store" ] || export XDG_CONFIG_HOME=$store
-D=/opt/devcon8
-[ ! -x "$D/bin/capsulectl-deal" ] || capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
 out=$(capsulectl --profile deal deal note --deal "$deal" --kind dispute --row "$row" --words "$words") \
   || die "the dispute was not sealed"
 digest=$(jq -r '.dispute_digest // empty' <<<"$out")
