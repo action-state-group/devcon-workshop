@@ -44,7 +44,7 @@ a second run changes nothing; if it fails, delete `~/studio/replay` and run `dev
 `devcon8-studio` greets you with your agent's address and asks whether you want to write terms or sell. Unlike
 `devcon8 trade` it does not wait for buyers at start-up (steps 1-3 need no mailbox): type your first request. It
 starts waiting on the mailbox, in the foreground, only when you ask it to sell (step 4), and keeps waiting between
-deals. While it waits, press Ctrl-C once: that stops the wait and you can type your next request (the agent goes back
+deals. (`devcon8-studio --buy <address>` is different: a purchase starts at once and waits for the shop's reply.) While it waits, press Ctrl-C once: that stops the wait and you can type your next request (the agent goes back
 to waiting afterwards if you had asked it to sell). To leave, press Ctrl-C two more times at the empty prompt (the first
 prints "Press Ctrl+C again to exit", the second "session closed"). This relies on the goose patch
 `patches/goose-acp-cancel-abandoned-prompt.patch`, which the image built from this repository carries.

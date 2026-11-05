@@ -42,8 +42,8 @@ KEEP_OLD = (
 )
 KEEP_NEW = (
     "Once your user has asked you to sell, or you have started a purchase, your first `mbx me` and each\n"
-    "  finished deal are not a reason to stop: go straight back to `mbx wait`. Before your user asks you to\n"
-    "  sell, do not run `mbx wait` at all (see Start below). The one\n"
+    "  finished deal are not a reason to stop: go straight back to `mbx wait`. {% if not buy_from %}Before your\n"
+    "  user asks you to sell, do not run `mbx wait` at all (see Start below). {% endif %}The one\n"
 )
 WAIT_OLD = "Then wait for buyers with `mbx wait` in the foreground and keep waiting; sell to every participant who asks.{% endif %}"
 WAIT_NEW = (

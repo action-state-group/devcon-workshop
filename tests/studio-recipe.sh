@@ -28,7 +28,10 @@ for mode in simulated lexe; do
   has "$t" 'Then wait for buyers with `mbx wait`' || fail "$mode: the trader no longer waits at start-up"
   has "$s" 'Then wait for buyers with `mbx wait`' && fail "$mode: the studio prompt still starts the wait at start-up"
 done
-s=$(render "$S" simulated shop@agentboxnanda.org); has "$s" 'Do NOT run `mbx wait`' && fail "a Studio purchase must not hold back the wait"
+s=$(render "$S" simulated shop@agentboxnanda.org)
+has "$s" 'Do NOT run `mbx wait`' && fail "a Studio purchase must not hold back the wait"
+has "$s" 'do not run `mbx wait` at all' && fail "a Studio purchase must not be told to never run mbx wait"
+s=$(render "$S" simulated); has "$s" 'do not run `mbx wait` at all' || fail "a Studio seller is not told to hold back mbx wait before it is asked to sell"
 s=$(render "$S" lexe); has "$s" 'payment is REAL' || fail "lexe studio prompt lacks the real-payment text"
 s=$(render "$S" simulated); has "$s" 'pay-x402 <conversation>' || fail "simulated studio prompt lacks pay-x402"
 s=$(render "$S" simulated shop@agentboxnanda.org); has "$s" 'Your user asked you to buy from shop@agentboxnanda.org' || fail "buy_from is not rendered"

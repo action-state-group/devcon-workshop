@@ -169,8 +169,8 @@ prompt: |
   came yet) and do not end your turn while you wait, until your user tells you to stop. Run `mbx
   wait` in the FOREGROUND, never in the background (no `&`, no background task): a background wait
   ends your turn and nothing wakes you when the message arrives. Once your user has asked you to sell, or you have started a purchase, your first `mbx me` and each
-  finished deal are not a reason to stop: go straight back to `mbx wait`. Before your user asks you to
-  sell, do not run `mbx wait` at all (see Start below). The one
+  finished deal are not a reason to stop: go straight back to `mbx wait`. {% if not buy_from %}Before your
+  user asks you to sell, do not run `mbx wait` at all (see Start below). {% endif %}The one
   exception: when a check paused and its card waits for your user's answer, stop as above and let
   them answer; then go back to waiting. Buyers can
   write at any time. A check goes stale: run `deal check` for an act only at the moment you are

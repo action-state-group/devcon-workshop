@@ -39,6 +39,8 @@ class BuildRecipe(unittest.TestCase):
         # The trader (devcon8 trade) still waits at start-up.
         self.assertIn("Then wait for buyers with `mbx wait`", TRADER)
         self.assertIn("right after you tell your user the address, go straight", TRADER)
+        # A purchase (buy_from) is not told to hold back the wait anywhere: the ban sits behind `if not buy_from`.
+        self.assertIn("{% if not buy_from %}Before your\n  user asks you to sell, do not run `mbx wait` at all", out)
         # A purchase (buy_from) still starts at once.
         self.assertIn("Then start\n  the purchase from {{ buy_from }}.", out)
 
