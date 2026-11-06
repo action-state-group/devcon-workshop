@@ -67,6 +67,27 @@ different deal ids: step 6's ruling lands on the replay sale, so the cards that 
 Step 6 runs entirely in the seller's container, the buyer's `dispute`, `referee rule` and `dispute show` included;
 do not run a replay in the buyer's container for it, or the two sides get different deal ids.
 
+The buyer for steps 4 and 5 is a second container, not started by `run.sh`. Make its folder first, as yourself, or Docker
+creates it owned by root and the buyer's `card make` fails with "Permission denied":
+
+    mkdir -p ~/devcon8-buyer-studio
+    docker run -it --name devcon8-buyer -v devcon8b-home:/home/participant -v ~/devcon8-buyer-studio:/home/participant/studio \
+      -p 127.0.0.1:3241:3132 -p 127.0.0.1:8180:8080 -p 127.0.0.1:9711-9714:9621-9624 devcon-workshop-studio:dev
+
+Inside it, `devcon8 brain claude`, then `devcon8-studio --buy <the seller's address>`. For step 6, the buyer's agent is a
+second `devcon8-studio` in the seller's container (`docker exec -it devcon8-studio bash`).
+
+Nothing rules on a dispute until the presenter runs the referee, in a shell in the seller's container (`dispute sale`
+prints the deal id; the two homes are the replay stores):
+
+    referee rule <deal> --buyer ~/studio/replay/buyer --seller ~/studio/replay/seller
+
+Until then both agents answer "Nothing is ruled on <deal> yet"; afterwards they answer with the same sentence. An agent
+does not run the referee itself, and going back to waiting for buyers does not trigger it.
+
+A goose that is waiting on the mailbox (the seller's while it sells, the buyer's after its purchase) needs one Ctrl-C
+before a new request, such as the card at step 5 or a question at step 6; without it the request may go unanswered.
+
 `devcon8-studio` greets you with your agent's address and asks whether you want to write terms or sell. Unlike
 `devcon8 trade` it does not wait for buyers at start-up (steps 1-3 need no mailbox): type your first request. It
 starts waiting on the mailbox, in the foreground, only when you ask it to sell (step 4), and keeps waiting between
