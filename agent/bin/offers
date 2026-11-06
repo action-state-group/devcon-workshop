@@ -14,7 +14,7 @@ and refuses any address but the picked one, so the user's pick is the gate.
   offers clear                    close the search: no purchase until a new `find` and pick (nothing is bought)
   offers reset                    forget the search altogether, so `mbx send` is as it was without one (devcon8 trade does this at start)
 
-An offer's item, price, rail and History card come from the entry's `metadata.offer`
+An offer's item, price, rail and History card come from the entry's `trustManifest.metadata.offer`
 ({"item", "price_minor", "currency", "rail", "history_staple"}); an entry without one is listed as
 "not published". Seller text is never shown, only fields checked here.
 """
@@ -71,7 +71,9 @@ def seller(identifier):
 
 def offer_of(entry):
     """The entry's published offer, reduced to checked fields; {} when it publishes none."""
-    o = (entry.get("metadata") or {}).get("offer") if isinstance(entry.get("metadata"), dict) else None
+    tm = entry.get("trustManifest")
+    md = tm.get("metadata") if isinstance(tm, dict) else None
+    o = md.get("offer") if isinstance(md, dict) else None
     if not isinstance(o, dict):
         return {}
     out = {}
