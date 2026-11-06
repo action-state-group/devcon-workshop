@@ -159,8 +159,12 @@ def offers_gate(a):
     try:
         with open(os.path.join(os.path.dirname(STATE), "offers.json")) as f:
             st = json.load(f)
-    except (FileNotFoundError, ValueError):
+    except FileNotFoundError:
         return
+    except ValueError:
+        die("the offers file is damaged, so the user's pick cannot be told: run 'offers clear', then pick again (or send again to a typed address)", 2)
+    if not isinstance(st, dict):
+        die("the offers file is damaged: run 'offers clear'", 2)
     if st.get("status") == "pending":
         die("the user has not picked an offer yet: show them the shortlist and run 'offers pick' with their answer (or 'offers clear')", 2)
     if st.get("status") == "picked" and (st.get("picked") or {}).get("address") != a:

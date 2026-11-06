@@ -29,6 +29,8 @@ SAFE = re.compile(r"[^A-Za-z0-9 _.,:/@+-]")
 MAX_BYTES = 2_000_000
 MAX_SHOWN = 8
 RAILS = {"x402", "lightning"}
+# The one item this workshop trades (the same as mbx ITEM): seller text beyond it is never shown to the model.
+ITEM = "digital fox sticker"
 
 
 def die(msg, code=1):
@@ -63,12 +65,12 @@ def offer_of(entry):
     if not isinstance(o, dict):
         return {}
     out = {}
-    if isinstance(o.get("item"), str):
-        out["item"] = clean(o["item"])
+    if o.get("item") == ITEM:
+        out["item"] = ITEM
     cur, price = o.get("currency"), o.get("price_minor")
-    if cur in ("USD", "BTC") and isinstance(price, int) and not isinstance(price, bool) and price > 0:
+    if isinstance(cur, str) and cur in ("USD", "BTC") and isinstance(price, int) and not isinstance(price, bool) and price > 0:
         out["currency"], out["price_minor"] = cur, price
-    if o.get("rail") in RAILS:
+    if isinstance(o.get("rail"), str) and o["rail"] in RAILS:
         out["rail"] = o["rail"]
     if isinstance(o.get("history_staple"), bool):
         out["history_staple"] = o["history_staple"]
@@ -86,9 +88,17 @@ def candidate(entry, source, position):
             "position": position, "_text": text.lower()}
 
 
+def safe_candidate(entry, source, position):
+    """One malformed entry is skipped; it never costs the source's other offers."""
+    try:
+        return candidate(entry, source, position) if isinstance(entry, dict) else None
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
 def search_nanda(q):
     r = get(INDEX + "/agentic-search?q=" + urllib.parse.quote(q) + "&limit=10")
-    return [c for i, e in enumerate(r.get("candidates") or []) if isinstance(e, dict) and (c := candidate(e, "NANDA Index", i))]
+    return [c for i, e in enumerate(r.get("candidates") or []) if (c := safe_candidate(e, "NANDA Index", i))]
 
 
 def search_catalog(url, q):
@@ -100,17 +110,34 @@ def search_catalog(url, q):
     host = urllib.parse.urlsplit(url).netloc
     out = []
     for i, e in enumerate(entries):
-        c = candidate(e, "catalog " + clean(host, 40), i) if isinstance(e, dict) else None
+        c = safe_candidate(e, "catalog " + clean(host, 40), i)
         # A catalog lists everything its publisher has: keep entries that match a word of the query.
         if c and any(w in c["_text"] for w in words):
             out.append(c)
     return out
 
 
+def merge(cands):
+    """One row per seller: the first source's row, with the offer facts any source published, so a cap
+    is applied to the price the seller published somewhere, not to the row that happened to come first."""
+    rows = {}
+    for c in cands:
+        r = rows.get(c["address"])
+        if r is None:
+            rows[c["address"]] = c
+            continue
+        for k, v in c["offer"].items():
+            r["offer"].setdefault(k, v)
+        r["_text"] += " " + c["_text"]
+        r["position"] = min(r["position"], c["position"])
+        r["also_in"] = sorted(set(r.get("also_in", []) + [c["source"]]) - {r["source"]})
+    return list(rows.values())
+
+
 def rank(cands, q, max_sats):
     words = [w for w in re.findall(r"[a-z0-9]+", q.lower()) if len(w) > 2]
     kept = []
-    for c in cands:
+    for c in merge(cands):
         o, why, score = c["offer"], [], 0
         hit = [w for w in words if w in c["_text"]]
         if hit:
@@ -134,13 +161,7 @@ def rank(cands, q, max_sats):
         why.append(c["source"] + " #" + str(c["position"] + 1))
         c["score"], c["why"] = score, why
         kept.append(c)
-    best = {}
-    for c in sorted(kept, key=lambda c: -c["score"]):
-        if c["address"] not in best:
-            best[c["address"]] = c
-        else:
-            best[c["address"]]["also_in"] = sorted(set(best[c["address"]].get("also_in", []) + [c["source"]]) - {best[c["address"]]["source"]})
-    return sorted(best.values(), key=lambda c: -c["score"])[:MAX_SHOWN]
+    return sorted(kept, key=lambda c: -c["score"])[:MAX_SHOWN]
 
 
 def price_line(o):
@@ -161,9 +182,11 @@ def read_state():
 
 def write_state(s):
     os.makedirs(os.path.dirname(STATE), mode=0o700, exist_ok=True)
-    fd = os.open(STATE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    tmp = STATE + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as f:
         json.dump(s, f)
+    os.replace(tmp, STATE)  # whole file or none: mbx send reads it as the gate
 
 
 def show(items):
@@ -204,7 +227,7 @@ def find(args):
         print("No offers found for " + repr(clean(q, 80)) + (" (a source was down)" if down else "") + ". Nothing was bought.")
         sys.exit(1)
     write_state({"status": "pending", "query": clean(q, 120), "found_at": int(time.time()),
-                 "items": [{k: c[k] for k in ("source", "address", "offer")} for c in items]})
+                 "items": [{k: c[k] for k in ("source", "address", "offer", "why") if k in c} | ({"also_in": c["also_in"]} if c.get("also_in") else {}) for c in items]})
     print(f"{len(items)} offer(s) for {clean(q, 80)!r}. None is chosen; nothing is bought until the user picks one.")
     show(items)
 
