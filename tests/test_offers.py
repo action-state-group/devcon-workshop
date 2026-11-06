@@ -235,8 +235,8 @@ class Offers(unittest.TestCase):
     def test_an_offer_outside_trust_manifest_metadata_is_not_read(self):
         r = self.find("fox sticker", catalog="/toplevel.json")
         self.assertIn(B, r.stdout)
-        row = r.stdout[r.stdout.index(B):]
-        self.assertIn("price not published", row.split("\n\n")[0])
+        row = r.stdout[r.stdout.index(B):].split("\n")[1]   # the line under seller B's address
+        self.assertIn("price not published", row)
         self.assertNotIn("7 msat", r.stdout)
 
     def test_a_malformed_trust_manifest_costs_only_its_offer(self):
