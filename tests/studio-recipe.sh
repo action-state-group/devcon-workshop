@@ -35,4 +35,10 @@ s=$(render "$S" simulated); has "$s" 'do not run `mbx wait` at all' || fail "a S
 s=$(render "$S" lexe); has "$s" 'payment is REAL' || fail "lexe studio prompt lacks the real-payment text"
 s=$(render "$S" simulated); has "$s" 'pay-x402 <conversation>' || fail "simulated studio prompt lacks pay-x402"
 s=$(render "$S" simulated shop@agentboxnanda.org); has "$s" 'Your user asked you to buy from shop@agentboxnanda.org' || fail "buy_from is not rendered"
+s=$(goose run --recipe "$S" --render-recipe --params "pay=simulated" --params "want=one fox sticker")
+has "$s" 'Then find a shop for "one fox sticker"' || fail "want is not rendered in the Studio prompt"
+has "$s" 'Then start the purchase from' && fail "a Studio search starts a purchase before the pick"
+s=$(render "$S" simulated shop@agentboxnanda.org)
+has "$s" 'mbx send THE PICKED ADDRESS' && fail "a typed-address Studio buyer prompt names the picked address"
+has "$s" 'mbx send shop@agentboxnanda.org' || fail "the typed-address Studio buyer does not send to its shop"
 echo "ok   studio.yaml renders in both modes with the trader protocol and the Studio section"

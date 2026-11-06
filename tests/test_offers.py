@@ -47,6 +47,18 @@ class Fake(http.server.BaseHTTPRequestHandler):
         elif self.path == "/big.json":   # the same seller as in NANDA, over a 1-sat cap, listed by the catalog only
             self._send(200, {"entries": [{"identifier": URN + C, "displayName": "Fox plain", "metadata": {"offer": {
                 "item": "digital fox sticker", "price_minor": 9000, "currency": "BTC", "rail": "lightning"}}}]})
+        elif self.path == "/other.json":
+            self._send(200, {"entries": [{"identifier": URN + B, "displayName": "Cheap fox", "metadata": {"offer": {
+                "item": "digital fox sticker", "price_minor": 7, "currency": "BTC", "rail": "lightning"}}}]})
+        elif self.path == "/phone.json":
+            self._send(200, {"entries": [{"identifier": URN + "phone@agentboxnanda.org", "displayName": "Phone weather"},
+                                         {"identifier": URN + "x" * 70 + "@agentboxnanda.org", "displayName": "Fox long"}]})
+        elif self.path == "/deep.json":
+            raw = b"[" * 100000
+            self.send_response(200); self.send_header("Content-Length", str(len(raw))); self.end_headers(); self.wfile.write(raw)
+        elif self.path == "/notjson.json":
+            raw = b"<html>"
+            self.send_response(200); self.send_header("Content-Length", str(len(raw))); self.end_headers(); self.wfile.write(raw)
         elif self.path == "/empty.json":
             self._send(200, {"entries": []})
         else:
@@ -151,6 +163,60 @@ class Offers(unittest.TestCase):
         r = self.offers("find", "fox sticker", "--max-sats", "1", "--catalog", self.url + "/big.json")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertNotIn(C, r.stdout)                 # NANDA lists it with no price, the catalog says 9000 msat: over the cap
+
+    def test_two_sources_offers_are_never_mixed(self):
+        # NANDA lists the fox shop with no offer; the catalog says 400 msat lightning; a second catalog says 50 US cents x402.
+        r = self.offers("find", "fox sticker", "--catalog", self.url + "/catalog.json", "--catalog", self.url + "/other.json")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        block = r.stdout[r.stdout.index(B):]
+        self.assertIn("sources disagree", r.stdout)
+        # B is first published as 50 US cents x402 in catalog.json and as 7 BTC msat lightning in other.json: one whole offer shown
+        row = [l for l in block.splitlines() if "item:" in l][0]
+        self.assertTrue(("50 US cents" in row and "x402" in row) or ("7 msat" in row and "lightning" in row), row)
+        self.assertFalse("50 US cents" in row and "lightning" in row, row)
+
+    def test_the_source_and_its_own_rank_stay_paired(self):
+        r = self.find()
+        i = r.stdout.index(C)
+        self.assertIn("NANDA Index #1", r.stdout[i:i + 600])   # C is NANDA's first candidate
+
+    def test_own_mailbox_is_never_offered(self):
+        with open(os.path.join(self.tmp.name, ".devcon8", "agentbox", "mailbox.json"), "w") as f:
+            json.dump({"address": A}, f)
+        r = self.find()
+        self.assertNotIn(A, r.stdout)
+        self.assertIn(B, r.stdout)
+
+    def test_words_match_whole_words_only(self):
+        r = self.offers("find", "one fox sticker", "--catalog", self.url + "/phone.json")
+        self.assertNotIn("phone@", r.stdout)             # "one" is filler, and is not inside "phone"
+        self.assertNotIn("x" * 70, r.stdout)             # an address over 64 characters is not listed
+
+    def test_a_catalog_with_no_match_says_so(self):
+        r = self.offers("find", "fox", "--catalog", self.url + "/phone.json")
+        self.assertIn("none a buyable match", self.offers("find", "zzz", "--catalog", self.url + "/phone.json").stderr)
+        self.assertEqual(r.returncode, 0)
+
+    def test_any_failure_of_one_source_is_only_that_source(self):
+        for url in ("http://127.0.0.1:%d/a b" % self.srv.server_address[1], self.url + "/deep.json", self.url + "/notjson.json"):
+            r = self.offers("find", "fox sticker", "--catalog", url)
+            self.assertEqual(r.returncode, 0, (url, r.stderr[-300:]))
+            self.assertNotIn("Traceback", r.stderr)
+            self.assertIn(A, r.stdout)
+
+    def test_pick_prints_the_cap_and_a_long_address_is_dropped(self):
+        self.offers("find", "fox sticker", "--max-sats", "5")
+        r = self.offers("pick", "1", "--said", "this one")
+        self.assertEqual(json.loads(r.stdout)["cap_msat"], 5000)
+
+    def test_an_unknown_state_blocks_a_send(self):
+        os.makedirs(os.path.join(self.tmp.name, ".devcon8"), exist_ok=True)
+        with open(os.path.join(self.tmp.name, ".devcon8", "offers.json"), "w") as f:
+            json.dump({"status": "x"}, f)
+        self.assertEqual(self.run_bin(MBX, "send", A, "x").returncode, 2)
+        with open(os.path.join(self.tmp.name, ".devcon8", "offers.json"), "w") as f:
+            f.write("[]")
+        self.assertEqual(self.offers("show").returncode, 0)      # no traceback on a non-object state
 
     def test_cap_drops_offers_over_it(self):
         r = self.find("fox sticker", "--max-sats", "0")

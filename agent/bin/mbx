@@ -162,13 +162,15 @@ def offers_gate(a):
     except FileNotFoundError:
         return
     except ValueError:
-        die("the offers file is damaged, so the user's pick cannot be told: run 'offers clear', then pick again (or send again to a typed address)", 2)
+        die("the offers file is damaged, so the user's pick cannot be told: run 'offers find' again and have the user pick", 2)
     if not isinstance(st, dict):
-        die("the offers file is damaged: run 'offers clear'", 2)
+        die("the offers file is damaged: run 'offers find' again and have the user pick", 2)
+    if st.get("status") not in (None, "pending", "picked"):
+        die("the offers file is damaged: run 'offers find' again and have the user pick", 2)
     if st.get("status") == "pending":
-        die("the user has not picked an offer yet: show them the shortlist and run 'offers pick' with their answer (or 'offers clear')", 2)
+        die("the user has not picked an offer yet: show them the shortlist and run 'offers pick' with their answer", 2)
     if st.get("status") == "picked" and (st.get("picked") or {}).get("address") != a:
-        die(f"{a} is not the offer the user picked ({(st.get('picked') or {}).get('address')}); 'offers clear' drops the pick", 2)
+        die(f"{a} is not the offer the user picked ({(st.get('picked') or {}).get('address')})", 2)
 
 
 def state(name):

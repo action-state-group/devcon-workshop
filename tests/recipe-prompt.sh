@@ -59,6 +59,9 @@ done
 has "$finder" 'Then start the purchase from' && fail "finder prompt starts a purchase before a pick"
 has "$finder" 'Then wait for buyers' && fail "finder prompt has the seller start line"
 has "$sim" 'Then find a shop' && fail "seller prompt has the finder start line"
+has "$buyer" 'mbx send THE PICKED ADDRESS' && fail "typed-address buyer prompt names the picked address"
+has "$buyer" 'mbx send shop@agentboxnanda.org' || fail "typed-address buyer does not send to its shop"
+has "$buyer" '"payee": "shop@agentboxnanda.org"' || fail "typed-address buyer lacks its payee"
 has "$buyer" 'Then find a shop' && fail "typed-address buyer prompt has the finder start line"
 echo "ok   rendered recipe: lexe and simulated prompts carry their own payment branch"
 

@@ -17,14 +17,15 @@ An offer's item, price, rail and History card come from the entry's `metadata.of
 ({"item", "price_minor", "currency", "rail", "history_staple"}); an entry without one is listed as
 "not published". Seller text is never shown, only fields checked here.
 """
-import json, os, re, sys, time, urllib.error, urllib.parse, urllib.request
+import json, os, re, sys, urllib.error, urllib.parse, urllib.request
 
 INDEX = os.environ.get("NANDA_INDEX_API", "https://api.nandaindex.org/api/v1")
 DEFAULT_CATALOGS = [u for u in os.environ.get("OFFERS_CATALOGS", "https://host39.org/.well-known/ai-catalog.json").split(",") if u]
 STATE = os.path.join(os.path.expanduser("~"), ".devcon8", "offers.json")
 USER_AGENT = "devcon-workshop-offers/1 (+https://github.com/action-state-group/devcon-workshop)"
 URN = "urn:air:host39.org:personal:"
-ADDRESS = re.compile(r"^[a-z0-9._-]{1,128}@agentboxnanda\.org$")
+ADDRESS = re.compile(r"^[a-z0-9._-]{1,64}@agentboxnanda\.org$")
+FILLER = {"the", "and", "for", "one", "buy", "under", "sats", "sat", "want", "any", "from", "with", "please"}
 SAFE = re.compile(r"[^A-Za-z0-9 _.,:/@+-]")
 MAX_BYTES = 2_000_000
 MAX_SHOWN = 8
@@ -36,6 +37,14 @@ ITEM = "digital fox sticker"
 def die(msg, code=1):
     print("offers: " + msg, file=sys.stderr)
     sys.exit(code)
+
+
+def words_of(q):
+    return [w for w in re.findall(r"[a-z0-9]+", q.lower()) if len(w) > 2 and w not in FILLER]
+
+
+def has_word(text, w):
+    return re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", text) is not None
 
 
 def clean(s, n=60):
@@ -81,11 +90,10 @@ def candidate(entry, source, position):
     addr = seller(entry.get("identifier"))
     if not addr:
         return None
+    offer = offer_of(entry)
     text = " ".join(str(x) for x in [entry.get("displayName"), entry.get("description"), " ".join(map(str, entry.get("tags") or [])),
-                                     " ".join(map(str, entry.get("representativeQueries") or [])),
-                                     (offer_of(entry) or {}).get("item", "")] if x)
-    return {"source": source, "address": addr, "name": clean(entry.get("displayName") or ""), "offer": offer_of(entry),
-            "position": position, "_text": text.lower()}
+                                     " ".join(map(str, entry.get("representativeQueries") or [])), offer.get("item", "")] if x)
+    return {"source": source, "address": addr, "offer": offer, "offer_source": source, "position": position, "_text": text.lower()}
 
 
 def safe_candidate(entry, source, position):
@@ -106,40 +114,47 @@ def search_catalog(url, q):
     entries = d.get("entries") if isinstance(d, dict) else None
     if not isinstance(entries, list):
         raise ValueError("no entries[]")
-    words = [w for w in re.findall(r"[a-z0-9]+", q.lower()) if len(w) > 2]
+    words = words_of(q)
     host = urllib.parse.urlsplit(url).netloc
     out = []
     for i, e in enumerate(entries):
         c = safe_candidate(e, "catalog " + clean(host, 40), i)
         # A catalog lists everything its publisher has: keep entries that match a word of the query.
-        if c and any(w in c["_text"] for w in words):
+        if c and any(has_word(c["_text"], w) for w in words):
             out.append(c)
+    if not out:
+        print(f"offers: catalog {clean(host, 40)} has {len(entries)} entries, none a buyable match", file=sys.stderr)
     return out
 
 
 def merge(cands):
-    """One row per seller: the first source's row, with the offer facts any source published, so a cap
-    is applied to the price the seller published somewhere, not to the row that happened to come first."""
+    """One row per seller. Its offer is the first one a source published, whole (fields from two
+    sources are never mixed into an offer neither published); when another source publishes a
+    different offer, the row says the sources disagree and the cap is checked against every BTC
+    price published, so a lower price in one source cannot hide a higher one in another."""
     rows = {}
     for c in cands:
+        c["btc_msat"] = [c["offer"]["price_minor"]] if c["offer"].get("currency") == "BTC" else []
         r = rows.get(c["address"])
         if r is None:
             rows[c["address"]] = c
             continue
-        for k, v in c["offer"].items():
-            r["offer"].setdefault(k, v)
+        if c["offer"] and not r["offer"]:
+            r["offer"], r["offer_source"] = c["offer"], c["source"]
+        elif c["offer"] and c["offer"] != r["offer"]:
+            r["disagree"] = True
+        r["btc_msat"] += c["btc_msat"]
         r["_text"] += " " + c["_text"]
-        r["position"] = min(r["position"], c["position"])
         r["also_in"] = sorted(set(r.get("also_in", []) + [c["source"]]) - {r["source"]})
     return list(rows.values())
 
 
 def rank(cands, q, max_sats):
-    words = [w for w in re.findall(r"[a-z0-9]+", q.lower()) if len(w) > 2]
+    words = words_of(q)
     kept = []
     for c in merge(cands):
         o, why, score = c["offer"], [], 0
-        hit = [w for w in words if w in c["_text"]]
+        hit = [w for w in words if has_word(c["_text"], w)]
         if hit:
             score += 10 * len(hit)
             why.append("matches " + ", ".join(hit))
@@ -150,13 +165,15 @@ def rank(cands, q, max_sats):
             score += 3
             why.append("staples a History card")
         if max_sats is not None:
+            if c["btc_msat"] and max(c["btc_msat"]) > max_sats * 1000:
+                continue
             if o.get("currency") == "BTC":
-                if o["price_minor"] > max_sats * 1000:
-                    continue
                 score += 4
                 why.append("within your cap")
             else:
                 why.append("price not comparable to your cap")
+        if c.get("disagree"):
+            why.append("sources disagree on the offer; the first is shown")
         score += max(0, 2 - c["position"] // 3)
         why.append(c["source"] + " #" + str(c["position"] + 1))
         c["score"], c["why"] = score, why
@@ -175,9 +192,10 @@ def price_line(o):
 def read_state():
     try:
         with open(STATE) as f:
-            return json.load(f)
+            st = json.load(f)
     except (FileNotFoundError, ValueError):
         return {}
+    return st if isinstance(st, dict) else {}
 
 
 def write_state(s):
@@ -194,8 +212,18 @@ def show(items):
         o = c["offer"]
         staple = {True: "staples a History card", False: "no History card"}.get(o.get("history_staple"), "History card not published")
         print(f"{i}. {c['address']}  [{c['source']}]")
-        print(f"   item: {o.get('item', 'not published')} | {price_line(o)} | rail: {o.get('rail', 'not published')} | {staple}")
+        by = f" [offer published in {c['offer_source']}]" if o and c.get("offer_source") not in (None, c["source"]) else ""
+        print(f"   item: {o.get('item', 'not published')} | {price_line(o)} | rail: {o.get('rail', 'not published')} | {staple}{by}")
         print("   ranked because: " + "; ".join(c["why"]) + ("; also listed in " + ", ".join(c["also_in"]) if c.get("also_in") else ""))
+
+
+def own_address():
+    """This agent's own mailbox address (devcon8 nanda), which it never buys from."""
+    try:
+        with open(os.path.join(os.path.dirname(STATE), "agentbox", "mailbox.json")) as f:
+            return str(json.load(f).get("address", "")).lower()
+    except (OSError, ValueError, AttributeError):
+        return ""
 
 
 def find(args):
@@ -217,17 +245,18 @@ def find(args):
     for name, job in jobs:
         try:
             found += job()
-        except (urllib.error.URLError, ValueError, OSError, TypeError, AttributeError):
+        except Exception:  # any failure of one source (network, bad reply, hostile JSON) is only that source being down
             down.append(name)
     for name in down:
         print(f"offers: {name} could not be read; its offers are missing from this list", file=sys.stderr)
-    items = rank(found, q, max_sats)
+    mine = own_address()
+    items = rank([c for c in found if c["address"] != mine], q, max_sats)
     if not items:
         write_state({})
         print("No offers found for " + repr(clean(q, 80)) + (" (a source was down)" if down else "") + ". Nothing was bought.")
         sys.exit(1)
-    write_state({"status": "pending", "query": clean(q, 120), "found_at": int(time.time()),
-                 "items": [{k: c[k] for k in ("source", "address", "offer", "why") if k in c} | ({"also_in": c["also_in"]} if c.get("also_in") else {}) for c in items]})
+    write_state({"status": "pending", "cap_msat": max_sats * 1000 if max_sats is not None else None,
+                 "items": [{k: c[k] for k in ("source", "address", "offer", "offer_source", "why", "also_in") if k in c} for c in items]})
     print(f"{len(items)} offer(s) for {clean(q, 80)!r}. None is chosen; nothing is bought until the user picks one.")
     show(items)
 
@@ -244,7 +273,10 @@ def pick(args):
     chosen = st["items"][n - 1]
     st.update(status="picked", picked=chosen, said=clean(args[2], 200))
     write_state(st)
-    print(json.dumps({"picked": n, "address": chosen["address"], "source": chosen["source"], "offer": chosen["offer"]}))
+    out = {"picked": n, "address": chosen["address"], "source": chosen["source"], "offer": chosen["offer"]}
+    if st.get("cap_msat") is not None:
+        out["cap_msat"] = st["cap_msat"]
+    print(json.dumps(out))
 
 
 def main(argv):
