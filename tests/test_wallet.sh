@@ -15,6 +15,7 @@ port=$(python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0));
 D=$T/d; mkdir -p "$D/bin" "$D/lib" "$D/agent/bin" "$T/home"
 for f in "$repo"/lib/{common,wallet,trade}.sh; do sed "s#/opt/devcon8#$D#g" "$f" > "$D/lib/$(basename "$f")"; done
 chmod +x "$D"/lib/*.sh
+cp "$repo/agent/bin/offers" "$D/agent/bin/offers"  # trade.sh clears an earlier shortlist before it starts
 cat > "$D/bin/lexe-sidecar" <<'STUB'
 #!/bin/sh
 # the real one takes --listen-addr HOST:PORT; the fake takes the port, a log and a name

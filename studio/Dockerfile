@@ -35,6 +35,12 @@ RUN git clone --filter=blob:none "$STUDIO_DEAL_REPO" /tmp/deal \
     && cp -r /tmp/deal/testdata/studio /opt/devcon8/studio/replay/testdata/studio \
     && test -s /opt/devcon8/studio/replay/testdata/studio/sticker-trades.json \
     && rm -rf /tmp/deal
+# trade.sh, trader.yaml, bin/devcon8 and offers from this checkout: `devcon8 trade --want` and `devcon8-studio --want`
+# find offers before they buy (devcon-workshop#81). The pinned base has none of that; once it has, these lines copy the same files.
+COPY lib/trade.sh /opt/devcon8/lib/trade.sh
+COPY agent/recipes/trader.yaml /opt/devcon8/agent/recipes/trader.yaml
+COPY bin/devcon8 /opt/devcon8/bin/devcon8
+COPY agent/bin/offers /opt/devcon8/agent/bin/offers
 # devcon8 trade runs trader.yaml; in the layer only, let TRADE_RECIPE name another recipe. The edit fails
 # the build if trade.sh no longer has the line, and the base image's file is not changed.
 RUN sed -i 's#--recipe "$D/agent/recipes/trader.yaml"#--recipe "${TRADE_RECIPE:-$D/agent/recipes/trader.yaml}"#' /opt/devcon8/lib/trade.sh \

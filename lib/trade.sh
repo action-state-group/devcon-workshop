@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# trade.sh [--buy <address>] [--pay lexe]: run your trading agent in goose. It sells your fox sticker
+# trade.sh [--buy <address> | --want <what>] [--pay lexe]: run your trading agent in goose. It sells your fox sticker
 # to any participant's agent that asks and, with --buy, buys one from that address. Payment is
 # simulated; with --pay lexe it is REAL Lightning from your own lexe wallet (devcon8 wallet), within the caps you set
 # with 'devcon8 lightning'. goose runs in auto mode (the deal plugin's own
@@ -7,14 +7,18 @@
 # DEVCON8_GOOSE_MODE overrides.
 set -euo pipefail
 . /opt/devcon8/lib/common.sh
-buy="" pay=simulated
+buy="" want="" pay=simulated
 while [ $# -gt 0 ]; do
   case $1 in
     --buy) buy=$(tr '[:upper:]' '[:lower:]' <<<"${2:-}"); [[ $buy =~ ^[a-z0-9._-]+@agentboxnanda\.org$ ]] || die "--buy <their address>@agentboxnanda.org"; shift 2 ;;
+    --want) want=${2:-}; [[ $want =~ ^[A-Za-z0-9\ .,_-]{3,100}$ ]] || die "--want \"what you want to buy\" (3 to 100 letters, digits, spaces and . , _ -)"; shift 2 ;;
     --pay) [ "${2:-}" = lexe ] || die "--pay lexe (the only other way to pay is the default, simulated)"; pay=lexe; shift 2 ;;
-    *) die "devcon8 trade [--buy <address>@agentboxnanda.org] [--pay lexe]" ;;
+    *) die "devcon8 trade [--buy <address>@agentboxnanda.org | --want \"<what you want>\"] [--pay lexe]" ;;
   esac
 done
+[ -z "$buy" ] || [ -z "$want" ] || die "--buy and --want do not go together: --buy names the shop, --want searches for one"
+# A run starts from what the user said now: an earlier search or pick must not gate or authorise this one.
+"$D/agent/bin/offers" reset >/dev/null
 if [ "$pay" = lexe ]; then
   [ -s "$ST/lightning.json" ] || die "--pay lexe needs your caps first: devcon8 lightning --price-sats P --per-payment-sats N --total-sats T"
   lexe_ready || die "--pay lexe pays from your own lexe wallet: 'devcon8 wallet' opens it, 'devcon8 wallet fund --sats N' funds it"
@@ -58,6 +62,7 @@ mode=${DEVCON8_GOOSE_MODE:-auto}
 echo "Ctrl-C stops a turn; press it twice at the empty prompt to end the run."
 args=(run --recipe "$D/agent/recipes/trader.yaml" --interactive --params "pay=$pay")
 [ -n "$buy" ] && args+=(--params "buy_from=$buy")
+[ -z "$want" ] || args+=(--params "want=$want")
 # goose runs under `script`, which logs what it prints. After "session closed" goose can stay alive
 # waiting on claude-agent-acp, which waits on a tool call still running (an `mbx wait`), so Ctrl-C
 # never returned to the shell (seen on v4). The watcher ends goose and everything under it as soon

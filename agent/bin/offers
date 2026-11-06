@@ -1,0 +1,314 @@
+#!/usr/bin/env -S python3 -I
+"""offers: find offers for what a buyer wants, and record which one the user picked.
+
+Standalone (standard library only, no goose): any agent host can call it. It never contacts a
+mailbox: `find` makes GET requests to the NANDA Index and to AI Catalog / ARD files, `pick` writes a
+local file. Buying is `mbx send`, which refuses while a shortlist is waiting for the user's pick
+and refuses any address but the picked one, so the user's pick is the gate.
+
+  offers find <words> [--max-sats N] [--catalog URL]...
+                                  search the NANDA Index and the AI Catalog / ard.json files (the
+                                  default catalog plus each --catalog); print a numbered shortlist
+  offers pick <n> --said <words>  the user's choice, in their own words; prints the seller's address
+  offers show                     the pending shortlist or the pick
+  offers clear                    close the search: no purchase until a new `find` and pick (nothing is bought)
+  offers reset                    forget the search altogether, so `mbx send` is as it was without one (devcon8 trade does this at start)
+
+An offer's item, price, rail and History card come from the entry's `metadata.offer`
+({"item", "price_minor", "currency", "rail", "history_staple"}); an entry without one is listed as
+"not published". Seller text is never shown, only fields checked here.
+"""
+import json, os, re, sys, urllib.error, urllib.parse, urllib.request
+
+INDEX = os.environ.get("NANDA_INDEX_API", "https://api.nandaindex.org/api/v1")
+DEFAULT_CATALOGS = [u for u in os.environ.get("OFFERS_CATALOGS", "https://host39.org/.well-known/ai-catalog.json").split(",") if u]
+STATE = os.path.join(os.path.expanduser("~"), ".devcon8", "offers.json")
+USER_AGENT = "devcon-workshop-offers/1 (+https://github.com/action-state-group/devcon-workshop)"
+URN = "urn:air:host39.org:personal:"
+ADDRESS = re.compile(r"^[a-z0-9._-]{1,64}@agentboxnanda\.org$")
+FILLER = {"the", "and", "for", "one", "buy", "under", "sats", "sat", "want", "any", "from", "with", "please"}
+SAFE = re.compile(r"[^A-Za-z0-9 _.,:/@+-]")
+MAX_BYTES = 2_000_000
+MAX_SHOWN = 8
+RAILS = {"x402", "lightning"}
+# The one item this workshop trades (the same as mbx ITEM): seller text beyond it is never shown to the model.
+ITEM = "digital fox sticker"
+
+
+def die(msg, code=1):
+    print("offers: " + msg, file=sys.stderr)
+    sys.exit(code)
+
+
+def words_of(q):
+    return [w for w in re.findall(r"[a-z0-9]+", q.lower()) if len(w) > 2 and w not in FILLER]
+
+
+def has_word(text, w):
+    return re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", text) is not None
+
+
+def clean(s, n=60):
+    return SAFE.sub("", str(s))[:n].strip()
+
+
+def get(url):
+    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        raw = r.read(MAX_BYTES + 1)
+    if len(raw) > MAX_BYTES:
+        raise ValueError("too large")
+    return json.loads(raw)
+
+
+def seller(identifier):
+    """The Agent Box address an entry's identifier names, or None."""
+    a = str(identifier or "").strip().lower()
+    if a.startswith(URN):
+        a = a[len(URN):]
+    return a if ADDRESS.match(a) else None
+
+
+def offer_of(entry):
+    """The entry's published offer, reduced to checked fields; {} when it publishes none."""
+    o = (entry.get("metadata") or {}).get("offer") if isinstance(entry.get("metadata"), dict) else None
+    if not isinstance(o, dict):
+        return {}
+    out = {}
+    if o.get("item") == ITEM:
+        out["item"] = ITEM
+    elif isinstance(o.get("item"), str):
+        out["other_item"] = True
+    cur, price = o.get("currency"), o.get("price_minor")
+    if isinstance(cur, str) and cur in ("USD", "BTC") and isinstance(price, int) and not isinstance(price, bool) and price > 0:
+        out["currency"], out["price_minor"] = cur, price
+    if isinstance(o.get("rail"), str) and o["rail"] in RAILS:
+        out["rail"] = o["rail"]
+    if isinstance(o.get("history_staple"), bool):
+        out["history_staple"] = o["history_staple"]
+    return out
+
+
+def candidate(entry, source, position):
+    addr = seller(entry.get("identifier"))
+    if not addr:
+        return None
+    offer = offer_of(entry)
+    text = " ".join(str(x) for x in [entry.get("displayName"), entry.get("description"), " ".join(map(str, entry.get("tags") or [])),
+                                     " ".join(map(str, entry.get("representativeQueries") or [])), offer.get("item", "")] if x)
+    return {"source": source, "address": addr, "offer": offer, "offer_source": source, "position": position, "_text": text.lower()}
+
+
+def safe_candidate(entry, source, position):
+    """One malformed entry is skipped; it never costs the source's other offers."""
+    try:
+        return candidate(entry, source, position) if isinstance(entry, dict) else None
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+def search_nanda(q):
+    r = get(INDEX + "/agentic-search?q=" + urllib.parse.quote(q) + "&limit=10")
+    return [c for i, e in enumerate(r.get("candidates") or []) if (c := safe_candidate(e, "NANDA Index", i))]
+
+
+def search_catalog(url, q):
+    d = get(url)
+    entries = d.get("entries") if isinstance(d, dict) else None
+    if not isinstance(entries, list):
+        raise ValueError("no entries[]")
+    words = words_of(q)
+    host = urllib.parse.urlsplit(url).netloc  # a malformed URL raises here, inside find's per-source boundary
+    out = []
+    for i, e in enumerate(entries):
+        c = safe_candidate(e, "catalog " + clean(host, 40), i)
+        # A catalog lists everything its publisher has: keep entries that match a word of the query.
+        if c and any(has_word(c["_text"], w) for w in words):
+            out.append(c)
+    if not out:
+        print(f"offers: catalog {clean(host, 40)} has {len(entries)} entries, none a buyable match", file=sys.stderr)
+    return out
+
+
+def merge(cands):
+    """One row per seller. Its offer is the first one a source published, whole (fields from two
+    sources are never mixed into an offer neither published); when another source publishes a
+    different offer, the row says the sources disagree and the cap is checked against every BTC
+    price published, so a lower price in one source cannot hide a higher one in another."""
+    rows = {}
+    for c in cands:
+        c["btc_msat"] = [c["offer"]["price_minor"]] if c["offer"].get("currency") == "BTC" else []
+        r = rows.get(c["address"])
+        if r is None:
+            rows[c["address"]] = c
+            continue
+        if c["offer"] and not r["offer"]:
+            r["offer"], r["offer_source"] = c["offer"], c["source"]
+        elif c["offer"] and c["offer"] != r["offer"]:
+            r["disagree"] = True
+        r["btc_msat"] += c["btc_msat"]
+        r["_text"] += " " + c["_text"]
+        r["also_in"] = sorted(set(r.get("also_in", []) + [c["source"]]) - {r["source"]})
+    return list(rows.values())
+
+
+def rank(cands, q, max_sats):
+    words = words_of(q)
+    kept = []
+    for c in merge(cands):
+        o, why, score = c["offer"], [], 0
+        hit = [w for w in words if has_word(c["_text"], w)]
+        if hit:
+            score += 10 * len(hit)
+            why.append("matches " + ", ".join(hit))
+        if o.get("item"):
+            score += 5
+            why.append("publishes its offer")
+        if o.get("history_staple"):
+            score += 3
+            why.append("staples a History card")
+        if max_sats is not None:
+            if c["btc_msat"] and max(c["btc_msat"]) > max_sats * 1000:
+                continue
+            if o.get("currency") == "BTC":
+                score += 4
+                why.append("within your cap")
+            else:
+                why.append("no price listed" if "price_minor" not in o else "price not comparable to your cap")
+        if c.get("disagree"):
+            why.append("sources disagree on the offer; the first is shown")
+        score += max(0, 2 - c["position"] // 3)
+        why.append(c["source"] + " #" + str(c["position"] + 1))
+        c["score"], c["why"] = score, why
+        kept.append(c)
+    return sorted(kept, key=lambda c: -c["score"])[:MAX_SHOWN]
+
+
+def price_line(o):
+    if "price_minor" not in o:
+        return "price not published"
+    if o["currency"] == "BTC":
+        return f"{o['price_minor']} msat ({o['price_minor'] / 1000:g} sats)"
+    return f"{o['price_minor']} US cents"
+
+
+def read_state():
+    try:
+        with open(STATE) as f:
+            st = json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {}
+    return st if isinstance(st, dict) else {}
+
+
+def write_state(s):
+    os.makedirs(os.path.dirname(STATE), mode=0o700, exist_ok=True)
+    tmp = STATE + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(s, f)
+    os.replace(tmp, STATE)  # whole file or none: mbx send reads it as the gate
+
+
+def show(items):
+    for i, c in enumerate(items, 1):
+        o = c["offer"]
+        staple = {True: "staples a History card", False: "no History card"}.get(o.get("history_staple"), "History card not published")
+        print(f"{i}. {c['address']}  [{c['source']}]")
+        by = f" [offer published in {c['offer_source']}]" if o and c.get("offer_source") not in (None, c["source"]) else ""
+        print(f"   item: {o.get('item') or ('not this item' if o.get('other_item') else 'not published')} | {price_line(o)} | rail: {o.get('rail', 'not published')} | {staple}{by}")
+        print("   ranked because: " + "; ".join(c["why"]) + ("; also listed in " + ", ".join(c["also_in"]) if c.get("also_in") else ""))
+
+
+def own_address():
+    """This agent's own mailbox address (devcon8 nanda), which it never buys from."""
+    try:
+        with open(os.path.join(os.path.dirname(STATE), "agentbox", "mailbox.json")) as f:
+            return str(json.load(f).get("address", "")).lower()
+    except (OSError, ValueError, AttributeError):
+        return ""
+
+
+def find(args):
+    q, max_sats, catalogs, i = [], None, list(DEFAULT_CATALOGS), 0
+    while i < len(args):
+        if args[i] == "--max-sats" and i + 1 < len(args) and args[i + 1].isdigit():
+            max_sats = int(args[i + 1]); i += 2
+        elif args[i] == "--catalog" and i + 1 < len(args):
+            catalogs.append(args[i + 1]); i += 2
+        elif args[i].startswith("--"):
+            die(f"unknown option {args[i]!r}", 2)
+        else:
+            q.append(args[i]); i += 1
+    q = " ".join(q).strip()
+    if not q:
+        die("usage: offers find <what you want> [--max-sats N] [--catalog URL]...", 2)
+    jobs = [("NANDA Index", lambda: search_nanda(q))] + [("catalog " + clean(u, 40), (lambda u=u: search_catalog(u, q))) for u in catalogs]
+    found, down = [], []
+    for name, job in jobs:
+        try:
+            found += job()
+        except Exception:  # any failure of one source (network, bad reply, hostile JSON) is only that source being down
+            down.append(name)
+    for name in down:
+        print(f"offers: {name} could not be read; its offers are missing from this list", file=sys.stderr)
+    mine = own_address()
+    items = rank([c for c in found if c["address"] != mine], q, max_sats)
+    if not items:
+        write_state({"status": "closed"})
+        print("No offers found for " + repr(clean(q, 80)) + (" (a source was down)" if down else "") + ". Nothing was bought.")
+        sys.exit(1)
+    write_state({"status": "pending", "cap_msat": max_sats * 1000 if max_sats is not None else None,
+                 "items": [{k: c[k] for k in ("source", "address", "offer", "offer_source", "why", "also_in") if k in c} for c in items]})
+    print(f"{len(items)} offer(s) for {clean(q, 80)!r}. None is chosen; nothing is bought until the user picks one.")
+    show(items)
+
+
+def pick(args):
+    st = read_state()
+    if st.get("status") != "pending":
+        die("no shortlist to pick from: run 'offers find' first", 2)
+    if len(args) != 3 or not args[0].isdigit() or args[1] != "--said" or not args[2].strip():
+        die("usage: offers pick <n> --said \"<the user's own words>\"", 2)
+    n = int(args[0])
+    if not 1 <= n <= len(st["items"]):
+        die(f"pick a number from 1 to {len(st['items'])}", 2)
+    chosen = st["items"][n - 1]
+    st.update(status="picked", picked=chosen, said=clean(args[2], 200))
+    write_state(st)
+    out = {"picked": n, "address": chosen["address"], "source": chosen["source"], "offer": chosen["offer"]}
+    if st.get("cap_msat") is not None:
+        out["cap_msat"] = st["cap_msat"]
+    print(json.dumps(out))
+
+
+def main(argv):
+    cmd, rest = (argv[1] if len(argv) > 1 else "help"), argv[2:]
+    if cmd == "find":
+        find(rest)
+    elif cmd == "pick":
+        pick(rest)
+    elif cmd == "show":
+        st = read_state()
+        if st.get("status") == "pending":
+            show(st["items"])
+        elif st.get("status") == "picked":
+            print(json.dumps({"picked": st["picked"]}))
+        else:
+            print("no shortlist")
+    elif cmd == "clear":
+        write_state({"status": "closed"})
+        print("closed: nothing is bought until a new search and pick")
+    elif cmd == "reset":
+        try:
+            os.remove(STATE)
+        except FileNotFoundError:
+            pass
+        print("reset")
+    else:
+        print(__doc__.strip())
+        sys.exit(0 if cmd in ("help", "-h", "--help") else 2)
+
+
+if __name__ == "__main__":
+    main(sys.argv)

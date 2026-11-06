@@ -32,6 +32,11 @@ grep -q 'history-staple.json' "$D/agent/bin/mbx" || fail "the layer's mbx does n
 ok "mbx lets a proposal carry the History card"
 terms --help >/dev/null || fail "terms --help failed"
 ok "terms --help"
+# `devcon8-studio --want` needs the repo's trade.sh and offers (devcon-workshop#81); the pinned base has neither.
+[ -x "$D/agent/bin/offers" ] || fail "the layer has no offers"
+grep -q -- '--want' "$D/lib/trade.sh" || fail "the layer's trade.sh has no --want"
+grep -q 'key: want' "$D/agent/recipes/trader.yaml" || fail "the layer's trader.yaml has no want parameter, so devcon8 trade --want would only sell"
+ok "offers and trade.sh --want are in the layer"
 # trade.sh runs the Studio recipe when TRADE_RECIPE is set (the layer patches it; the base image's is untouched).
 grep -q 'TRADE_RECIPE:-' "$D/lib/trade.sh" || fail "the layer's trade.sh does not honour TRADE_RECIPE"
 ok "trade.sh honours TRADE_RECIPE"

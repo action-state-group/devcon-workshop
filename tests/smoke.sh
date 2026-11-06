@@ -109,4 +109,17 @@ out=$(bc || true); grep -q 'already logged in' <<<"$out" || fail "brain claude: 
 bc --relogin >/dev/null || true
 [ "$(grep -c login "$bt/log" || true)" = 3 ] || fail "brain claude --relogin did not log in again"
 rm -rf "$bt"; ok "devcon8 brain claude: auth login + status, skip when logged in, --relogin"
+# devcon8 trade (devcon-workshop#81): a typed address is not blocked by an earlier search, and --buy with --want is refused
+# before anything is touched. Both stop at "no mailbox yet" or at the argument check, before goose starts.
+ot=$(mktemp -d /tmp/dw-XXXXXX); mkdir -p "$ot/.devcon8"
+echo '{"status": "pending", "items": []}' > "$ot/.devcon8/offers.json"
+out=$(HOME=$ot devcon8 trade --buy a@agentboxnanda.org --want "fox sticker" 2>&1 < /dev/null || true)
+grep -q 'do not go together' <<<"$out" || fail "trade: --buy with --want not refused"
+grep -q pending "$ot/.devcon8/offers.json" || fail "trade: the refused run changed the offers file"
+out=$(HOME=$ot devcon8 trade --want 'x;rm' 2>&1 < /dev/null || true)
+grep -q -- '--want "what you want to buy"' <<<"$out" || fail "trade: a bad --want not refused"
+out=$(HOME=$ot devcon8 trade --buy a@agentboxnanda.org 2>&1 < /dev/null || true)
+grep -q 'no mailbox yet' <<<"$out" || fail "trade --buy: expected to reach the mailbox check"
+[ ! -e "$ot/.devcon8/offers.json" ] || fail "trade --buy: an earlier shortlist still gates the run"
+rm -rf "$ot"; ok "devcon8 trade --buy clears an earlier search; --buy with --want and a bad --want are refused"
 echo "smoke: all passed"
