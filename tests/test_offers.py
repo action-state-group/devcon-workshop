@@ -198,7 +198,7 @@ class Offers(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
 
     def test_any_failure_of_one_source_is_only_that_source(self):
-        for url in ("http://127.0.0.1:%d/a b" % self.srv.server_address[1], self.url + "/deep.json", self.url + "/notjson.json"):
+        for url in ("http://[", "http://127.0.0.1:%d/a b" % self.srv.server_address[1], self.url + "/deep.json", self.url + "/notjson.json"):
             r = self.offers("find", "fox sticker", "--catalog", url)
             self.assertEqual(r.returncode, 0, (url, r.stderr[-300:]))
             self.assertNotIn("Traceback", r.stderr)

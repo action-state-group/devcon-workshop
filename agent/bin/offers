@@ -115,7 +115,7 @@ def search_catalog(url, q):
     if not isinstance(entries, list):
         raise ValueError("no entries[]")
     words = words_of(q)
-    host = urllib.parse.urlsplit(url).netloc
+    host = urllib.parse.urlsplit(url).netloc  # a malformed URL raises here, inside find's per-source boundary
     out = []
     for i, e in enumerate(entries):
         c = safe_candidate(e, "catalog " + clean(host, 40), i)
@@ -240,7 +240,7 @@ def find(args):
     q = " ".join(q).strip()
     if not q:
         die("usage: offers find <what you want> [--max-sats N] [--catalog URL]...", 2)
-    jobs = [("NANDA Index", lambda: search_nanda(q))] + [("catalog " + clean(urllib.parse.urlsplit(u).netloc or u, 40), (lambda u=u: search_catalog(u, q))) for u in catalogs]
+    jobs = [("NANDA Index", lambda: search_nanda(q))] + [("catalog " + clean(u, 40), (lambda u=u: search_catalog(u, q))) for u in catalogs]
     found, down = [], []
     for name, job in jobs:
         try:
