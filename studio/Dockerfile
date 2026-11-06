@@ -37,6 +37,10 @@ RUN git clone --filter=blob:none "$STUDIO_DEAL_REPO" /tmp/deal \
     && rm -rf /tmp/deal
 # devcon8 trade runs trader.yaml; in the layer only, let TRADE_RECIPE name another recipe. The edit fails
 # the build if trade.sh no longer has the line, and the base image's file is not changed.
+# trade.sh and offers from this checkout: `devcon8-studio --want` finds offers before it buys (devcon-workshop#81).
+# The pinned base's trade.sh has no --want; once the pinned base has it, these two lines copy the same files.
+COPY lib/trade.sh /opt/devcon8/lib/trade.sh
+COPY agent/bin/offers /opt/devcon8/agent/bin/offers
 RUN sed -i 's#--recipe "$D/agent/recipes/trader.yaml"#--recipe "${TRADE_RECIPE:-$D/agent/recipes/trader.yaml}"#' /opt/devcon8/lib/trade.sh \
     && grep -q 'TRADE_RECIPE:-' /opt/devcon8/lib/trade.sh
 COPY studio/versions.lock /opt/devcon8/studio/versions.lock

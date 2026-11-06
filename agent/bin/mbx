@@ -17,7 +17,8 @@ the sticker arrived; the seller delivers it in a new request that names the purc
   mbx me                                       your mailbox address
   mbx resolve <address>                        is that agent listed in the NANDA Index?
   mbx search <words>                           find agents by what they offer (information only)
-  mbx send <address> <text>                    open a conversation (you are the buyer in it)
+  mbx send <address> <text>                    open a conversation (you are the buyer in it); after
+                                               `offers find`, only to the address the user picked
   mbx reply <conversation> <kind> <text> [constraints-json] [--attach FILE]... [--invoice]
                                                kind: proposal|accept|decline|cancel; --invoice (a
                                                proposal in a `--pay lexe` run) adds the invoice
@@ -149,6 +150,21 @@ def address(a):
     if not ADDRESS.match(a):
         die(f"not an Agent Box address: {a!r} (want <id>@agentboxnanda.org)", 2)
     return a
+
+
+def offers_gate(a):
+    """`offers find` leaves a shortlist for the user to pick from (agent/bin/offers). While it waits,
+    and after a pick, the only purchase `mbx send` makes is from the address the user picked. With
+    no shortlist (a typed address, as before) this does nothing."""
+    try:
+        with open(os.path.join(os.path.dirname(STATE), "offers.json")) as f:
+            st = json.load(f)
+    except (FileNotFoundError, ValueError):
+        return
+    if st.get("status") == "pending":
+        die("the user has not picked an offer yet: show them the shortlist and run 'offers pick' with their answer (or 'offers clear')", 2)
+    if st.get("status") == "picked" and (st.get("picked") or {}).get("address") != a:
+        die(f"{a} is not the offer the user picked ({(st.get('picked') or {}).get('address')}); 'offers clear' drops the pick", 2)
 
 
 def state(name):
@@ -369,6 +385,7 @@ def main(argv):
         print("(search shows addresses only, as information: buy only from the address your user gave you)", file=sys.stderr)
     elif cmd == "send" and len(argv) == 4:
         a = address(argv[2])
+        offers_gate(a)
         r = call("POST", BASE + "/api/v1/messages", {"to": URN + a, "requestType": "general", "text": argv[3][:500],
                                                      "idempotencyKey": "send-" + uuid.uuid4().hex})
         m = r.get("message") if isinstance(r.get("message"), dict) else r
@@ -379,6 +396,10 @@ def main(argv):
         os.makedirs(STATE, mode=0o700, exist_ok=True)
         with open(os.path.join(STATE, "buying.json"), "w") as f:
             json.dump(b, f)
+        try:
+            os.remove(os.path.join(os.path.dirname(STATE), "offers.json"))  # the pick is spent
+        except FileNotFoundError:
+            pass
         print(json.dumps({"conversation": conv, "to": a}))
     elif cmd == "reply" and len(argv) >= 5:
         conv, kind, text, rest = argv[2], argv[3], argv[4], argv[5:]

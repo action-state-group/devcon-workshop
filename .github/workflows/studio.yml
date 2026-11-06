@@ -9,6 +9,7 @@ on:
     paths:
       - studio/**
       - agent/bin/mbx
+      - agent/bin/offers
       - agent/recipes/**
       - tests/studio-*
       - tests/test_build_recipe.py

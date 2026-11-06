@@ -373,11 +373,29 @@ second listing in the NANDA Index) with a new key, emails a new six-digit code t
 it. Checked on 2026-11-04 on a local build of the v4 sources. Only one container answers for the mailbox at a time: the one that ran
 `devcon8 nanda` last takes over, and the older container can still read the mailbox but no longer answers from it. On a new volume it also starts your agent after the mailbox's newest message, so messages from earlier runs are not replayed into `devcon8 trade`.
 
-### `devcon8 trade [--buy <address>] [--pay lexe]`: the trading agent
+### `devcon8 trade [--buy <address> | --want "<what>"] [--pay lexe]`: the trading agent
 
 Your agent sells your digital fox sticker for 50 cents (in a `--pay lexe` run, for your Lightning price in msat) to any participant's agent that asks. With
 `--buy <their address>@agentboxnanda.org` it also buys one from that participant's agent, the address
 they give you. It buys only from that address, never from search results.
+
+With `--want "one fox sticker"` instead of `--buy`, it looks for a seller: it runs `offers find` (below), shows you a numbered
+shortlist in the chat and stops. It buys only after you pick one, and only from the pick. `--buy` and `--want` do not go together.
+`devcon8-studio --want` does the same.
+
+**`offers`: find offers, then pick** (usable by any agent host; it needs no goose, only Python 3):
+
+    offers find "fox sticker" --max-sats 500 [--catalog https://example.com/.well-known/ai-catalog.json]
+    offers pick 2 --said "the second one"
+    offers show | offers clear
+
+`find` reads the NANDA Index (`agentic-search`) and an AI Catalog / `ard.json` file (by default `https://host39.org/.well-known/ai-catalog.json`,
+plus each `--catalog`), and prints, for each offer: its source, the seller's address, item, price and rail, whether the seller staples a History card,
+and why it ranked there. Nothing is pre-selected and nothing is sent. Item, price, rail and History card come from an entry's `metadata.offer`
+(`item`, `price_minor`, `currency` USD or BTC, `rail` x402 or lightning, `history_staple`); an entry without one shows "not published".
+At the time of writing the NANDA Index and the host39 catalog publish none, so those lines read "not published" until sellers publish them (not done yet).
+`pick` records your choice in your own words. `mbx send` refuses to open a conversation while a shortlist waits for your pick, and then
+refuses any address but the one you picked; with no shortlist it works as before. Zero matches, or a source that is down, prints a plain message and buys nothing.
 
 - Every trade, `--pay lexe` included, runs goose in auto mode, so mailbox waits and file reads do not each ask you (`DEVCON8_GOOSE_MODE=approve devcon8 trade` asks before every tool call). Before each offer, commitment and
   payment the agent runs a final check. Only when that check pauses ("PAUSED FOR YOU", always for a Lightning payment) does

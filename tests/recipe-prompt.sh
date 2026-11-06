@@ -51,6 +51,15 @@ for s in 'Then start the purchase from' 'Your user asked you to buy from'; do
 done
 has "$lexe" 'Then wait for buyers with `mbx wait`' || fail "seller prompt lacks its start line"
 has "$buyer" 'Then wait for buyers with' && fail "buyer prompt has the seller start line"
+# Offer discovery (devcon-workshop#81): with `want` and no shop, the buyer finds offers and stops for the user's pick.
+finder=$(goose run --recipe "$R" --render-recipe --params "pay=simulated" --params "want=one fox sticker")
+for s in 'FINDING A SHOP' 'offers find' 'offers pick' 'STOP and let them answer' 'Then find a shop for "one fox sticker"' 'THE PICKED ADDRESS'; do
+  has "$finder" "$s" || fail "finder prompt lacks: $s"
+done
+has "$finder" 'Then start the purchase from' && fail "finder prompt starts a purchase before a pick"
+has "$finder" 'Then wait for buyers' && fail "finder prompt has the seller start line"
+has "$sim" 'Then find a shop' && fail "seller prompt has the finder start line"
+has "$buyer" 'Then find a shop' && fail "typed-address buyer prompt has the finder start line"
 echo "ok   rendered recipe: lexe and simulated prompts carry their own payment branch"
 
 # What the model is sent through claude-acp (needs the non-root user: Claude Code refuses

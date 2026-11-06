@@ -34,6 +34,8 @@ jobs:
         run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/goose-approve.sh tests/goose-cancel.sh tests/sim-payment.sh tests/s08-ci.sh tests/test_wallet.sh tests/mbx-net.sh tests/test_nanda.sh tests/test_trade_protocol.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/recipe-prompt.sh build/fetch.sh build/usb.sh
       - name: mbx unit tests
         run: python3 -I tests/test_mbx.py
+      - name: offers unit tests (fake NANDA Index, catalog and mailbox: no send before the user's pick)
+        run: python3 -I tests/test_offers.py
       - name: lightning unit tests (fake wallet API, no money moves)
         run: python3 -I tests/test_lightning.py
       - name: nanda against a fake gateway
