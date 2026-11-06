@@ -13,7 +13,7 @@ URN = "urn:air:host39.org:personal:"
 
 
 def M(md):
-    """Where the live Index and AI Catalog entries carry free-form metadata: trustManifest.metadata."""
+    """Where the NANDA Index schema puts an entry's free-form metadata: trustManifest.metadata. The test catalogs reuse it as a stand-in; a real AI Catalog location is not defined yet (#84)."""
     return {"trustManifest": {"metadata": md}}
 
 
@@ -54,9 +54,12 @@ class Fake(http.server.BaseHTTPRequestHandler):
         elif self.path == "/big.json":   # the same seller as in NANDA, over a 1-sat cap, listed by the catalog only
             self._send(200, {"entries": [{"identifier": URN + C, "displayName": "Fox plain", **M({"offer": {
                 "item": "digital fox sticker", "price_minor": 9000, "currency": "BTC", "rail": "lightning"}})}]})
-        elif self.path == "/toplevel.json":  # a top-level `metadata` is not where the live Index puts it
+        elif self.path == "/toplevel.json":  # a top-level `metadata` is not where the Index schema puts it
             self._send(200, {"entries": [{"identifier": URN + B, "displayName": "Cheap fox", "metadata": {"offer": {
                 "item": "digital fox sticker", "price_minor": 7, "currency": "BTC", "rail": "lightning"}}}]})
+        elif self.path == "/badmanifest.json":
+            self._send(200, {"entries": [{"identifier": URN + "m3@agentboxnanda.org", "displayName": "Fox m3", "trustManifest": 3},
+                                         {"identifier": URN + "md3@agentboxnanda.org", "displayName": "Fox md3", "trustManifest": {"metadata": 3}}]})
         elif self.path == "/other.json":
             self._send(200, {"entries": [{"identifier": URN + B, "displayName": "Cheap fox", **M({"offer": {
                 "item": "digital fox sticker", "price_minor": 7, "currency": "BTC", "rail": "lightning"}})}]})
@@ -231,8 +234,16 @@ class Offers(unittest.TestCase):
 
     def test_an_offer_outside_trust_manifest_metadata_is_not_read(self):
         r = self.find("fox sticker", catalog="/toplevel.json")
-        self.assertIn("price not published", r.stdout)
+        self.assertIn(B, r.stdout)
+        row = r.stdout[r.stdout.index(B):]
+        self.assertIn("price not published", row.split("\n\n")[0])
         self.assertNotIn("7 msat", r.stdout)
+
+    def test_a_malformed_trust_manifest_costs_only_its_offer(self):
+        r = self.find("fox sticker", catalog="/badmanifest.json")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        for a in ("m3@agentboxnanda.org", "md3@agentboxnanda.org"):
+            self.assertIn(a, r.stdout)
 
     def test_no_price_is_said_plainly_against_a_cap(self):
         r = self.find("fox sticker", "--max-sats", "1000")
