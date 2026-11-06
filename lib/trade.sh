@@ -18,7 +18,7 @@ while [ $# -gt 0 ]; do
 done
 [ -z "$buy" ] || [ -z "$want" ] || die "--buy and --want do not go together: --buy names the shop, --want searches for one"
 # A run starts from what the user said now: an earlier search or pick must not gate or authorise this one.
-"$D/agent/bin/offers" clear >/dev/null
+"$D/agent/bin/offers" reset >/dev/null
 if [ "$pay" = lexe ]; then
   [ -s "$ST/lightning.json" ] || die "--pay lexe needs your caps first: devcon8 lightning --price-sats P --per-payment-sats N --total-sats T"
   lexe_ready || die "--pay lexe pays from your own lexe wallet: 'devcon8 wallet' opens it, 'devcon8 wallet fund --sats N' funds it"

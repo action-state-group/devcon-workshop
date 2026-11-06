@@ -387,7 +387,7 @@ shortlist in the chat and stops. It buys only after you pick one, and only from 
 
     offers find "fox sticker" --max-sats 500 [--catalog https://example.com/.well-known/ai-catalog.json]
     offers pick 2 --said "the second one"
-    offers show | offers clear
+    offers show | offers clear | offers reset
 
 `find` reads the NANDA Index (`agentic-search`) and an AI Catalog / `ard.json` file (by default `https://host39.org/.well-known/ai-catalog.json`,
 plus each `--catalog`), and prints, for each offer: its source, the seller's address, item, price and rail, whether the seller staples a History card,
@@ -396,7 +396,7 @@ and why it ranked there. Nothing is pre-selected and nothing is sent. Item, pric
 When this was written (2026-11-06) the NANDA Index and the host39 catalog published none, and the host39 catalog (29 entries) listed no Agent Box mailbox, so
 it adds no row today: `find` says so on stderr. Sellers publishing `metadata.offer` is not done yet. Your own mailbox and any address longer than 64 characters are left out.
 `pick` records your choice (your words go in the state file until the purchase starts). `mbx send` refuses to open a conversation while a shortlist waits for your pick, and then
-refuses any address but the one you picked; with no shortlist it works as before. `offers clear` drops a shortlist or a pick. Zero matches, or a source that is down, prints a plain message and buys nothing. The pick is a guard against buying the wrong thing, not a lock against someone who runs `offers clear` themselves.
+refuses any address but the one you picked; with no shortlist it works as before. `offers clear` closes the search (no purchase until a new `find` and pick), `offers reset` forgets it (`devcon8 trade` does that at start). After the one purchase, a retry may go to the same seller only. Zero matches, or a source that is down, prints a plain message and buys nothing. The pick is a guard against buying the wrong thing, not a lock against someone who runs `offers reset` or edits the file themselves.
 
 - Every trade, `--pay lexe` included, runs goose in auto mode, so mailbox waits and file reads do not each ask you (`DEVCON8_GOOSE_MODE=approve devcon8 trade` asks before every tool call). Before each offer, commitment and
   payment the agent runs a final check. Only when that check pauses ("PAUSED FOR YOU", always for a Lightning payment) does

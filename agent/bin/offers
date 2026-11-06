@@ -11,7 +11,8 @@ and refuses any address but the picked one, so the user's pick is the gate.
                                   default catalog plus each --catalog); print a numbered shortlist
   offers pick <n> --said <words>  the user's choice, in their own words; prints the seller's address
   offers show                     the pending shortlist or the pick
-  offers clear                    drop the shortlist or the pick (no purchase is made)
+  offers clear                    close the search: no purchase until a new `find` and pick (nothing is bought)
+  offers reset                    forget the search altogether, so `mbx send` is as it was without one (devcon8 trade does this at start)
 
 An offer's item, price, rail and History card come from the entry's `metadata.offer`
 ({"item", "price_minor", "currency", "rail", "history_staple"}); an entry without one is listed as
@@ -76,6 +77,8 @@ def offer_of(entry):
     out = {}
     if o.get("item") == ITEM:
         out["item"] = ITEM
+    elif isinstance(o.get("item"), str):
+        out["other_item"] = True
     cur, price = o.get("currency"), o.get("price_minor")
     if isinstance(cur, str) and cur in ("USD", "BTC") and isinstance(price, int) and not isinstance(price, bool) and price > 0:
         out["currency"], out["price_minor"] = cur, price
@@ -171,7 +174,7 @@ def rank(cands, q, max_sats):
                 score += 4
                 why.append("within your cap")
             else:
-                why.append("price not comparable to your cap")
+                why.append("no price listed" if "price_minor" not in o else "price not comparable to your cap")
         if c.get("disagree"):
             why.append("sources disagree on the offer; the first is shown")
         score += max(0, 2 - c["position"] // 3)
@@ -213,7 +216,7 @@ def show(items):
         staple = {True: "staples a History card", False: "no History card"}.get(o.get("history_staple"), "History card not published")
         print(f"{i}. {c['address']}  [{c['source']}]")
         by = f" [offer published in {c['offer_source']}]" if o and c.get("offer_source") not in (None, c["source"]) else ""
-        print(f"   item: {o.get('item', 'not published')} | {price_line(o)} | rail: {o.get('rail', 'not published')} | {staple}{by}")
+        print(f"   item: {o.get('item') or ('not this item' if o.get('other_item') else 'not published')} | {price_line(o)} | rail: {o.get('rail', 'not published')} | {staple}{by}")
         print("   ranked because: " + "; ".join(c["why"]) + ("; also listed in " + ", ".join(c["also_in"]) if c.get("also_in") else ""))
 
 
@@ -252,7 +255,7 @@ def find(args):
     mine = own_address()
     items = rank([c for c in found if c["address"] != mine], q, max_sats)
     if not items:
-        write_state({})
+        write_state({"status": "closed"})
         print("No offers found for " + repr(clean(q, 80)) + (" (a source was down)" if down else "") + ". Nothing was bought.")
         sys.exit(1)
     write_state({"status": "pending", "cap_msat": max_sats * 1000 if max_sats is not None else None,
@@ -294,8 +297,14 @@ def main(argv):
         else:
             print("no shortlist")
     elif cmd == "clear":
-        write_state({})
-        print("cleared")
+        write_state({"status": "closed"})
+        print("closed: nothing is bought until a new search and pick")
+    elif cmd == "reset":
+        try:
+            os.remove(STATE)
+        except FileNotFoundError:
+            pass
+        print("reset")
     else:
         print(__doc__.strip())
         sys.exit(0 if cmd in ("help", "-h", "--help") else 2)

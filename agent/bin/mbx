@@ -154,8 +154,9 @@ def address(a):
 
 def offers_gate(a):
     """`offers find` leaves a shortlist for the user to pick from (agent/bin/offers). While it waits,
-    and after a pick, the only purchase `mbx send` makes is from the address the user picked. With
-    no shortlist (a typed address, as before) this does nothing."""
+    and after a pick, the only purchase `mbx send` makes is from the address the user picked, and a
+    closed search (nothing found, or `offers clear`) allows none. With no offers file at all (a typed
+    address, as before) this does nothing."""
     try:
         with open(os.path.join(os.path.dirname(STATE), "offers.json")) as f:
             st = json.load(f)
@@ -165,12 +166,29 @@ def offers_gate(a):
         die("the offers file is damaged, so the user's pick cannot be told: run 'offers find' again and have the user pick", 2)
     if not isinstance(st, dict):
         die("the offers file is damaged: run 'offers find' again and have the user pick", 2)
-    if st.get("status") not in (None, "pending", "picked"):
+    if st.get("status") not in ("pending", "picked", "spent", "closed"):
         die("the offers file is damaged: run 'offers find' again and have the user pick", 2)
     if st.get("status") == "pending":
         die("the user has not picked an offer yet: show them the shortlist and run 'offers pick' with their answer", 2)
-    if st.get("status") == "picked" and (st.get("picked") or {}).get("address") != a:
+    if st.get("status") == "closed":
+        die("no offer is picked in this search: search again and have the user pick", 2)
+    if st.get("status") in ("picked", "spent") and (st.get("picked") or {}).get("address") != a:
         die(f"{a} is not the offer the user picked ({(st.get('picked') or {}).get('address')})", 2)
+
+
+def mark_spent():
+    """The pick is used: a retry may go to the same address only, until a new search."""
+    p = os.path.join(os.path.dirname(STATE), "offers.json")
+    try:
+        with open(p) as f:
+            st = json.load(f)
+    except (FileNotFoundError, ValueError):
+        return
+    if isinstance(st, dict) and st.get("status") == "picked":
+        st["status"] = "spent"
+        with open(p + ".tmp", "w") as f:
+            json.dump(st, f)
+        os.replace(p + ".tmp", p)
 
 
 def state(name):
@@ -402,10 +420,7 @@ def main(argv):
         os.makedirs(STATE, mode=0o700, exist_ok=True)
         with open(os.path.join(STATE, "buying.json"), "w") as f:
             json.dump(b, f)
-        try:
-            os.remove(os.path.join(os.path.dirname(STATE), "offers.json"))  # the pick is spent
-        except FileNotFoundError:
-            pass
+        mark_spent()
         print(json.dumps({"conversation": conv, "to": a}))
     elif cmd == "reply" and len(argv) >= 5:
         conv, kind, text, rest = argv[2], argv[3], argv[4], argv[5:]

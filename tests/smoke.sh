@@ -120,6 +120,6 @@ out=$(HOME=$ot devcon8 trade --want 'x;rm' 2>&1 < /dev/null || true)
 grep -q -- '--want "what you want to buy"' <<<"$out" || fail "trade: a bad --want not refused"
 out=$(HOME=$ot devcon8 trade --buy a@agentboxnanda.org 2>&1 < /dev/null || true)
 grep -q 'no mailbox yet' <<<"$out" || fail "trade --buy: expected to reach the mailbox check"
-[ "$(cat "$ot/.devcon8/offers.json")" = '{}' ] || fail "trade --buy: an earlier shortlist still gates the run"
+[ ! -e "$ot/.devcon8/offers.json" ] || fail "trade --buy: an earlier shortlist still gates the run"
 rm -rf "$ot"; ok "devcon8 trade --buy clears an earlier search; --buy with --want and a bad --want are refused"
 echo "smoke: all passed"

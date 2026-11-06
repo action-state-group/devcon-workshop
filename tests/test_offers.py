@@ -131,7 +131,8 @@ class Offers(unittest.TestCase):
         r = self.find()
         self.assertNotIn("Ignore prior", r.stdout)
         i = r.stdout.index("evil@agentboxnanda.org")
-        self.assertIn("item: not published", r.stdout[i:i + 400])  # still listed, with no item text of its own
+        self.assertIn("item: not this item", r.stdout[i:i + 400])  # still listed, with no item text of its own
+        self.assertIn("item: not published", r.stdout)             # an entry with no offer at all
 
     def test_a_malformed_entry_costs_only_itself(self):
         r = self.find()
@@ -156,7 +157,7 @@ class Offers(unittest.TestCase):
             r = self.run_bin(MBX, "send", A, "x")
             self.assertEqual(r.returncode, 2, junk)
             self.assertEqual(Fake.log, [], junk)
-        self.assertEqual(self.offers("clear").returncode, 0)
+        self.assertEqual(self.offers("reset").returncode, 0)
         self.assertEqual(self.run_bin(MBX, "send", A, "x").returncode, 0)
 
     def test_a_price_over_the_cap_in_one_source_is_not_hidden_by_another(self):
@@ -212,11 +213,15 @@ class Offers(unittest.TestCase):
     def test_an_unknown_state_blocks_a_send(self):
         os.makedirs(os.path.join(self.tmp.name, ".devcon8"), exist_ok=True)
         with open(os.path.join(self.tmp.name, ".devcon8", "offers.json"), "w") as f:
-            json.dump({"status": "x"}, f)
+            json.dump({}, f)
         self.assertEqual(self.run_bin(MBX, "send", A, "x").returncode, 2)
         with open(os.path.join(self.tmp.name, ".devcon8", "offers.json"), "w") as f:
             f.write("[]")
         self.assertEqual(self.offers("show").returncode, 0)      # no traceback on a non-object state
+
+    def test_no_price_is_said_plainly_against_a_cap(self):
+        r = self.find("fox sticker", "--max-sats", "1000")
+        self.assertIn("no price listed", r.stdout)
 
     def test_cap_drops_offers_over_it(self):
         r = self.find("fox sticker", "--max-sats", "0")
@@ -261,13 +266,29 @@ class Offers(unittest.TestCase):
         r = self.run_bin(MBX, "send", picked, "one fox sticker")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(Fake.log, [("POST", "/mbox/api/v1/messages")])
-        self.assertFalse(os.path.exists(os.path.join(self.tmp.name, ".devcon8", "offers.json")))
+        self.assertEqual(self.state()["status"], "spent")
 
-    def test_clear_drops_the_shortlist_without_a_purchase(self):
+    def test_clear_closes_the_search_and_reset_forgets_it(self):
         self.find()
         self.assertEqual(self.offers("clear").returncode, 0)
         Fake.log.clear()
+        r = self.run_bin(MBX, "send", A, "x")
+        self.assertEqual(r.returncode, 2)
+        self.assertEqual(Fake.log, [])
+        self.assertEqual(self.offers("pick", "1", "--said", "yes").returncode, 2)
+        self.assertEqual(self.offers("reset").returncode, 0)
         self.assertEqual(self.run_bin(MBX, "send", A, "x").returncode, 0)  # as before: a typed address
+
+    def test_a_spent_pick_allows_a_retry_to_the_same_seller_only(self):
+        self.find()
+        picked = json.loads(self.offers("pick", "1", "--said", "this").stdout)["address"]
+        other = B if picked == A else A
+        self.assertEqual(self.run_bin(MBX, "send", picked, "x").returncode, 0)
+        self.assertEqual(self.state()["status"], "spent")
+        Fake.log.clear()
+        self.assertEqual(self.run_bin(MBX, "send", other, "x").returncode, 2)
+        self.assertEqual(Fake.log, [])
+        self.assertEqual(self.run_bin(MBX, "send", picked, "x").returncode, 0)
 
     # 4: a typed address works as before
     def test_typed_address_unchanged(self):
@@ -283,7 +304,9 @@ class Offers(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("No offers found", r.stdout)
         self.assertIn("Nothing was bought", r.stdout)
-        self.assertEqual(self.run_bin(MBX, "send", A, "x").returncode, 0)  # no shortlist, so no gate; the recipe does not call send
+        Fake.log.clear()
+        self.assertEqual(self.run_bin(MBX, "send", A, "x").returncode, 2)   # a search that found nothing closes the buy
+        self.assertEqual(Fake.log, [])
         self.assertEqual(self.offers("pick", "1", "--said", "yes").returncode, 2)
 
     def test_zero_matches_clears_an_older_shortlist(self):
