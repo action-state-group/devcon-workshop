@@ -125,14 +125,19 @@ In a Mac terminal, from a checkout of main (see [Build](#build) and [Run](#run) 
     studio/build.sh
     studio/run.sh
 
-In the seller container, in order. Run both replays before the first trade: `replay --live` gives step 5 its 11 sales and
-`replay` is what steps 1, 2 and 6 read. They are separate stores with different deal ids, and `replay --live` needs an
-empty live profile, so it cannot run after the first trade.
+In the seller container (`devcon8-studio`), set up in this order:
 
-    devcon8 brain claude
-    devcon8 nanda <your email>
-    devcon8-studio replay --live
-    devcon8-studio replay
+1. `devcon8 brain claude`
+2. `devcon8 nanda <your email>`
+3. `devcon8-studio replay --live`. This gives only the seller a track record: it puts the ten sample sales in the seller's
+   live deal profile (the buyer's half goes to a scratch folder), so that after one live trade the seller's step 5 card reads
+   11 provided (evidencebook-deal#150). It needs an empty live profile, so run it before the first trade; after a trade it
+   refuses and says how to start over (move `~/.local/share/capsule-deal` and the `deal` profile aside, see `capsulectl profile --help`).
+4. `devcon8-studio replay`. This puts the same ten sales in `~/studio/replay`, which steps 1, 2 and 6 read.
+
+The two replays are separate stores with different deal ids, so run both.
+
+The ten sales are sample data, not real sales. On the step 5 card they count as provided and read "we couldn't tell"; say so when recording.
 
 To show the ten sales (each sale also has a second `sale-…` row, which this filters out):
 
@@ -153,6 +158,11 @@ Inside it, run `devcon8 brain claude`, then `devcon8 nanda <a second email>`. Re
 
 In the seller container run `devcon8-studio`. It greets you with the agent's address and asks whether to write terms or
 sell. It does not wait on the mailbox until you say sell.
+
+Why there is a trade at all: steps 1 and 2 only judge replayed sample history. Step 4 is where the terms you switched on are
+checked at a real commit (the "Why I'm asking" card, then the $0.60 commit stopped), and step 5's "1 bought" comes only from
+that trade. Payment is simulated by default and no money moves; only `--pay lexe` makes it real (`lib/trade.sh`), and this
+walkthrough never uses it.
 
 | Step | You say | You should see |
 |---|---|---|
