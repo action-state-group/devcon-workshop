@@ -105,7 +105,7 @@ container runs each one and what you should see.
 main `0f51d67`, Studio built by `studio/build.sh`, base `sha256:c05520c6…`, rc37). That run reused logged-in volumes
 with their deal data cleared and took about 25 minutes. Main has moved since: `lib/trade.sh`, `agent/recipes/studio.yaml`,
 `agent/bin/mbx` and `agent/bin/offers` changed in #83 and #85 (`--want`, a buyer search). So this walkthrough has **not**
-been run by hand on main's head. The Studio layer builds on `STUDIO_BASE` in `versions.lock` (`sha256:c05520c6…`), never on
+been run by hand on main's head. The Studio layer builds on `STUDIO_BASE` in `studio/versions.lock` (`sha256:c05520c6…`), never on
 `latest`. Not run by hand: the `--pay lexe` staple, amd64, the codex brain, the buyer's `--want` search and the "buy again" prompts for the second trade (added from the recipe, not from a run). The card and
 agent sentences quoted below come from the 2026-11-06 run; the offer-card wording comes from the deal plugin, not from this repository.
 
