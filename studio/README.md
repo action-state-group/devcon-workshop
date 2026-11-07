@@ -167,7 +167,7 @@ For step 4, then run in the buyer container, with the address the seller's agent
 
 The seller's offer card reads: `Why I'm asking: your rule "The price was the price offered" is checked at the commit.`
 Answer `Yes, go ahead.` A clean commit shows no card. To show the rule stopping a sale, tell the seller's goose to commit a
-second trade at $0.60. The card reads: `Why I stopped: your rule "The price was the price offered" did not hold (the commit was $0.60, the offer $0.50); the terms changed since you agreed.`
+second trade at $0.60, then press Ctrl-C in the buyer container and ask its goose to buy again (the seller only creates a second deal when a new request arrives). The card reads: `Why I stopped: your rule "The price was the price offered" did not hold (the commit was $0.60, the offer $0.50); the terms changed since you agreed.`
 
 **Ctrl-C.** A goose that is waiting on the mailbox (the seller's while it sells, the buyer's after its purchase) needs one
 Ctrl-C before a new request, or the request may go unanswered. To end a run, press Ctrl-C twice at the empty prompt.
@@ -181,8 +181,7 @@ In each container (seller and buyer), press Ctrl-C once and say:
 This waits for the next checkpoint, up to seven minutes (under about 5 in the run). Expect the seller's card to count
 11 provided and the buyer's 1 bought. Both read "we couldn't tell", because these deals have no Result.
 
-To show the staple, ask the seller's goose to staple the card to its next proposal, on a second trade. The buyer's goose
-then runs `card open`. Expect: `card: signed by key …, and the bundle's card is the stapled card. Not checked: that this key is the seller's.`
+To show the staple, ask the seller's goose to staple the card to its next proposal, then press Ctrl-C in the buyer container and ask its goose to buy again. When the new proposal arrives, the buyer's goose runs `card open`. Expect: `card: signed by key …, and the bundle's card is the stapled card. Not checked: that this key is the seller's.`
 
 ### Step 6: dispute and ruling
 
