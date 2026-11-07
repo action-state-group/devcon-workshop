@@ -106,9 +106,9 @@ Pull the image ahead of time. Conference wifi is slow:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
 
-`latest` moves only when a maintainer approves a publish of a tested build from main. It is a multi-arch index (arm64 and amd64), `sha256:41de9550…`, built from main `aa6ac30` (its image revision label), with goose in auto mode and no models (check with `docker buildx imagetools inspect ghcr.io/action-state-group/devcon-workshop:latest`; see "Containers, volumes and coming back" to check what you have). For a reproducible pull, use the digest:
+`latest` moves only when a maintainer approves a publish of a tested build from main. It is a multi-arch index (arm64 and amd64), `sha256:b0511dab…`, built from main `4777ff0` (tag `20261106-ml1aba71d-cap0.1.15-b4777ff0.271`) (its image revision label), with goose in auto mode and no models (check with `docker buildx imagetools inspect ghcr.io/action-state-group/devcon-workshop:latest`; see "Containers, volumes and coming back" to check what you have). For a reproducible pull, use the digest:
 
-    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:41de955092337a4761a20b115ccea3f0cb0f53642c5f8d450eef6c26c4e3a51f
+    docker pull ghcr.io/action-state-group/devcon-workshop@sha256:b0511dab193042ac4ec0ac86b1529e30205d8c95ecfae2d08b57efb3c163404e
 
 (The first v4 build, `…b7e05594.139` / `sha256:fde3ab11…`, asks before every goose tool call and can hang on Ctrl-C; do not use it.)
 
@@ -121,7 +121,7 @@ the `docker run` in "Start".
       -p 127.0.0.1:3141:3132 -p 127.0.0.1:8080:8080 -p 127.0.0.1:9611-9614:9621-9624 \
       ghcr.io/action-state-group/devcon-workshop:latest
 
-(Or the `@sha256:41de9550…` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
+(Or the `@sha256:b0511dab…` reference you pulled.) You get a shell with `devcon8` on the path. `devcon8 help` lists every step. Each step is safe to rerun.
 The ports are published on your laptop's loopback only. Later, `docker start -ai devcon8` brings you back.
 The three `-p` flags are for the mesh demo only: the console on laptop port 3141 (`join`), S02 on 8080 (`s02`) and the S08 Evidence pages on 9611-9614 (`s08`). The goose demo publishes no port, so you can leave them out of its `docker run`.
 If you started `devcon8` from an older version of these steps, exit its shell (or run `docker stop devcon8`), then `docker rm devcon8`, then `docker pull` the image again and run the `docker run` above (a local copy of `latest` from before Nov 4 is an older image, and `docker run` does not update it); your `devcon8-home` volume keeps your state.
@@ -147,7 +147,7 @@ Exiting the first shell (`exit`, or Ctrl-D) stops the container. `docker run` wi
 
 **A local `latest` can be stale.** `docker run` never updates an image you already have, and a tag named `latest`
 on your laptop stays at whatever you pulled last. Pull again before every session, and check what you have against
-the registry's index digest (`sha256:41de955092337a4761a20b115ccea3f0cb0f53642c5f8d450eef6c26c4e3a51f` for the multi-arch `latest`; on Nov 4 it was the arm64-only `sha256:65a0b8cd7cec…`). The two digests must match; the registry one comes from `docker buildx imagetools inspect ghcr.io/action-state-group/devcon-workshop:latest`. A stale tag also shows on start: the container prints `installed plugin capsules <version>`, and an older version than the one in "What is in the image" means an older image:
+the registry's index digest (`sha256:b0511dab193042ac4ec0ac86b1529e30205d8c95ecfae2d08b57efb3c163404e` for the multi-arch `latest`; on Nov 4 it was the arm64-only `sha256:65a0b8cd7cec…`). The two digests must match; the registry one comes from `docker buildx imagetools inspect ghcr.io/action-state-group/devcon-workshop:latest`. A stale tag also shows on start: the container prints `installed plugin capsules <version>`, and an older version than the one in "What is in the image" means an older image:
 
     docker pull ghcr.io/action-state-group/devcon-workshop:latest
     docker image inspect ghcr.io/action-state-group/devcon-workshop:latest --format '{{index .RepoDigests 0}}'
