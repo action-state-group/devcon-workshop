@@ -8,7 +8,7 @@ STUDIO_BASE=ghcr.io/action-state-group/devcon-workshop@sha256:c05520c633a04e0347
 
 # The Terms Pack Studio scripts and the terms-pack-author skill: evidencebook-skills at a commit.
 STUDIO_SKILLS_REPO=https://github.com/action-state-group/evidencebook-skills
-STUDIO_SKILLS_COMMIT=9dc30996c26ab5b582377961928de0713c514924
+STUDIO_SKILLS_COMMIT=584e603adb94a906fc6367ea6c8bf764ba4139ac
 # Path of the `terms <verb>` entry point inside that checkout.
 STUDIO_TERMS_ENTRY=scripts/studio/terms
 
