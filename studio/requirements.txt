@@ -1,3 +1,4 @@
 # The Studio scripts are stdlib Python apart from these (evidencebook-skills requirements.txt).
 pyyaml==6.0.3     # pack sources
 rfc8785==0.1.4    # JCS for the digests
+jsonschema==4.23.0  # terms lint and terms test check a pack against its JSON Schema
