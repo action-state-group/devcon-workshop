@@ -101,13 +101,12 @@ prints "Press Ctrl+C again to exit", the second "session closed"). This relies o
 The six demo steps in order, for a presenter. The commands come from Build and Run above; this section says which
 container runs each one and what you should see.
 
-**What has been run by hand.** All six steps were run by hand, in order, on one image on 2026-11-06 (lane deal-151,
-main `0f51d67`, Studio built by `studio/build.sh`, base `sha256:c05520c6…`, rc37). That run reused logged-in volumes
+**What has been run by hand.** All six steps were run by hand, in order, except the parts listed at the end of this paragraph, on one image on 2026-11-06 (main `0f51d67`, Studio built by `studio/build.sh`, base `sha256:c05520c6…`, rc37). That run reused logged-in volumes
 with their deal data cleared and took about 25 minutes. Main has moved since: `lib/trade.sh`, `agent/recipes/studio.yaml`,
 `agent/bin/mbx` and `agent/bin/offers` changed in #83 and #85 (`--want`, a buyer search). So this walkthrough has **not**
 been run by hand on main's head. The Studio layer builds on `STUDIO_BASE` in `studio/versions.lock` (`sha256:c05520c6…`), never on
-`latest`. Not run by hand: the `--pay lexe` staple, amd64, the codex brain, the buyer's `--want` search and the "buy again" prompts for the second trade (added from the recipe, not from a run). The card and
-agent sentences quoted below come from the 2026-11-06 run; the offer-card wording comes from the deal plugin, not from this repository.
+`latest`. Not run by hand: the staple and the $0.60 stop on a second trade (including the `--pay lexe` staple), amd64, the codex brain, the buyer's `--want` search and the "buy again" prompts for the second trade (added from the recipe, not from a run). The card and
+agent sentences quoted below come from the 2026-11-06 run, except the two marked as expected output; the offer-card wording comes from the deal plugin, not from this repository.
 
 **Containers.** Two, both from the Studio image that Step 0 builds:
 
@@ -177,7 +176,7 @@ For step 4, then run in the buyer container, with the address the seller's agent
 
 The seller's offer card reads: `Why I'm asking: your rule "The price was the price offered" is checked at the commit.`
 Answer `Yes, go ahead.` A clean commit shows no card. To show the rule stopping a sale, tell the seller's goose to commit a
-second trade at $0.60, then press Ctrl-C in the buyer container and ask its goose to buy again (the seller only creates a second deal when a new request arrives). The card reads: `Why I stopped: your rule "The price was the price offered" did not hold (the commit was $0.60, the offer $0.50); the terms changed since you agreed.`
+second trade at $0.60, then press Ctrl-C in the buyer container and ask its goose to buy again (the seller only creates a second deal when a new request arrives). The expected card (not seen in a hand-run) reads: `Why I stopped: your rule "The price was the price offered" did not hold (the commit was $0.60, the offer $0.50); the terms changed since you agreed.`
 
 **Ctrl-C.** A goose that is waiting on the mailbox (the seller's while it sells, the buyer's after its purchase) needs one
 Ctrl-C before a new request, or the request may go unanswered. To end a run, press Ctrl-C twice at the empty prompt.
@@ -188,16 +187,16 @@ In each container (seller and buyer), press Ctrl-C once and say:
 
 > Make my history card and open it. Use --fresh.
 
-This waits for the next checkpoint, up to seven minutes (under about 5 in the run). Expect the seller's card to count
+This waits for the next checkpoint, up to seven minutes (about 5 minutes in the run). Expect the seller's card to count
 11 provided and the buyer's 1 bought. Both read "we couldn't tell", because these deals have no Result.
 
-To show the staple, ask the seller's goose to staple the card to its next proposal, then press Ctrl-C in the buyer container and ask its goose to buy again. When the new proposal arrives, the buyer's goose runs `card open`. Expect: `card: signed by key …, and the bundle's card is the stapled card. Not checked: that this key is the seller's.`
+To show the staple, ask the seller's goose to staple the card to its next proposal, then press Ctrl-C in the buyer container and ask its goose to buy again. When the new proposal arrives, the buyer's goose runs `card open`. Expected output (not seen in a hand-run): `card: signed by key …, and the bundle's card is the stapled card. Not checked: that this key is the seller's.`
 
 ### Step 6: dispute and ruling
 
 Everything runs in the seller container, because the replay stores are there. Do not run a replay in the buyer container.
 
-1. Open a second shell and start the buyer's goose:
+1. Open a second shell in the seller container and start a second goose, which acts as the buyer. Its dispute lands on the replayed buyer's store (`~/studio/replay/buyer`), not on a separate buyer identity:
 
        docker exec -it devcon8-studio bash
        devcon8-studio
@@ -227,8 +226,8 @@ the disputed sale's entry reads from a Result; and `card open` proves the signat
 
 ### Known problems
 
-- `paid_at` cannot be read for real Lightning sales, so the payment terms turn `not_evaluable`; simulated payments are not affected. Confirmed by Sherlock2, not fixed.
-- `delivered_within_days` uses the delivery time the seller reports, so that row's wording claims too much. Confirmed by Sherlock2, not fixed.
+- `paid_at` cannot be read for real Lightning sales, so the payment terms turn `not_evaluable`; simulated payments are not affected. Not fixed; no issue filed yet.
+- `delivered_within_days` uses the delivery time the seller reports, so that row's wording claims too much. Not fixed; no issue filed yet.
 - Ports: `studio/run.sh` and the mesh demo in the top-level README both publish 3141, 8080 and 9611-9614, so only one can run at a time. The goose trade demo and Studio use the same mailboxes, so a later `devcon8 nanda` takes them over.
 
 ## Tests
