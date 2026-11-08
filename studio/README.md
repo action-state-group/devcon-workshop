@@ -96,6 +96,140 @@ to waiting afterwards if you had asked it to sell). To end the run, press Ctrl-C
 prints "Press Ctrl+C again to exit", the second "session closed"). This relies on the goose patch
 `patches/goose-acp-cancel-abandoned-prompt.patch`, which the image built from this repository carries.
 
+## Walkthrough
+
+The six demo steps in order, for a presenter. The commands come from Build and Run above; this section says which
+container runs each one and what you should see.
+
+**What has been run by hand.** All six steps were run by hand, in order, except the parts listed at the end of this paragraph, on one image on 2026-11-06 (main `0f51d67`, Studio built by `studio/build.sh`, base `sha256:c05520c6…`, rc37). That run reused logged-in volumes
+with their deal data cleared and took about 25 minutes. Main has moved since: `lib/trade.sh`, `agent/recipes/studio.yaml`,
+`agent/bin/mbx` and `agent/bin/offers` changed in #83 and #85 (`--want`, a buyer search). So this walkthrough has **not**
+been run by hand on main's head. The Studio layer builds on `STUDIO_BASE` in `studio/versions.lock` (`sha256:c05520c6…`), never on
+`latest`. Not run by hand: the staple and the $0.60 stop on a second trade (including the `--pay lexe` staple), amd64, the codex brain, the buyer's `--want` search and the "buy again" prompts for the second trade (added from the recipe, not from a run). The card and
+agent sentences quoted below come from the 2026-11-06 run, except the two marked as expected output; the offer-card wording comes from the deal plugin, not from this repository.
+
+**Containers.** Two, both from the Studio image that Step 0 builds:
+
+| Name | Started by | Runs |
+|---|---|---|
+| `devcon8-studio` (seller) | `studio/run.sh` | steps 1 to 6; step 6 uses three shells in it |
+| `devcon8-buyer` | the `docker run` in Step 0 | the buyer's side of steps 4 and 5 |
+
+The Claude login and the mailbox code need the presenter in person. Never paste login codes, six-digit codes or invites into chat.
+
+### Step 0: build and set up
+
+In a Mac terminal, from a checkout of main (see [Build](#build) and [Run](#run) for the details):
+
+    studio/build.sh
+    studio/run.sh
+
+In the seller container (`devcon8-studio`), set up in this order:
+
+1. `devcon8 brain claude`
+2. `devcon8 nanda <your email>`
+3. `devcon8-studio replay --live`. This gives only the seller a track record: it puts the ten sample sales in the seller's
+   live deal profile (the buyer's half goes to a scratch folder), so that after one live trade the seller's step 5 card reads
+   11 provided (evidencebook-deal#150). It needs an empty live profile, so run it before the first trade; after a trade it
+   refuses and says how to start over (move `~/.local/share/capsule-deal` and the `deal` profile aside, see `capsulectl profile --help`).
+4. `devcon8-studio replay`. This puts the same ten sales in `~/studio/replay`, which steps 1, 2 and 6 read.
+
+The two replays are separate stores with different deal ids, so run both.
+
+The ten sales are sample data, not real sales. On the step 5 card they count as provided and read "we couldn't tell"; say so when recording.
+
+To show the ten sales (each sale also has a second `sale-…` row, which this filters out):
+
+    XDG_CONFIG_HOME=~/studio/replay/seller capsulectl --profile deal deal list --json | jq -r 'map(select(.kind=="deal"))|sort_by(.opened_at)[]|.summary.text'
+
+Expect ten lines, Buyer 1 to Buyer 10, all `completed`.
+
+The buyer, in a second Mac terminal. Make the folder first, as yourself, or Docker creates it owned by root:
+
+    mkdir -p ~/devcon8-buyer-studio
+    docker run -it --name devcon8-buyer -v devcon8b-home:/home/participant -v ~/devcon8-buyer-studio:/home/participant/studio \
+      -p 127.0.0.1:3241:3132 -p 127.0.0.1:8180:8080 -p 127.0.0.1:9711-9714:9621-9624 devcon-workshop-studio:dev
+
+Inside it, run `devcon8 brain claude`, then `devcon8 nanda <a second email>`. Rehearsal pages and Result JSON land in
+`~/devcon8-studio` on the laptop (the buyer's in `~/devcon8-buyer-studio`), so you open them from the browser.
+
+### Steps 1 to 4: say these to the seller's goose
+
+In the seller container run `devcon8-studio`. It greets you with the agent's address and asks whether to write terms or
+sell. It does not wait on the mailbox until you say sell.
+
+Why there is a trade at all: steps 1 and 2 only judge replayed sample history. Step 4 is where the terms you switched on are
+checked at a real commit (the "Why I'm asking" card, then the $0.60 commit stopped), and step 5's "1 bought" comes only from
+that trade. Payment is simulated by default and no money moves; only `--pay lexe` makes it real (`lib/trade.sh`), and this
+walkthrough never uses it.
+
+| Step | You say | You should see |
+|---|---|---|
+| 1 Look | Judge my last ten sales under terms that say: paid before delivery, delivered within a day of payment, price as offered. | 9 of 10 came through; one sale missed on price as offered; a page you can open |
+| 2 Change | Make it within two days, not one. | The two versions compared row by row, with both digests |
+| 3 Switch on | Use these terms on my sales. Then: Yes, switch them on. | Confirms once, then pins the pack digest |
+| 4 Sell | Yes, start selling stickers now. | Goose waits for buyers |
+
+For step 4, then run in the buyer container, with the address the seller's agent printed:
+
+    devcon8-studio --buy <the seller's address>
+
+The seller's offer card reads: `Why I'm asking: your rule "The price was the price offered" is checked at the commit.`
+Answer `Yes, go ahead.` A clean commit shows no card. To show the rule stopping a sale, tell the seller's goose to commit a
+second trade at $0.60, then press Ctrl-C in the buyer container and ask its goose to buy again (the seller only creates a second deal when a new request arrives). The expected card (not seen in a hand-run) reads: `Why I stopped: your rule "The price was the price offered" did not hold (the commit was $0.60, the offer $0.50); the terms changed since you agreed.`
+
+**Ctrl-C.** A goose that is waiting on the mailbox (the seller's while it sells, the buyer's after its purchase) needs one
+Ctrl-C before a new request, or the request may go unanswered. To end a run, press Ctrl-C twice at the empty prompt.
+
+### Step 5: History cards
+
+In each container (seller and buyer), press Ctrl-C once and say:
+
+> Make my history card and open it. Use --fresh.
+
+This waits for the next checkpoint, up to seven minutes (about 5 minutes in the run). Expect the seller's card to count
+11 provided and the buyer's 1 bought. Both read "we couldn't tell", because these deals have no Result.
+
+To show the staple, ask the seller's goose to staple the card to its next proposal, then press Ctrl-C in the buyer container and ask its goose to buy again. When the new proposal arrives, the buyer's goose runs `card open`. Expected output (not seen in a hand-run): `card: signed by key …, and the bundle's card is the stapled card. Not checked: that this key is the seller's.`
+
+### Step 6: dispute and ruling
+
+Everything runs in the seller container, because the replay stores are there. Do not run a replay in the buyer container.
+
+1. Open a second shell in the seller container and start a second goose, which acts as the buyer. Its dispute lands on the replayed buyer's store (`~/studio/replay/buyer`), not on a separate buyer identity:
+
+       docker exec -it devcon8-studio bash
+       devcon8-studio
+
+   Say: `The sticker was the wrong one in my price-changed sale. Dispute it.`
+
+2. Nothing is ruled until the presenter runs the referee. In a third shell in the same container:
+
+       dispute sale
+       referee rule <deal id> --buyer ~/studio/replay/buyer --seller ~/studio/replay/seller
+
+   `dispute sale` prints the id of the price-changed sale (the ids differ on every replay). Ask each goose
+   `What became of the dispute?` Before the referee runs, both answer "Nothing is ruled on <deal> yet"; afterwards both
+   answer `The referee ruled on the dispute over "price as offered": found for the buyer. Ruling ….` A second
+   `referee rule` on the same deal is refused: `a deal is ruled on once`.
+
+3. Make the cards from the replay stores (plain `card make` reads the live profile):
+
+       XDG_CONFIG_HOME=~/studio/replay/buyer card make --fresh buyer
+       XDG_CONFIG_HOME=~/studio/replay/seller card make --fresh seller
+
+   The buyer's card shows 1 dispute raised, ended for them, and stamped by both sides 1 of 10. The seller's shows
+   1 received, ended against them.
+
+Say two things when recording: both cards still read "10 we couldn't tell", with the dispute under Disputes, so do not say
+the disputed sale's entry reads from a Result; and `card open` proves the signature and the binding, not that the key is the seller's.
+
+### Known problems
+
+- `paid_at` cannot be read for real Lightning sales, so the payment terms turn `not_evaluable`; simulated payments are not affected. Not fixed; no issue filed yet.
+- `delivered_within_days` uses the delivery time the seller reports, so that row's wording claims too much. Not fixed; no issue filed yet.
+- Ports: `studio/run.sh` and the mesh demo in the top-level README both publish 3141, 8080 and 9611-9614, so only one can run at a time. The goose trade demo and Studio use the same mailboxes, so a later `devcon8 nanda` takes them over.
+
 ## Tests
 
 - `python3 -I tests/test_build_recipe.py` and `python3 studio/build-recipe.py --check`

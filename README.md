@@ -640,7 +640,7 @@ again; your edits are kept. `devcon8 go-seal --reset` starts over from the image
 
 ## Terms Pack Studio
 
-Terms Pack Studio is an internal layer on top of this image, with its own README: [studio/README.md](studio/README.md). It adds only an unused recipe file (`agent/recipes/studio.yaml`) to the published image and changes nothing in its behaviour, its `latest` tag or the USB files.
+Terms Pack Studio is an internal layer on top of this image, with its own README: [studio/README.md](studio/README.md). For the six demo steps, one at a time, see its [Walkthrough](studio/README.md#walkthrough). It adds only an unused recipe file (`agent/recipes/studio.yaml`) to the published image and changes nothing in its behaviour, its `latest` tag or the USB files.
 
 ## Your data, and removing it
 
