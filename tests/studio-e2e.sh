@@ -44,7 +44,7 @@ run1=$(terms run "$pack" --store "$seller" --dry-run)
 ok "step 1: $(jq -r '"\(.came_through) of \(.sales) came through, missed \(.missed|length), could not decide \(.could_not_decide|length)"' <<<"$run1")"
 [ "$(terms verify "$(jq -r .page <<<"$run1")" | jq -r .verified)" = true ] || fail "the report page does not verify"
 
-sed -i 's/within 1 day/within 2 days/; s/delivered_within_days(1)/delivered_within_days(2)/; s/0\.1\.0/0.1.1/' "$pack"
+sed -i 's/within 1 day/within 2 days/; s/delivered_within_days(1)/delivered_within_days(2)/; s/^pack_version: 0\.1\.1/pack_version: 0.1.2/' "$pack"
 terms lint "$pack" >/dev/null || fail "the changed terms do not lint"
 terms test "$pack" >/dev/null || fail "the changed terms do not test"
 run2=$(terms run "$pack" --store "$seller" --dry-run)

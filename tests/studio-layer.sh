@@ -7,8 +7,8 @@ ok() { echo "ok   $*"; }
 fail() { echo "FAIL $*" >&2; exit 1; }
 . "$D/studio/versions.lock"
 if [ -z "$STUDIO_SKILLS_COMMIT" ] || [ -z "$STUDIO_TERMS_ENTRY" ]; then fail "the layer's pins are empty"; fi
-"$D/studio/venv/bin/python" -I -c 'import yaml, rfc8785' || fail "PyYAML or rfc8785 missing from the layer's venv"
-ok "PyYAML and rfc8785 in the layer venv"
+"$D/studio/venv/bin/python" -I -c 'import yaml, rfc8785, jsonschema' || fail "PyYAML, rfc8785 or jsonschema missing from the layer's venv"
+ok "PyYAML, rfc8785 and jsonschema in the layer venv"
 [ "$(type -P terms)" = "$D/agent/bin/terms" ] || fail "terms is not on PATH"
 [ -r "$D/agent/skills/terms-pack-author/SKILL.md" ] || fail "terms-pack-author SKILL.md missing or unreadable by $(id -un)"
 [ -r "$D/agent/skills/deal/SKILL.md" ] || fail "the base image's deal skill is gone"
