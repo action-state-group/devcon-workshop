@@ -226,8 +226,8 @@ the disputed sale's entry reads from a Result; and `card open` proves the signat
 
 ### Known problems
 
-- `paid_at` cannot be read for real Lightning sales, so the payment terms turn `not_evaluable`; simulated payments are not affected. Not fixed; no issue filed yet.
-- `delivered_within_days` uses the delivery time the seller reports, so that row's wording claims too much. Not fixed; no issue filed yet.
+- `paid_at` cannot be read for real Lightning sales, so the payment terms turn `not_evaluable`; simulated payments are not affected. Fixed in evidencebook-skills [#157](https://github.com/action-state-group/evidencebook-skills/pull/157) (`11c0c7e`); Studio pins an older commit until [devcon-workshop#87](https://github.com/action-state-group/devcon-workshop/pull/87) lands.
+- `delivered_within_days` uses the delivery time the seller reports, so that row's wording claims too much. Fixed in evidencebook-skills [#158](https://github.com/action-state-group/evidencebook-skills/pull/158) (`584e603`, the row's wording now says it uses the seller's own reported time); Studio pins an older commit until [devcon-workshop#87](https://github.com/action-state-group/devcon-workshop/pull/87) lands.
 - Ports: `studio/run.sh` and the mesh demo in the top-level README both publish 3141, 8080 and 9611-9614, so only one can run at a time. The goose trade demo and Studio use the same mailboxes, so a later `devcon8 nanda` takes them over.
 
 ## Tests
