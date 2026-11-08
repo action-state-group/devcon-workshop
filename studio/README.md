@@ -104,7 +104,7 @@ container runs each one and what you should see.
 **What has been run by hand.** All six steps were run by hand, in order, except the parts listed at the end of this paragraph, on one image on 2026-11-06 (main `0f51d67`, Studio built by `studio/build.sh`, base `sha256:c05520c6…`, rc37). That run reused logged-in volumes
 with their deal data cleared and took about 25 minutes. Main has moved since: `lib/trade.sh`, `agent/recipes/studio.yaml`,
 `agent/bin/mbx` and `agent/bin/offers` changed in #83 and #85 (`--want`, a buyer search). So this walkthrough has **not**
-been run by hand on main's head. The Studio layer builds on `STUDIO_BASE` in `studio/versions.lock` (`sha256:c05520c6…`), never on
+been run by hand on main's head, and the evidencebook-skills pin has moved to `584e603` since (the `paid_at` and `delivered_within_days` fixes), which no hand-run covered. The Studio layer builds on `STUDIO_BASE` in `studio/versions.lock` (`sha256:c05520c6…`), never on
 `latest`. Not run by hand: the staple and the $0.60 stop on a second trade (including the `--pay lexe` staple), amd64, the codex brain, the buyer's `--want` search and the "buy again" prompts for the second trade (added from the recipe, not from a run). The card and
 agent sentences quoted below come from the 2026-11-06 run, except the two marked as expected output; the offer-card wording comes from the deal plugin, not from this repository.
 
@@ -226,8 +226,6 @@ the disputed sale's entry reads from a Result; and `card open` proves the signat
 
 ### Known problems
 
-- `paid_at` cannot be read for real Lightning sales, so the payment terms turn `not_evaluable`; simulated payments are not affected. Fixed in evidencebook-skills [#157](https://github.com/action-state-group/evidencebook-skills/pull/157) (`11c0c7e`); Studio pins an older commit until [devcon-workshop#87](https://github.com/action-state-group/devcon-workshop/pull/87) lands.
-- `delivered_within_days` uses the delivery time the seller reports, so that row's wording claims too much. Fixed in evidencebook-skills [#158](https://github.com/action-state-group/evidencebook-skills/pull/158) (`584e603`, the row's wording now says it uses the seller's own reported time); Studio pins an older commit until [devcon-workshop#87](https://github.com/action-state-group/devcon-workshop/pull/87) lands.
 - Ports: `studio/run.sh` and the mesh demo in the top-level README both publish 3141, 8080 and 9611-9614, so only one can run at a time. The goose trade demo and Studio use the same mailboxes, so a later `devcon8 nanda` takes them over.
 
 ## Tests
