@@ -293,6 +293,8 @@ def pick(args):
     st.update(status="picked", picked=chosen, said=clean(args[2], 200))
     write_state(st)
     out = {"picked": n, "address": chosen["address"], "source": chosen["source"], "offer": chosen["offer"]}
+    if chosen["offer"].get("history_staple"):
+        out["card_check"] = True   # the payment tools refuse until `card open --announced-key` has run
     if st.get("cap_msat") is not None:
         out["cap_msat"] = st["cap_msat"]
     print(json.dumps(out))

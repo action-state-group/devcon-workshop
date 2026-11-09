@@ -336,6 +336,23 @@ class Mbx(unittest.TestCase):
         self.pick({"other_item": True, "currency": "USD", "price_minor": 50, "rail": "x402"})
         self.assertEqual(self.proposal({"price_cents": 50})["offer_check"]["item"], "mismatch")
 
+    def test_a_seller_that_announces_a_card_cannot_propose_without_it(self):
+        offer = os.path.join(self.tmp.name, "offer.json")
+        with open(offer, "w") as f:
+            json.dump({"historyStaple": True}, f)
+        with self.assertRaises(SystemExit) as e:        # refused before any network call
+            mbx.main(["mbx", "reply", "conv_1", "proposal", "text", "{}"])
+        self.assertEqual(e.exception.code, 2)
+        with open(offer, "w") as f:
+            json.dump({"historyStaple": False}, f)       # not announcing a card: the check does not apply
+        self.assertFalse(mbx.announces_card())
+        os.remove(offer)
+        self.assertFalse(mbx.announces_card())
+
+    def test_offer_check_item_only_when_the_seller_published_one(self):
+        self.pick({"currency": "USD", "price_minor": 50, "rail": "x402"})
+        self.assertNotIn("item", self.proposal({"price_cents": 50})["offer_check"])
+
     def test_offer_check_price_must_be_there_and_agree_with_the_terms(self):
         self.pick(self.LN)
         # No price at all, a price the field check drops, and terms that name another price or currency.

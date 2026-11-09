@@ -37,6 +37,11 @@ ok "terms --help"
 grep -q -- '--want' "$D/lib/trade.sh" || fail "the layer's trade.sh has no --want"
 grep -q 'key: want' "$D/agent/recipes/trader.yaml" || fail "the layer's trader.yaml has no want parameter, so devcon8 trade --want would only sell"
 ok "offers and trade.sh --want are in the layer"
+# The seller command and the payment gate are the repo's (devcon-workshop#84), not the pinned base's.
+grep -q 'nanda offer' "$D/lib/nanda.sh" || fail "the layer's nanda.sh has no 'offer'"
+grep -q 'offer-check.json' "$D/agent/bin/pay-x402" || fail "the layer's pay-x402 ignores the offer check"
+grep -q 'offer_check_refusal' "$D/agent/bin/lightning" || fail "the layer's lightning ignores the offer check"
+ok "nanda offer and the payment gate are in the layer"
 # trade.sh runs the Studio recipe when TRADE_RECIPE is set (the layer patches it; the base image's is untouched).
 grep -q 'TRADE_RECIPE:-' "$D/lib/trade.sh" || fail "the layer's trade.sh does not honour TRADE_RECIPE"
 ok "trade.sh honours TRADE_RECIPE"

@@ -50,6 +50,10 @@ COPY studio/bin/ /opt/devcon8/agent/bin/
 # mbx from this checkout: a seller's proposal may carry its History card (Studio step 5). The base image's
 # mbx predates that; once the pinned base has it, this line is a no-op copy of the same file.
 COPY agent/bin/mbx /opt/devcon8/agent/bin/mbx
+# The seller command and the payment gate (devcon-workshop#84): the pinned base has neither, so a Studio buyer's
+# pay-x402 and lightning pay would ignore the offer check and `devcon8 nanda offer` would not exist.
+COPY lib/nanda.sh /opt/devcon8/lib/nanda.sh
+COPY agent/bin/pay-x402 agent/bin/lightning /opt/devcon8/agent/bin/
 COPY agent/recipes/studio.yaml /opt/devcon8/agent/recipes/studio.yaml
 COPY tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh tests/studio-card.sh tests/studio-ruling.sh /opt/devcon8/tests/
 RUN chmod -R a+rX /opt/devcon8/studio /opt/devcon8/agent /opt/devcon8/tests /usr/local/lib/capsulectl/plugins/terms-pack-studio

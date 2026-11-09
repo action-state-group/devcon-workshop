@@ -42,6 +42,7 @@ out=$(run 'y\n' --history) && fail "--history without a staple exited 0"
 grep -q 'card staple' <<<"$out" || fail "--history without a staple does not say what to do: $out"
 mv "$T/staple.json" "$H/studio/cards/stapled/history-staple.json"
 run 'y\n' --history >/dev/null || fail "publishing with --history failed"
+[ "$(jq -c . "$H/.devcon8/offer.json")" = '{"historyStaple":true}' ] || fail "mbx is not told the offer announces a card"
 [ "$(stored | jq -cS .metadata.offer)" = '{"historyKey":"ed25519:abc12345","historyStaple":true,"item":"digital fox sticker","price":{"amount":50,"unit":"usd_cent"},"rail":"x402","v":0}' ] || fail "staple offer: $(stored)"
 echo "ok   nanda offer: --history announces the card and its key (and needs the staple); a staple on disk alone does not"
 # A Lightning offer: the price is the seller's own, in msat, from its caps.
@@ -59,6 +60,7 @@ done
 echo "ok   nanda offer: the rest of the record is sent back as read"
 out=$(run 'y\n' --remove) || fail "--remove failed: $out"
 [ "$(stored)" = '{"identity":"m1","metadata":{"keep":"me"}}' ] || fail "after remove: $(stored)"
+[ ! -e "$H/.devcon8/offer.json" ] || fail "--remove left the announced-card note"
 echo "ok   nanda offer --remove: clears only the offer"
 stop
 # An Index that drops the metadata is reported, not claimed as published.

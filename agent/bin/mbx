@@ -191,6 +191,15 @@ def mark_spent():
         os.replace(p + ".tmp", p)
 
 
+def announces_card():
+    """Whether this seller's published offer (devcon8 nanda offer --history) announces a History card."""
+    try:
+        with open(os.path.join(os.path.dirname(STATE), "offer.json")) as f:
+            return json.load(f).get("historyStaple") is True
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
 def picked_offer():
     """The offer the user picked in `offers find`/`pick`, or None (a typed address, or no pick)."""
     try:
@@ -231,7 +240,9 @@ def offer_check(shop, c, saved):
     # The sale's terms must say the same price and currency as the amount asked.
     terms_ok = t is None or (unit is not None and t.get("price_minor") == amount
                              and {"BTC": "msat", "USD": "usd_cent"}[t.get("currency", "USD")] == unit)
-    out = {"item": "mismatch" if o.get("other_item") else "claimed"}
+    out = {}
+    if o.get("other_item") or o.get("item"):
+        out["item"] = "mismatch" if o.get("other_item") else "claimed"
     if "price_minor" in o:
         out["price"] = "verified" if terms_ok and (unit, amount) == (pub_unit, o["price_minor"]) else "mismatch"
     if "rail" in o:
@@ -494,6 +505,9 @@ def main(argv):
         if not ID.match(conv) or kind not in KINDS - {"request", "confirm"}:
             die("usage: mbx reply <conversation> <proposal|accept|decline|cancel> <text> [constraints-json] [--attach FILE]...  (confirm: mbx confirm)", 2)
         constraints, files, invoice = attachments(kind, rest)
+        if kind == "proposal" and announces_card() and not CARD_FILES <= {f["name"] for f in files}:
+            die("your published offer announces a History card, so a proposal must carry it: make it with 'card staple' and "
+                "attach history-staple.json and history-card.bundle (or 'devcon8 nanda offer --remove' to stop announcing it)", 2)
         if invoice:
             if kind != "proposal":
                 die("only a proposal carries an invoice", 2)

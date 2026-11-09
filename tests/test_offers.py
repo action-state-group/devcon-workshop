@@ -259,6 +259,7 @@ class Offers(unittest.TestCase):
         self.assertNotIn("not published [claimed]", r.stdout)
         p = self.offers("pick", "1", "--said", "the first")
         self.assertEqual(json.loads(p.stdout)["offer"]["history_key"], "ed25519:abcdef0123")
+        self.assertIs(json.loads(p.stdout)["card_check"], True)       # the payment tools need `card open` first
 
     def test_no_price_is_said_plainly_against_a_cap(self):
         r = self.find("fox sticker", "--max-sats", "1000")

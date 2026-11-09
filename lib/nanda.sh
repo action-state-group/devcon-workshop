@@ -134,10 +134,13 @@ TXT
   stored=$(curl -fsS "$INDEX/api/v1/resolve?locator=$URN$addr" | jq -c '.entry.trustManifest.metadata.offer // null')
   if [ "$remove" = 1 ]; then
     [ "$stored" = null ] || die "the Index still shows an offer for $addr: $stored"
+    rm -f "$ST/offer.json"
     echo "Cleared: the Index shows no offer for $addr."
   else
     # The Index writes keys in camelCase and in its own order, so the two are compared as sorted JSON.
     [ "$(jq -cS . <<<"$stored")" = "$(jq -cS . <<<"$offer")" ] || die "the Index did not keep the offer as sent (it shows: $stored)"
+    # mbx reads this: while the offer announces a History card, a proposal of yours must carry it.
+    jq -nc --argjson h "$hist" '{historyStaple:$h}' > "$ST/offer.json"
     echo "Published: the Index shows your offer for $addr. Buyers' 'offers find' reads it."
   fi
   exit 0
