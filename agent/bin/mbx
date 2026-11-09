@@ -191,6 +191,51 @@ def mark_spent():
         os.replace(p + ".tmp", p)
 
 
+def picked_offer():
+    """The offer the user picked in `offers find`/`pick`, or None (a typed address, or no pick)."""
+    try:
+        with open(os.path.join(os.path.dirname(STATE), "offers.json")) as f:
+            st = json.load(f)
+    except (OSError, ValueError):
+        return None
+    p = st.get("picked") if isinstance(st, dict) and st.get("status") in ("picked", "spent") else None
+    return p if isinstance(p, dict) and isinstance(p.get("offer"), dict) else None
+
+
+def staple_key(path):
+    """The key a received History staple is signed with (its reply's responder), or None."""
+    try:
+        with open(path) as f:
+            k = json.load(f)["staple"]["reply"]["responder"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return k if isinstance(k, str) and len(k) <= 128 else None
+
+
+def offer_check(shop, c, card_path):
+    """A shop's proposal against the offer the user picked, field by field, before anything is paid:
+    verified (the proposal's own payment requirements say the same), mismatch (they differ), or claimed
+    (nothing here can check it: the item until delivery; a card until `card open` verifies its
+    signature under the announced key). The listed price is advisory: a different price is a mismatch,
+    never silently accepted. None when the user picked no offer from this shop."""
+    p = picked_offer()
+    if not p or p.get("address") != shop:
+        return None
+    o = p["offer"]
+    unit = "msat" if "price_msat" in c else "usd_cent" if "price_cents" in c else None
+    amount = c.get("price_msat", c.get("price_cents"))
+    pub_unit = {"BTC": "msat", "USD": "usd_cent"}.get(o.get("currency"))
+    out = {"item": "claimed"}
+    out["price"] = ("claimed" if "price_minor" not in o or unit is None
+                    else "verified" if (unit, amount) == (pub_unit, o["price_minor"]) else "mismatch")
+    out["rail"] = ("claimed" if "rail" not in o or unit is None
+                   else "verified" if o["rail"] == ("lightning" if unit == "msat" else "x402") else "mismatch")
+    if o.get("history_staple") is True:
+        k = staple_key(card_path)
+        out["history"] = "claimed" if k is not None and k == o.get("history_key") else "mismatch"
+    return out
+
+
 def state(name):
     try:
         with open(os.path.join(STATE, name)) as f:
@@ -352,6 +397,10 @@ def parse(m):
             saved.append(p)
         else:
             out.setdefault("dropped", []).append("invoice")
+    if kind == "proposal" and out["you_are"] == "buyer" and bought.get(conv):
+        chk = offer_check(bought[conv], out["constraints"], os.path.join(DEALS, conv, "history-staple.json"))
+        if chk:
+            out["offer_check"] = chk
     if saved:
         out["files"] = saved
     if refused:

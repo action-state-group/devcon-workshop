@@ -22,7 +22,7 @@
     --attach <staple path> --attach <bundle path>` (in a `--pay lexe` run, keep `--invoice` on that
     proposal). Staple it only when your user asked you to.
   - When `mbx wait` shows a proposal with `history-card.bundle` among its `files`, tell your user the
-    seller sent its card and run `card open <that path>`; tell them to open the page it prints.
+    seller sent its card and run `card open <that path>`, adding `--announced-key <history_key>` when the offer you picked printed one (a card signed by another key is refused: do not pay); tell them to open the page it prints.
   DISPUTES. Your user, as a buyer, may say that what they bought was not what was offered and ask you to
   dispute it:
   - Find the deal they mean (`capsulectl --profile deal deal list`; for a past sale from the replay, list it with

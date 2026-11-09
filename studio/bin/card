@@ -7,9 +7,12 @@
 #                        the seller's staple for its next proposal: ~/studio/cards/stapled/
 #                        history-staple.json and history-card.bundle (the shared copy, without the
 #                        deals it counts), both for `mbx reply ... proposal ... --attach`
-#   card open BUNDLE     the buyer's side: BUNDLE is the received history-card.bundle, beside its
+#   card open BUNDLE [--announced-key KEY]
+#                        the buyer's side: BUNDLE is the received history-card.bundle, beside its
 #                        history-staple.json. Checks the staple, checks that the bundle's card is the
 #                        stapled card, then draws ~/studio/cards/from-<conversation>.html
+#                        With --announced-key (the key the seller published in its offer), a staple signed
+#                        by any other key is refused, and a pass says the card is verified under that key.
 # The card is as of the newest checkpoint, and checkpoints come every five minutes (give or take one).
 # A deal made since the last one is counted by the next. `card` cuts a checkpoint when one is due and says
 # which one the card is as of; --fresh waits (up to seven minutes) for a new checkpoint, so a deal just
@@ -102,7 +105,10 @@ staple)
   mv -f "$w/history-card.bundle" "$w/history-staple.json" "$OUT/stapled/"
   jq -nc --arg d "$OUT/stapled" '{staple:($d+"/history-staple.json"), bundle:($d+"/history-card.bundle")}' ;;
 open)
-  f=${1:?usage: card open BUNDLE}
+  f=${1:?usage: card open BUNDLE [--announced-key KEY]}; shift
+  announced=
+  if [ "${1:-}" = --announced-key ]; then announced=${2:?--announced-key needs the key from the offer}; shift 2; fi
+  [ $# = 0 ] || die "usage: card open BUNDLE [--announced-key KEY]"
   [ -s "$f" ] || die "no such card: $f"
   staple=$(dirname "$f")/history-staple.json
   [ -s "$staple" ] || die "no history-staple.json beside $f: a card that came without its staple is not opened"
@@ -117,6 +123,8 @@ json.dump({"history": "standard_history/1", "request": wrap(s["request"]), "repl
 print(s["reply"]["responder"])
 PY
   ) || die "$staple is not a staple"
+  [ -z "$announced" ] || [ "$key" = "$announced" ] \
+    || die "MISMATCH: the card is signed by key ${key:0:8}…, not the key the seller announced in its offer; do not pay"
   # The key is the staple's own: the buyer's deal holds no key for the seller (two-sided-receipt.md), so
   # this proves the card is signed, bound to its request and unchanged, not who the seller is.
   report=$(capsulectl verify --history "$work/carried.json" --holder-key "$key" 2>/dev/null) \
@@ -133,6 +141,10 @@ PY
   page "$f" "$work/page.html"
   mv -f "$work/page.html" "$OUT/from-$conv.html"
   jq -nc --arg bundle "$f" --arg page "$OUT/from-$conv.html" '{bundle:$bundle, page:$page}'
-  echo "card: signed by key ${key:0:8}…, and the bundle's card is the stapled card. Not checked: that this key is the seller's. Your deal doesn't record the seller's key, so it comes from the card itself." >&2 ;;
+  if [ -n "$announced" ]; then
+    echo "card: verified: signed by key ${key:0:8}…, the key the seller announced in its offer, and the bundle's card is the stapled card." >&2
+  else
+    echo "card: signed by key ${key:0:8}…, and the bundle's card is the stapled card. Not checked: that this key is the seller's. Your deal doesn't record the seller's key, so it comes from the card itself." >&2
+  fi ;;
 *) sed -n '2,/^set -/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
 esac
