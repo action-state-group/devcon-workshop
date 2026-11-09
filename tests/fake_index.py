@@ -74,6 +74,11 @@ class H(BaseHTTPRequestHandler):
             return self.reply(200, {"token": "jwt1"})
         self.reply(404, {"error": "no route"})
 
+    def do_DELETE(self):
+        self.record()
+        self.send_response(204 if self.path == "/api/v1/orgs/o1" and self.authed() else 401)
+        self.end_headers()
+
     def do_PUT(self):
         b = self.body()
         self.record(b)

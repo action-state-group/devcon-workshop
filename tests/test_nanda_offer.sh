@@ -62,6 +62,12 @@ out=$(run 'y\n' --remove) || fail "--remove failed: $out"
 [ "$(stored)" = '{"identity":"m1","metadata":{"keep":"me"}}' ] || fail "after remove: $(stored)"
 [ ! -e "$H/.devcon8/offer.json" ] || fail "--remove left the announced-card note"
 echo "ok   nanda offer --remove: clears only the offer"
+# `leave` deletes the listing, and the announced-card note goes with it.
+echo '{"historyStaple":true}' > "$H/.devcon8/offer.json"
+printf 'y\n' | HOME=$H D=$here/.. MBX_BASE="http://127.0.0.1:$port" NANDA_INDEX="http://127.0.0.1:$port" bash "$here/../lib/nanda.sh" leave >/dev/null 2>&1 || fail "leave failed"
+grep -q '^DELETE /api/v1/orgs/o1' "$T/log" || fail "leave did not delete the listing"
+[ ! -e "$H/.devcon8/offer.json" ] || fail "leave left the announced-card note"
+echo "ok   nanda leave: the announced-card note goes with the listing"
 stop
 # An Index that drops the metadata is reported, not claimed as published.
 start drop

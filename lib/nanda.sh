@@ -67,6 +67,7 @@ TXT
   index_login
   code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE "$INDEX/api/v1/orgs/$org" -H "Authorization: Bearer $jwt")
   [ "$code" = 204 ] || die "the NANDA Index refused the removal (HTTP $code)"
+  rm -f "$ST/offer.json"   # the offer went with the listing; mbx must not keep asking for its card
   echo "Removed: $addr is no longer listed in the NANDA Index ($(listed "$addr" || true))."
   echo "The Agent Box mailbox itself still exists, unlisted. To take part again, use a new email address."
   exit 0
@@ -160,6 +161,7 @@ Before you sign up:
 TXT
   read -rp "Create the mailbox for $email? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing created"
   created=1
+  rm -f "$ST/offer.json"   # a new mailbox has published nothing yet
   body=$(jq -nc --arg e "$email" --arg d "$DESC" '{email:$e, displayName:"Devcon 8 workshop agent", assistant:"goose (devcon-workshop)", description:$d}')
   r=$(curl -fsS -X POST "$BASE/api/agent/mailboxes" -H 'Content-Type: application/json' -d "$body") || die "mailbox creation failed (try again in a minute)"
   (umask 077; jq -r .token <<<"$r" > "$A/key"; jq '{id: .mailbox.id, address: .mailbox.emailAddress, existing: (.existing // false)}' <<<"$r" > "$A/mailbox.json")
