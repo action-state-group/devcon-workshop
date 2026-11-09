@@ -3,7 +3,7 @@ tests/test_nanda_offer.sh. It serves what `devcon8 nanda offer` calls: the mailb
 mail in the inbox, the Index sign-in, GET/PUT of the org record and resolve. The org record starts with
 other metadata the command must leave alone. With "drop" a PUT forgets trust_manifest.metadata, as an
 Index that did not keep it would. Every request is appended to LOG."""
-import json, sys
+import json, re, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 TOKEN = "ab" * 16
@@ -12,6 +12,13 @@ org = {"org_id": "o1", "display_name": "Devcon 8 workshop agent", "description":
        "domain": None, "trust_manifest": {"identity": "m1", "metadata": {"keep": "me"}}}
 sent_reset = []
 drop = sys.argv[3:] == ["drop"]
+
+
+def camel(v):
+    """As the real Index does (seen 2026-11-09): keys come back camelCase and in its own (sorted) order."""
+    if isinstance(v, dict):
+        return {re.sub(r"_([a-z])", lambda m: m.group(1).upper(), k): camel(x) for k, x in sorted(v.items())}
+    return v
 
 
 class H(BaseHTTPRequestHandler):
@@ -75,7 +82,7 @@ class H(BaseHTTPRequestHandler):
         tm = b.get("trust_manifest")
         if drop and isinstance(tm, dict):
             tm = {k: v for k, v in tm.items() if k != "metadata"}
-        org["trust_manifest"] = tm
+        org["trust_manifest"] = camel(tm)
         self.reply(200, org)
 
 

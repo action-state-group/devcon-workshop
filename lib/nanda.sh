@@ -103,7 +103,7 @@ if [ "${1:-}" = offer ]; then
     hist=false hkey=""
     if [ -s "$staple" ] && hkey=$(jq -er '.staple.reply.responder' "$staple" 2>/dev/null); then hist=true; else hkey=""; fi
     offer=$(jq -nc --arg i "digital fox sticker" --argjson p "$price" --arg r "$rail" --argjson h "$hist" --arg k "$hkey" \
-      '{v:0, item:$i, price:$p, rail:$r, history_staple:$h} + (if $h then {history_key:$k} else {} end)')
+      '{v:0, item:$i, price:$p, rail:$r, historyStaple:$h} + (if $h then {historyKey:$k} else {} end)')
     cat <<TXT
 This publishes the following in your public NANDA Index record, $addr. Anyone who can read the Index sees it,
 and it is the seller's claim: the listed price is advisory, and a buyer checks it against your proposal.
@@ -127,7 +127,8 @@ TXT
     [ "$stored" = null ] || die "the Index still shows an offer for $addr: $stored"
     echo "Cleared: the Index shows no offer for $addr."
   else
-    [ "$stored" = "$offer" ] || die "the Index did not keep the offer as sent (it shows: $stored)"
+    # The Index writes keys in camelCase and in its own order, so the two are compared as sorted JSON.
+    [ "$(jq -cS . <<<"$stored")" = "$(jq -cS . <<<"$offer")" ] || die "the Index did not keep the offer as sent (it shows: $stored)"
     echo "Published: the Index shows your offer for $addr. Buyers' 'offers find' reads it."
   fi
   exit 0

@@ -378,13 +378,13 @@ it. Checked on 2026-11-04 on a local build of the v4 sources. Only one container
 Optional, and never run by `devcon8 nanda` or `devcon8 trade`. It writes your sticker offer into your own public NANDA Index record
 (`trust_manifest.metadata.offer`), where a buyer's `offers find` reads it:
 
-    {"v": 0, "item": "digital fox sticker", "price": {"amount": 50, "unit": "usd_cent"}, "rail": "x402", "history_staple": false}
+    {"v": 0, "item": "digital fox sticker", "price": {"amount": 50, "unit": "usd_cent"}, "rail": "x402", "historyStaple": false}
 
 `unit` is `usd_cent` (x402, 50 cents) or `msat` (`--rail lightning`, your price from `devcon8 lightning`). If you have made a History card
-staple (`card staple`, Studio step 5) the offer says `"history_staple": true` and carries `history_key`, the key your card is signed with, so a buyer can
+staple (`card staple`, Studio step 5) the offer says `"historyStaple": true` and carries `historyKey`, the key your card is signed with, so a buyer can
 tell your card from someone else's. Before anything is written it shows you the exact JSON and asks; the listed price is only a claim, and
 a buyer checks it against your proposal. **Anyone who can read the NANDA Index sees it.** `devcon8 nanda offer --remove` clears the offer and leaves
-the rest of your record, but it cannot recall copies others have already read or cached. Both commands sign in to your Index account
+the rest of your record (it leaves an empty `trustManifest.metadata`), but it cannot recall copies others have already read or cached. The Index writes the offer's keys in camelCase and re-checks your agent card whenever the record is updated, so `cardValidation` shows `invalid` afterwards if the card at your `registry_url` is not a valid MCP server card (checked 2026-11-09). Both commands sign in to your Index account
 through your mailbox (a reset mail to it, about a minute) and then read the record back to check the Index kept what you sent.
 
 ### `devcon8 trade [--buy <address> | --want "<what>"] [--pay lexe]`: the trading agent
@@ -406,7 +406,7 @@ shortlist in the chat and stops. It buys only after you pick one, and only from 
 `find` reads the NANDA Index (`agentic-search`) and an AI Catalog / `ard.json` file (by default `https://host39.org/.well-known/ai-catalog.json`,
 plus each `--catalog`), and prints, for each offer: its source, the seller's address, item, price and rail, whether the seller staples a History card,
 and why it ranked there. Nothing is pre-selected and nothing is sent. Item, price, rail and History card come from an entry's `trustManifest.metadata.offer` (the free-form member the NANDA Index's schema gives its entries; where an AI Catalog entry would carry an offer is not defined yet). Each field is the seller's claim and is shown as `[claimed]`: nothing a seller publishes can be checked before it answers. When its proposal arrives, `mbx` labels the picked seller's price, rail and card as `verified` (its own payment requirements say the same), `mismatch` (they differ, or the card is missing or signed by another key than the one announced) or `claimed` (the item until delivery; the card until `card open BUNDLE --announced-key KEY` verifies it)
-(`v` 0, `item`, `price` {`amount`, `unit` usd_cent or msat}, `rail` x402 or lightning, `history_staple`, `history_key`); an entry without one shows "not published".
+(`v` 0, `item`, `price` {`amount`, `unit` usd_cent or msat}, `rail` x402 or lightning, `historyStaple`, `historyKey`); an entry without one shows "not published".
 When this was written (2026-11-06) the NANDA Index and the host39 catalog published none, and the host39 catalog (29 entries) listed no Agent Box mailbox, so
 it adds no row today: `find` says so on stderr. A seller publishes its offer with `devcon8 nanda offer` (above); until sellers do, a row says "not published". Your own mailbox and any address longer than 64 characters are left out.
 `pick` records your choice (your words go in the state file until the purchase starts). `mbx send` refuses to open a conversation while a shortlist waits for your pick, and then

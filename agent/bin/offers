@@ -15,7 +15,7 @@ and refuses any address but the picked one, so the user's pick is the gate.
   offers reset                    forget the search altogether, so `mbx send` is as it was without one (devcon8 trade does this at start)
 
 An offer's item, price, rail and History card come from the entry's `trustManifest.metadata.offer`
-({"v": 0, "item", "price": {"amount", "unit"}, "rail", "history_staple", "history_key"}, unit msat or
+({"v": 0, "item", "price": {"amount", "unit"}, "rail", "historyStaple", "historyKey"}, unit msat or
 usd_cent); an entry without one is listed as "not published". Seller text is never shown, only fields
 checked here. Each field of the shortlist is the seller's claim; `mbx` labels the proposal's price,
 rail and card as verified, claimed or mismatch against the picked offer before anything is paid.
@@ -77,8 +77,8 @@ HISTORY_KEY = re.compile(r"^[A-Za-z0-9:_.-]{8,128}$")
 
 def offer_of(entry):
     """The entry's published offer, reduced to checked fields; {} when it publishes none.
-    The published shape (v 0): {"v": 0, "item", "price": {"amount", "unit"}, "rail", "history_staple",
-    "history_key"}; unit is msat or usd_cent. An offer of another version is not read."""
+    The published shape (v 0): {"v": 0, "item", "price": {"amount", "unit"}, "rail", "historyStaple",
+    "historyKey"} (camelCase: the Index writes keys that way); unit is msat or usd_cent. An offer of another version is not read."""
     tm = entry.get("trustManifest")
     md = tm.get("metadata") if isinstance(tm, dict) else None
     o = md.get("offer") if isinstance(md, dict) else None
@@ -95,10 +95,10 @@ def offer_of(entry):
         out["currency"], out["price_minor"] = UNITS[p["unit"]], p["amount"]
     if isinstance(o.get("rail"), str) and o["rail"] in RAILS:
         out["rail"] = o["rail"]
-    if isinstance(o.get("history_staple"), bool):
-        out["history_staple"] = o["history_staple"]
-        if o["history_staple"] and isinstance(o.get("history_key"), str) and HISTORY_KEY.match(o["history_key"]):
-            out["history_key"] = o["history_key"]
+    if isinstance(o.get("historyStaple"), bool):
+        out["history_staple"] = o["historyStaple"]
+        if o["historyStaple"] and isinstance(o.get("historyKey"), str) and HISTORY_KEY.match(o["historyKey"]):
+            out["history_key"] = o["historyKey"]
     return out
 
 

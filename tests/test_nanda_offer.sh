@@ -21,7 +21,7 @@ run() { # INPUT ARGS...
   printf '%b' "$input" | HOME=$H D=$here/.. MBX_BASE="http://127.0.0.1:$port" NANDA_INDEX="http://127.0.0.1:$port" \
     bash "$here/../lib/nanda.sh" offer "$@" 2>&1
 }
-stored() { curl -fs "http://127.0.0.1:$port/api/v1/resolve?locator=x" | jq -c '.entry.trustManifest'; }
+stored() { curl -fs "http://127.0.0.1:$port/api/v1/resolve?locator=x" | jq -cS '.entry.trustManifest'; }
 
 start ""
 # Declined: nothing is written, and no Index sign-in even starts.
@@ -31,12 +31,12 @@ grep -q 'cannot recall' <<<"$out" || fail "the --remove limit was not said: $out
 grep -qE '^(PUT|POST /auth)' "$T/log" && fail "something was written before the user said yes"
 # No History card staple yet: the offer says so and carries no key.
 out=$(run 'y\n') || fail "publishing failed: $out"
-[ "$(stored)" = '{"identity":"m1","metadata":{"keep":"me","offer":{"v":0,"item":"digital fox sticker","price":{"amount":50,"unit":"usd_cent"},"rail":"x402","history_staple":false}}}' ] || fail "stored: $(stored)"
+[ "$(stored)" = '{"identity":"m1","metadata":{"keep":"me","offer":{"historyStaple":false,"item":"digital fox sticker","price":{"amount":50,"unit":"usd_cent"},"rail":"x402","v":0}}}' ] || fail "stored: $(stored)"
 echo "ok   nanda offer: declined writes nothing; yes publishes the shown JSON and leaves the rest of the record"
 # With a staple, the card and its key are announced.
 echo '{"staple":{"reply":{"responder":"ed25519:abc12345"}}}' > "$H/studio/cards/stapled/history-staple.json"
 run 'y\n' >/dev/null || fail "publishing with a staple failed"
-[ "$(stored | jq -c .metadata.offer)" = '{"v":0,"item":"digital fox sticker","price":{"amount":50,"unit":"usd_cent"},"rail":"x402","history_staple":true,"history_key":"ed25519:abc12345"}' ] || fail "staple offer: $(stored)"
+[ "$(stored | jq -cS .metadata.offer)" = '{"historyKey":"ed25519:abc12345","historyStaple":true,"item":"digital fox sticker","price":{"amount":50,"unit":"usd_cent"},"rail":"x402","v":0}' ] || fail "staple offer: $(stored)"
 echo "ok   nanda offer: a staple on disk announces the card and its key"
 out=$(run 'y\n' --remove) || fail "--remove failed: $out"
 [ "$(stored)" = '{"identity":"m1","metadata":{"keep":"me"}}' ] || fail "after remove: $(stored)"
