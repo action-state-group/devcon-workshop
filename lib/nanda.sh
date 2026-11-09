@@ -118,7 +118,8 @@ and it is the seller's claim: the listed price is advisory, and a buyer checks i
   $offer
 'devcon8 nanda offer --remove' clears it again, but cannot recall copies others have already read or cached.
 Publishing signs in to your Index account through your mailbox, which sets a NEW password on it (a password you set yourself stops working),
-and the Index re-checks your agent card, so your listing may then show cardValidation "invalid"; --remove does not undo that.
+and the Index re-checks the agent card at your registry_url, so your listing may then show cardValidation "invalid"; --remove does not undo that.
+(Checked 2026-11-09 on one listing: it was still found by search and resolve. That "invalid" does not filter or rank it down is our inference, not something the Index states.)
 TXT
     read -rp "Publish this offer? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing published"
   fi
