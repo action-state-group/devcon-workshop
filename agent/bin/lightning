@@ -401,6 +401,31 @@ def cmd_inspect(conv):
                       "expired": inv.get("expires_at_ms", 0) <= now_ms() + 30_000}))
 
 
+def offer_check_refusal(d, msat):
+    """Why the shop's proposal may not be paid, from the offer check mbx wrote when it arrived (the offer
+    the user picked, field by field), or None: a mismatch, a card `card open` has not verified, another
+    rail, or any amount but the one asked. No file means no offer was picked for this purchase."""
+    try:
+        with open(os.path.join(d, "offer-check.json")) as f:
+            k = json.load(f)
+    except FileNotFoundError:
+        return None
+    except ValueError:
+        return "the offer check is damaged"
+    if not isinstance(k, dict):
+        return "the offer check is damaged"
+    bad = sorted(n for n, v in k.items() if v == "mismatch")
+    if bad:
+        return f"the proposal does not match the offer your user picked ({', '.join(bad)} mismatch)"
+    if k.get("history") == "claimed":
+        return "the seller's History card is not opened yet: run card open on it with --announced-key"
+    if k.get("unit", "msat") != "msat":
+        return "the proposal is not a Lightning price"
+    if k.get("amount", msat) != msat:
+        return f"the proposal asks {k.get('amount')} msat, not {msat}"
+    return None
+
+
 def cmd_pay(conv, msat, digest):
     if not re.match(r"^[1-9][0-9]{0,11}$", msat):
         die("amount is whole msat (the invoice_msat your user said yes to), no leading zero", 2)
@@ -408,15 +433,9 @@ def cmd_pay(conv, msat, digest):
         die("content digest is 64 lowercase hex", 2)
     c = caps()
     d, out = deal_dir(conv)
-    try:
-        with open(os.path.join(d, "offer-check.json")) as f:
-            mismatch = [k for k, v in json.load(f).items() if v == "mismatch"]
-    except FileNotFoundError:
-        mismatch = []  # no offer was picked for this purchase
-    except (ValueError, AttributeError):
-        die("this conversation's offer check is damaged: tell your user, pay nothing")
-    if mismatch:
-        die(f"the shop's proposal does not match the offer your user picked ({', '.join(mismatch)} mismatch): pay nothing, tell your user, decline")
+    why = offer_check_refusal(d, int(msat))
+    if why:
+        die(f"{why}: pay nothing, tell your user, decline")
     if os.path.exists(os.path.join(out, "payment.json")):
         die(f"already paid in this conversation: {out}/payment.json")
     bolt11 = saved_invoice(conv)

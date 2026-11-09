@@ -11,10 +11,18 @@ conv=$1 cents=$2 digest=$3
 [[ $digest =~ ^[0-9a-f]{64}$ ]] || { echo "pay-x402: content digest is 64 lowercase hex" >&2; exit 2; }
 [[ $conv =~ ^[A-Za-z0-9_-]{1,128}$ ]] || { echo "pay-x402: bad conversation id" >&2; exit 2; }
 [[ $cents =~ ^[1-9][0-9]{0,5}$ ]] || { echo "pay-x402: amount is whole cents, no leading zero" >&2; exit 2; }
-# mbx wrote this when the shop's proposal arrived; a field that does not match the offer the user picked stops the payment.
+# mbx wrote this when the shop's proposal arrived (the offer the user picked, field by field). It stops the payment on
+# a mismatch, on a card that `card open` has not yet verified, on another rail, and on any amount but the one asked.
 if [ -e "$HOME/deals/$conv/offer-check.json" ]; then
-  mm=$(jq -r 'if type == "object" then [to_entries[] | select(.value == "mismatch") | .key] | join(", ") else "damaged" end' "$HOME/deals/$conv/offer-check.json" 2>/dev/null || echo damaged)
-  [ -z "$mm" ] || { echo "pay-x402: the shop's proposal does not match the offer your user picked ($mm): pay nothing, tell your user, decline" >&2; exit 1; }
+  why=$(jq -res --argjson c "$cents" '
+    if length != 1 or (.[0] | type) != "object" then "the offer check is damaged"
+    else .[0] as $k
+      | if ([$k[] | select(. == "mismatch")] | length) > 0 then "the proposal does not match the offer your user picked (" + ([$k | to_entries[] | select(.value == "mismatch") | .key] | join(", ")) + " mismatch)"
+        elif $k.history == "claimed" then "the seller'"'"'s History card is not opened yet: run card open on it with --announced-key"
+        elif ($k.unit // "usd_cent") != "usd_cent" then "the proposal is not a US-cent price"
+        elif ($k.amount // $c) != $c then "the proposal asks " + ($k.amount | tostring) + " cents, not " + ($c | tostring)
+        else "" end end' "$HOME/deals/$conv/offer-check.json" 2>/dev/null || echo "the offer check is damaged")
+  [ -z "$why" ] || { echo "pay-x402: $why: pay nothing, tell your user, decline" >&2; exit 1; }
 fi
 out=$HOME/deals/$conv/outgoing
 mkdir -p "$out" && chmod 700 "$HOME/deals/$conv" "$out"

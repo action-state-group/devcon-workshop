@@ -212,12 +212,14 @@ def staple_key(path):
     return k if isinstance(k, str) and len(k) <= 128 else None
 
 
-def offer_check(shop, c, card_path):
+def offer_check(shop, c, saved):
     """A shop's proposal against the offer the user picked, field by field, before anything is paid:
-    verified (the proposal's own payment requirements say the same), mismatch (they differ), or claimed
-    (nothing here can check it: the item until delivery; a card until `card open` verifies its
-    signature under the announced key). The listed price is advisory: a different price is a mismatch,
-    never silently accepted. None when the user picked no offer from this shop."""
+    verified (the proposal's own payment requirements say the same), mismatch (they differ, or the
+    proposal lacks what the offer promised), or claimed (nothing here can check it: the item until
+    delivery; a card until `card open` verifies its signature under the announced key and says so).
+    A field the seller did not publish is left out. The listed price is advisory: any other price is
+    a mismatch, never silently accepted. `amount` and `unit` are what the proposal asks, so the pay
+    commands refuse any other amount. None when the user picked no offer from this shop."""
     p = picked_offer()
     if not p or p.get("address") != shop:
         return None
@@ -225,13 +227,23 @@ def offer_check(shop, c, card_path):
     unit = "msat" if "price_msat" in c else "usd_cent" if "price_cents" in c else None
     amount = c.get("price_msat", c.get("price_cents"))
     pub_unit = {"BTC": "msat", "USD": "usd_cent"}.get(o.get("currency"))
-    out = {"item": "claimed"}
-    out["price"] = ("claimed" if "price_minor" not in o or unit is None
-                    else "verified" if (unit, amount) == (pub_unit, o["price_minor"]) else "mismatch")
-    out["rail"] = ("claimed" if "rail" not in o or unit is None
-                   else "verified" if o["rail"] == ("lightning" if unit == "msat" else "x402") else "mismatch")
+    t = c.get("terms")
+    # The sale's terms must say the same price and currency as the amount asked.
+    terms_ok = t is None or (unit is not None and t.get("price_minor") == amount
+                             and {"BTC": "msat", "USD": "usd_cent"}[t.get("currency", "USD")] == unit)
+    out = {"item": "mismatch" if o.get("other_item") else "claimed"}
+    if "price_minor" in o:
+        out["price"] = "verified" if terms_ok and (unit, amount) == (pub_unit, o["price_minor"]) else "mismatch"
+    if "rail" in o:
+        out["rail"] = "verified" if unit and o["rail"] == ("lightning" if unit == "msat" else "x402") else "mismatch"
+    if unit:
+        out["amount"], out["unit"] = amount, unit
+        if not terms_ok:
+            out["price"] = "mismatch"
     if o.get("history_staple") is True:
-        k = staple_key(card_path)
+        # Both files must have come with this very proposal; an earlier proposal's card does not count.
+        here = {os.path.basename(x): x for x in saved}
+        k = staple_key(here["history-staple.json"]) if {"history-staple.json", "history-card.bundle"} <= set(here) else None
         out["history"] = "claimed" if k is not None and k == o.get("history_key") else "mismatch"
     return out
 
@@ -398,14 +410,15 @@ def parse(m):
         else:
             out.setdefault("dropped", []).append("invoice")
     if kind == "proposal" and out["you_are"] == "buyer" and bought.get(conv):
-        chk = offer_check(bought[conv], out["constraints"], os.path.join(DEALS, conv, "history-staple.json"))
+        chk = offer_check(bought[conv], out["constraints"], saved)
         if chk:
             out["offer_check"] = chk
-            # `pay-x402` and `lightning pay` read this and refuse to pay while any field is a mismatch.
+            # `pay-x402` and `lightning pay` read this: they refuse a mismatch, a card not yet opened, and any other amount.
             d = os.path.join(DEALS, conv)
             os.makedirs(d, mode=0o700, exist_ok=True)
-            with open(os.path.join(d, "offer-check.json"), "w") as f:
+            with open(os.path.join(d, "offer-check.json.tmp"), "w") as f:
                 json.dump(chk, f)
+            os.replace(os.path.join(d, "offer-check.json.tmp"), os.path.join(d, "offer-check.json"))  # whole file or none
     if saved:
         out["files"] = saved
     if refused:

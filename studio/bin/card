@@ -12,7 +12,8 @@
 #                        history-staple.json. Checks the staple, checks that the bundle's card is the
 #                        stapled card, then draws ~/studio/cards/from-<conversation>.html
 #                        With --announced-key (the key the seller published in its offer), a staple signed
-#                        by any other key is refused, and a pass says the card is verified under that key.
+#                        by any other key is refused, and a pass marks this conversation's card opened for the
+#                        payment tools (it proves the card matches the published key, not that the seller holds it).
 # The card is as of the newest checkpoint, and checkpoints come every five minutes (give or take one).
 # A deal made since the last one is counted by the next. `card` cuts a checkpoint when one is due and says
 # which one the card is as of; --fresh waits (up to seven minutes) for a new checkpoint, so a deal just
@@ -142,7 +143,12 @@ PY
   mv -f "$work/page.html" "$OUT/from-$conv.html"
   jq -nc --arg bundle "$f" --arg page "$OUT/from-$conv.html" '{bundle:$bundle, page:$page}'
   if [ -n "$announced" ]; then
-    echo "card: verified: signed by key ${key:0:8}…, the key the seller announced in its offer, and the bundle's card is the stapled card." >&2
+    # Tell the payment tools (pay-x402, lightning pay) that this conversation's card is opened and its key is the announced one.
+    chk=$HOME/deals/$conv/offer-check.json
+    if [ -s "$chk" ] && jq -e 'type == "object" and .history == "claimed"' "$chk" >/dev/null 2>&1; then
+      jq -c '.history = "verified"' "$chk" > "$chk.tmp" && mv -f "$chk.tmp" "$chk"
+    fi
+    echo "card: signed by key ${key:0:8}…, which matches the key in the seller's offer, and the bundle's card is the stapled card. Not checked: that the seller holds this key (anyone can copy a public key)." >&2
   else
     echo "card: signed by key ${key:0:8}…, and the bundle's card is the stapled card. Not checked: that this key is the seller's. Your deal doesn't record the seller's key, so it comes from the card itself." >&2
   fi ;;

@@ -77,12 +77,13 @@ if [ "${1:-}" = offer ]; then
   # trust_manifest.metadata.offer, a public format ruled on by Steven (devcon-workshop#84). It is opt-in:
   # nothing else in devcon8 writes it.
   shift
-  remove=0 rail=x402
+  remove=0 rail=x402 history=0
   while [ $# -gt 0 ]; do
     case $1 in
       --remove) remove=1; shift ;;
+      --history) history=1; shift ;;
       --rail) rail=${2:-}; [ "$rail" = x402 ] || [ "$rail" = lightning ] || die "--rail x402 or lightning"; shift 2 ;;
-      *) die "devcon8 nanda offer [--rail x402|lightning]   |   devcon8 nanda offer --remove" ;;
+      *) die "devcon8 nanda offer [--rail x402|lightning] [--history]   |   devcon8 nanda offer --remove" ;;
     esac
   done
   [ -s "$A/key" ] || die "no mailbox here: run 'devcon8 nanda <your email>' first"
@@ -90,6 +91,7 @@ if [ "${1:-}" = offer ]; then
   if [ "$remove" = 1 ]; then
     offer=null
     echo "This clears the offer from your Index record, $addr. Anyone who already read or cached it still has that copy: it cannot be recalled."
+    echo "It also signs in through your mailbox and sets a NEW password on your Index account; cardValidation, if it changed when you published, stays."
     read -rp "Clear the offer? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing changed"
   else
     if [ "$rail" = lightning ]; then
@@ -98,10 +100,15 @@ if [ "${1:-}" = offer ]; then
     else
       price='{"amount":50,"unit":"usd_cent"}'
     fi
-    # The History card (Studio step 5): announce it, and the key it is signed with, only when a staple exists to send.
-    staple=$HOME/studio/cards/stapled/history-staple.json
+    # The History card (Studio step 5) is announced only when asked for (--history), and then the seller's
+    # proposals must carry it: a buyer treats an announced card that does not come as a mismatch and does not pay.
     hist=false hkey=""
-    if [ -s "$staple" ] && hkey=$(jq -er '.staple.reply.responder' "$staple" 2>/dev/null); then hist=true; else hkey=""; fi
+    if [ "$history" = 1 ]; then
+      staple=$HOME/studio/cards/stapled/history-staple.json
+      if [ -s "$staple" ]; then hkey=$(jq -er '.staple.reply.responder' "$staple" 2>/dev/null) || hkey=""; fi
+      [ -n "$hkey" ] || die "--history needs a card staple first (Studio step 5: card staple)"
+      hist=true
+    fi
     offer=$(jq -nc --arg i "digital fox sticker" --argjson p "$price" --arg r "$rail" --argjson h "$hist" --arg k "$hkey" \
       '{v:0, item:$i, price:$p, rail:$r, historyStaple:$h} + (if $h then {historyKey:$k} else {} end)')
     cat <<TXT
@@ -109,6 +116,8 @@ This publishes the following in your public NANDA Index record, $addr. Anyone wh
 and it is the seller's claim: the listed price is advisory, and a buyer checks it against your proposal.
   $offer
 'devcon8 nanda offer --remove' clears it again, but cannot recall copies others have already read or cached.
+Publishing signs in to your Index account through your mailbox, which sets a NEW password on it (a password you set yourself stops working),
+and the Index re-checks your agent card, so your listing may then show cardValidation "invalid"; --remove does not undo that.
 TXT
     read -rp "Publish this offer? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing published"
   fi
