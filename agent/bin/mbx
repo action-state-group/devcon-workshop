@@ -401,6 +401,11 @@ def parse(m):
         chk = offer_check(bought[conv], out["constraints"], os.path.join(DEALS, conv, "history-staple.json"))
         if chk:
             out["offer_check"] = chk
+            # `pay-x402` and `lightning pay` read this and refuse to pay while any field is a mismatch.
+            d = os.path.join(DEALS, conv)
+            os.makedirs(d, mode=0o700, exist_ok=True)
+            with open(os.path.join(d, "offer-check.json"), "w") as f:
+                json.dump(chk, f)
     if saved:
         out["files"] = saved
     if refused:

@@ -407,7 +407,16 @@ def cmd_pay(conv, msat, digest):
     if not HEX64.match(digest):
         die("content digest is 64 lowercase hex", 2)
     c = caps()
-    _, out = deal_dir(conv)
+    d, out = deal_dir(conv)
+    try:
+        with open(os.path.join(d, "offer-check.json")) as f:
+            mismatch = [k for k, v in json.load(f).items() if v == "mismatch"]
+    except FileNotFoundError:
+        mismatch = []  # no offer was picked for this purchase
+    except (ValueError, AttributeError):
+        die("this conversation's offer check is damaged: tell your user, pay nothing")
+    if mismatch:
+        die(f"the shop's proposal does not match the offer your user picked ({', '.join(mismatch)} mismatch): pay nothing, tell your user, decline")
     if os.path.exists(os.path.join(out, "payment.json")):
         die(f"already paid in this conversation: {out}/payment.json")
     bolt11 = saved_invoice(conv)

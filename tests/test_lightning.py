@@ -120,6 +120,22 @@ class Lightning(unittest.TestCase):
             self.assertNotIn(INVOICE, text)
         self.assertEqual(stat.S_IMODE(os.stat(ln.SPENT).st_mode), 0o600)
 
+    def test_a_mismatch_against_the_picked_offer_stops_the_payment(self):
+        self.saved_invoice()
+        chk = os.path.join(ln.DEALS, "conv_1", "offer-check.json")
+        with open(chk, "w") as f:
+            json.dump({"item": "claimed", "price": "mismatch", "rail": "verified"}, f)
+        code, out, err = self.run_ln("pay", "conv_1", "500000", DIGEST)
+        self.assertNotEqual(code, 0)
+        self.assertIn("price mismatch", err)
+        self.assertEqual(self.sent(), [], "nothing is sent to the wallet")
+        with open(chk, "w") as f:
+            f.write("not json")
+        self.assertNotEqual(self.run_ln("pay", "conv_1", "500000", DIGEST)[0], 0)
+        with open(chk, "w") as f:
+            json.dump({"item": "claimed", "price": "verified", "rail": "verified", "history": "claimed"}, f)
+        self.assertEqual(self.run_ln("pay", "conv_1", "500000", DIGEST)[0], 0)
+
     def test_a_second_payment_in_one_conversation_is_refused(self):
         self.saved_invoice()
         self.assertEqual(self.run_ln("pay", "conv_1", "500000", DIGEST)[0], 0)

@@ -11,6 +11,11 @@ conv=$1 cents=$2 digest=$3
 [[ $digest =~ ^[0-9a-f]{64}$ ]] || { echo "pay-x402: content digest is 64 lowercase hex" >&2; exit 2; }
 [[ $conv =~ ^[A-Za-z0-9_-]{1,128}$ ]] || { echo "pay-x402: bad conversation id" >&2; exit 2; }
 [[ $cents =~ ^[1-9][0-9]{0,5}$ ]] || { echo "pay-x402: amount is whole cents, no leading zero" >&2; exit 2; }
+# mbx wrote this when the shop's proposal arrived; a field that does not match the offer the user picked stops the payment.
+if [ -e "$HOME/deals/$conv/offer-check.json" ]; then
+  mm=$(jq -r 'if type == "object" then [to_entries[] | select(.value == "mismatch") | .key] | join(", ") else "damaged" end' "$HOME/deals/$conv/offer-check.json" 2>/dev/null || echo damaged)
+  [ -z "$mm" ] || { echo "pay-x402: the shop's proposal does not match the offer your user picked ($mm): pay nothing, tell your user, decline" >&2; exit 1; }
+fi
 out=$HOME/deals/$conv/outgoing
 mkdir -p "$out" && chmod 700 "$HOME/deals/$conv" "$out"
 [ -e "$out/buyer-terms.json" ] && { echo "pay-x402: already paid in this conversation: $out" >&2; exit 1; }

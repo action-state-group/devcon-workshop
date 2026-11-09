@@ -305,6 +305,15 @@ class Mbx(unittest.TestCase):
         out = self.proposal({"price_msat": 400}, staple_key="ed25519:abcdef0123")
         self.assertEqual(out["offer_check"], {"item": "claimed", "price": "verified", "rail": "verified", "history": "claimed"})
 
+    def test_offer_check_is_written_for_the_payment_gate(self):
+        self.pick(self.LN)
+        self.proposal({"price_msat": 900}, staple_key="ed25519:abcdef0123")
+        with open(os.path.join(mbx.DEALS, "conv_1", "offer-check.json")) as f:
+            self.assertEqual(json.load(f)["price"], "mismatch")
+        self.proposal({"price_msat": 400}, staple_key="ed25519:abcdef0123")   # a later, matching proposal replaces it
+        with open(os.path.join(mbx.DEALS, "conv_1", "offer-check.json")) as f:
+            self.assertEqual(json.load(f)["price"], "verified")
+
     def test_offer_check_price_unit_and_card_mismatch(self):
         self.pick(self.LN)
         out = self.proposal({"price_msat": 900}, staple_key="ed25519:other")
