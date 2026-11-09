@@ -43,6 +43,16 @@ grep -q "Not checked: that this key is the seller's" <<<"$out" || fail "card ope
 [ -s "$HOME/studio/cards/from-conv_1.html" ] || fail "card open wrote no page"
 ok "card staple, card open: accepted, says the seller is not checked, draws a page"
 
+# The key the seller announced in its offer (the staple's responder): the right one is verified, another is refused.
+key=$(jq -r .staple.reply.responder "$d/history-staple.json")
+echo '{"item":"claimed","history":"claimed"}' > "$d/offer-check.json"
+out=$(card open "$d/history-card.bundle" --announced-key "$key" 2>&1) || fail "card open refused the announced key: $out"
+grep -q "matches the key in the seller's offer" <<<"$out" || fail "card open does not say the key matches the offer: $out"
+[ "$(jq -r .history "$d/offer-check.json")" = verified ] || fail "card open did not mark the card opened for the payment tools"
+out=$(card open "$d/history-card.bundle" --announced-key "not-$key" 2>&1) && fail "card open accepted a key the seller did not announce"
+grep -q "MISMATCH" <<<"$out" || fail "card open does not say MISMATCH for another key: $out"
+ok "card open --announced-key: the announced key is verified, another key is a mismatch"
+
 python3 -I - "$d/history-card.bundle" <<'PY'
 import json, sys
 p = sys.argv[1]; b = json.load(open(p))

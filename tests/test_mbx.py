@@ -280,6 +280,101 @@ class Mbx(unittest.TestCase):
         ua = req.get_header("User-agent")
         self.assertTrue(ua and not ua.startswith("Python-urllib"), ua)
 
+    # The picked offer against the seller's proposal (devcon-workshop#84): verified, claimed or mismatch.
+    def pick(self, offer, address="shop@agentboxnanda.org"):
+        with open(os.path.join(self.tmp.name, "offers.json"), "w") as f:
+            json.dump({"status": "picked", "picked": {"address": address, "offer": offer}}, f)
+        with open(os.path.join(mbx.STATE, "buying.json"), "w") as f:
+            json.dump({"conv_1": "shop@agentboxnanda.org"}, f)
+
+    def proposal(self, constraints, staple_key=None):
+        msg = self.msg("proposal", constraints)
+        msg["sender"] = mbx.URN + "shop@agentboxnanda.org"
+        files = []
+        if staple_key is not None:
+            files = [attach("history-staple.json", json.dumps({"staple": {"reply": {"responder": staple_key}}}).encode()),
+                     attach("history-card.bundle", b'{"a":1}')]
+        msg["constraints"] = dict(constraints, files=files)
+        return mbx.parse(msg)
+
+    LN = {"item": "digital fox sticker", "currency": "BTC", "price_minor": 400, "rail": "lightning",
+          "history_staple": True, "history_key": "ed25519:abcdef0123"}
+
+    def test_offer_check_agrees(self):
+        self.pick(self.LN)
+        out = self.proposal({"price_msat": 400}, staple_key="ed25519:abcdef0123")
+        self.assertEqual(out["offer_check"], {"item": "claimed", "price": "verified", "rail": "verified", "amount": 400,
+                                            "unit": "msat", "history": "claimed"})
+
+    def test_offer_check_is_written_for_the_payment_gate(self):
+        self.pick(self.LN)
+        self.proposal({"price_msat": 900}, staple_key="ed25519:abcdef0123")
+        with open(os.path.join(mbx.DEALS, "conv_1", "offer-check.json")) as f:
+            self.assertEqual(json.load(f)["price"], "mismatch")
+        self.proposal({"price_msat": 400}, staple_key="ed25519:abcdef0123")   # a later, matching proposal replaces it
+        with open(os.path.join(mbx.DEALS, "conv_1", "offer-check.json")) as f:
+            self.assertEqual(json.load(f)["price"], "verified")
+
+    def test_offer_check_price_unit_and_card_mismatch(self):
+        self.pick(self.LN)
+        out = self.proposal({"price_msat": 900}, staple_key="ed25519:other")
+        self.assertEqual((out["offer_check"]["price"], out["offer_check"]["history"]), ("mismatch", "mismatch"))
+        out = self.proposal({"price_cents": 50})                # the other rail and unit, and no card at all
+        self.assertEqual((out["offer_check"]["price"], out["offer_check"]["rail"], out["offer_check"]["history"]),
+                         ("mismatch", "mismatch", "mismatch"))
+
+    def test_offer_check_only_for_the_picked_shop(self):
+        self.pick(self.LN, address="other@agentboxnanda.org")
+        self.assertNotIn("offer_check", self.proposal({"price_msat": 400}))
+        os.remove(os.path.join(self.tmp.name, "offers.json"))   # a typed address: no pick, no check
+        self.assertNotIn("offer_check", self.proposal({"price_msat": 400}))
+
+    def test_offer_check_leaves_out_what_was_not_published(self):
+        self.pick({"item": "digital fox sticker"})
+        out = self.proposal({"price_cents": 50})
+        self.assertEqual(out["offer_check"], {"item": "claimed", "amount": 50, "unit": "usd_cent"})
+        self.pick({"other_item": True, "currency": "USD", "price_minor": 50, "rail": "x402"})
+        self.assertEqual(self.proposal({"price_cents": 50})["offer_check"]["item"], "mismatch")
+
+    def test_a_seller_that_announces_a_card_cannot_propose_without_it(self):
+        offer = os.path.join(self.tmp.name, "offer.json")
+        with open(offer, "w") as f:
+            json.dump({"historyStaple": True}, f)
+        with self.assertRaises(SystemExit) as e:        # refused before any network call
+            mbx.main(["mbx", "reply", "conv_1", "proposal", "text", "{}"])
+        self.assertEqual(e.exception.code, 2)
+        with open(offer, "w") as f:
+            json.dump({"historyStaple": False}, f)       # not announcing a card: the check does not apply
+        self.assertFalse(mbx.announces_card())
+        os.remove(offer)
+        self.assertFalse(mbx.announces_card())
+
+    def test_offer_check_item_only_when_the_seller_published_one(self):
+        self.pick({"currency": "USD", "price_minor": 50, "rail": "x402"})
+        self.assertNotIn("item", self.proposal({"price_cents": 50})["offer_check"])
+
+    def test_offer_check_price_must_be_there_and_agree_with_the_terms(self):
+        self.pick(self.LN)
+        # No price at all, a price the field check drops, and terms that name another price or currency.
+        self.assertEqual(self.proposal({})["offer_check"]["price"], "mismatch")
+        self.assertEqual(self.proposal({"price_msat": "x"})["offer_check"]["price"], "mismatch")
+        terms = {"item": "digital fox sticker", "quantity": 1, "price_minor": 900, "currency": "BTC"}
+        self.assertEqual(self.proposal({"price_msat": 400, "terms": terms})["offer_check"]["price"], "mismatch")
+        terms = {"item": "digital fox sticker", "quantity": 1, "price_minor": 400, "currency": "USD"}
+        self.assertEqual(self.proposal({"price_msat": 400, "terms": terms})["offer_check"]["price"], "mismatch")
+        terms = {"item": "digital fox sticker", "quantity": 1, "price_minor": 400, "currency": "BTC"}
+        self.assertEqual(self.proposal({"price_msat": 400, "terms": terms})["offer_check"]["price"], "verified")
+
+    def test_an_earlier_proposals_card_does_not_count_for_a_later_one(self):
+        self.pick(self.LN)
+        self.assertEqual(self.proposal({"price_msat": 400}, staple_key="ed25519:abcdef0123")["offer_check"]["history"], "claimed")
+        self.assertEqual(self.proposal({"price_msat": 400})["offer_check"]["history"], "mismatch")   # the staple file is still on disk
+        # A staple without its bundle is not a card either.
+        msg = self.msg("proposal", {"price_msat": 400, "files": [attach("history-staple.json", json.dumps(
+            {"staple": {"reply": {"responder": "ed25519:abcdef0123"}}}).encode())]})
+        msg["sender"] = mbx.URN + "shop@agentboxnanda.org"
+        self.assertEqual(mbx.parse(msg)["offer_check"]["history"], "mismatch")
+
     def test_address(self):
         self.assertEqual(mbx.address("urn:air:host39.org:personal:Shop@AgentBoxNanda.org"), "shop@agentboxnanda.org")
         with self.assertRaises(SystemExit):

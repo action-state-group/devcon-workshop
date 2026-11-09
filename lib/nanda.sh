@@ -8,6 +8,7 @@ BASE=${MBX_BASE:-https://connectors-production-9b5a.up.railway.app}
 A=$ST/agentbox
 DESC="Devcon 8 workshop demo agent, not a real shop: payment simulated by default, real Lightning only if both sides run it"
 INDEX=${NANDA_INDEX:-https://api.nandaindex.org}
+URN=urn:air:host39.org:personal:
 mkdir -p "$A" && chmod 700 "$A"
 
 # nanda_mail SUBJECT_REGEX: the token in the newest Index email whose subject matches. Only mail from
@@ -34,31 +35,116 @@ inbox_seq() {
 listed() { curl -fsS "$INDEX/api/v1/resolve?locator=urn:air:host39.org:personal:$1" 2>/dev/null \
   | jq -r '.entry.extensions["org.projectnanda"].status // empty'; }
 
-if [ "${1:-}" = leave ]; then
-  # Remove the public listing. The NANDA Index made an account for the mailbox address; its reset
-  # mail lands in this mailbox, so the listing's owner can sign in and delete it (tested 10-31).
-  [ -s "$A/key" ] || die "no mailbox here"
+# index_login: sign in to this mailbox's NANDA Index account and set $addr, $org and $jwt. The Index made
+# the account for the mailbox address and its reset mail lands in this mailbox, so the mailbox's owner can
+# sign in (tested 10-31). Each sign-in sets a new random password that is used once and not kept.
+index_login() {
+  [ -s "$A/key" ] || die "no mailbox here: run 'devcon8 nanda <your email>' first"
   auth=(-H "Authorization: Bearer $(cat "$A/key")")
   addr=$(jq -r .address "$A/mailbox.json"); id=$(jq -r .id "$A/mailbox.json")
   org=$(curl -fsS "${auth[@]}" "$BASE/api/agent/mailboxes/$id" | jq -r '.discovery.orgId // empty')
   [ -n "$org" ] || die "the gateway names no NANDA record for $addr"
+  since=$(inbox_seq)
+  curl -fsS -X POST "$INDEX/auth/forgot-password" -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$addr" '{email:$e}')" >/dev/null
+  tok=""; for _ in $(seq 18); do tok=$(nanda_mail 'reset|password' "$since"); [ -n "$tok" ] && break; sleep 10; done
+  [ -n "$tok" ] || die "no reset email from the NANDA Index yet; run the command again"
+  pw=$(openssl rand -hex 16)
+  curl -fsS -X POST "$INDEX/auth/reset-password" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$tok" --arg p "$pw" '{token:$t,password:$p}')" >/dev/null
+  jwt=$(curl -fsS -X POST "$INDEX/auth/login" -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$addr" --arg p "$pw" '{email:$e,password:$p}')" | jq -r .token)
+}
+
+if [ "${1:-}" = leave ]; then
+  # Remove the public listing. The Index made an account for the mailbox address; its reset mail lands in
+  # this mailbox, so the listing's owner can sign in and delete it (tested 10-31).
+  [ -s "$A/key" ] || die "no mailbox here"
+  addr=$(jq -r .address "$A/mailbox.json")
   cat <<TXT
 This deletes $addr's NANDA Index listing for good. It cannot be undone: the gateway will not list this
 mailbox again (tested 2026-10-31), so to take part again you need a new email address and a new mailbox.
 The mailbox itself stays, unlisted; other agents can no longer reach it through the Index.
 TXT
   read -rp "Delete the listing for good? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing removed"
-  since=$(inbox_seq)
-  curl -fsS -X POST "$INDEX/auth/forgot-password" -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$addr" '{email:$e}')" >/dev/null
-  tok=""; for _ in $(seq 18); do sleep 10; tok=$(nanda_mail 'reset|password' "$since"); [ -n "$tok" ] && break; done
-  [ -n "$tok" ] || die "no reset email from the NANDA Index yet; run 'devcon8 nanda leave' again"
-  pw=$(openssl rand -hex 16)
-  curl -fsS -X POST "$INDEX/auth/reset-password" -H 'Content-Type: application/json' -d "$(jq -nc --arg t "$tok" --arg p "$pw" '{token:$t,password:$p}')" >/dev/null
-  jwt=$(curl -fsS -X POST "$INDEX/auth/login" -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$addr" --arg p "$pw" '{email:$e,password:$p}')" | jq -r .token)
+  index_login
   code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE "$INDEX/api/v1/orgs/$org" -H "Authorization: Bearer $jwt")
   [ "$code" = 204 ] || die "the NANDA Index refused the removal (HTTP $code)"
+  rm -f "$ST/offer.json"   # the offer went with the listing; mbx must not keep asking for its card
   echo "Removed: $addr is no longer listed in the NANDA Index ($(listed "$addr" || true))."
   echo "The Agent Box mailbox itself still exists, unlisted. To take part again, use a new email address."
+  exit 0
+fi
+
+if [ "${1:-}" = offer ]; then
+  # Publish (or with --remove, clear) this seller's offer in its own Index record, where `offers find` reads it:
+  # trust_manifest.metadata.offer, a public format ruled on by Steven (devcon-workshop#84). It is opt-in:
+  # nothing else in devcon8 writes it.
+  shift
+  remove=0 rail=x402 history=0
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --remove) remove=1; shift ;;
+      --history) history=1; shift ;;
+      --rail) rail=${2:-}; [ "$rail" = x402 ] || [ "$rail" = lightning ] || die "--rail x402 or lightning"; shift 2 ;;
+      *) die "devcon8 nanda offer [--rail x402|lightning] [--history]   |   devcon8 nanda offer --remove" ;;
+    esac
+  done
+  [ -s "$A/key" ] || die "no mailbox here: run 'devcon8 nanda <your email>' first"
+  addr=$(jq -r .address "$A/mailbox.json")
+  if [ "$remove" = 1 ]; then
+    offer=null
+    echo "This clears the offer from your Index record, $addr. Anyone who already read or cached it still has that copy: it cannot be recalled."
+    echo "It also signs in through your mailbox and sets a NEW password on your Index account; cardValidation, if it changed when you published, stays."
+    read -rp "Clear the offer? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing changed"
+  else
+    if [ "$rail" = lightning ]; then
+      msat=$("$D/agent/bin/lightning" caps | jq -er .price_msat) || die "a Lightning offer needs your price first: devcon8 lightning --price-sats P --per-payment-sats N --total-sats T"
+      price=$(jq -nc --argjson a "$msat" '{amount:$a, unit:"msat"}')
+    else
+      price='{"amount":50,"unit":"usd_cent"}'
+    fi
+    # The History card (Studio step 5) is announced only when asked for (--history), and then the seller's
+    # proposals must carry it: a buyer treats an announced card that does not come as a mismatch and does not pay.
+    hist=false hkey=""
+    if [ "$history" = 1 ]; then
+      staple=$HOME/studio/cards/stapled/history-staple.json
+      if [ -s "$staple" ]; then hkey=$(jq -er '.staple.reply.responder' "$staple" 2>/dev/null) || hkey=""; fi
+      [ -n "$hkey" ] || die "--history needs a card staple first (Studio step 5: card staple)"
+      hist=true
+    fi
+    offer=$(jq -nc --arg i "digital fox sticker" --argjson p "$price" --arg r "$rail" --argjson h "$hist" --arg k "$hkey" \
+      '{v:0, item:$i, price:$p, rail:$r, historyStaple:$h} + (if $h then {historyKey:$k} else {} end)')
+    cat <<TXT
+This publishes the following in your public NANDA Index record, $addr. Anyone who can read the Index sees it,
+and it is the seller's claim: the listed price is advisory, and a buyer checks it against your proposal.
+  $offer
+'devcon8 nanda offer --remove' clears it again, but cannot recall copies others have already read or cached.
+Publishing signs in to your Index account through your mailbox, which sets a NEW password on it (a password you set yourself stops working),
+and the Index re-checks the agent card at your registry_url, so your listing may then show cardValidation "invalid"; --remove does not undo that.
+(Checked 2026-11-09 on one listing: it was still found by search and resolve. That "invalid" does not filter or rank it down is our inference, not something the Index states.)
+TXT
+    read -rp "Publish this offer? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing published"
+  fi
+  index_login
+  rec=$(curl -fsS "$INDEX/api/v1/orgs/$org" -H "Authorization: Bearer $jwt") || die "could not read your Index record"
+  # Change only trust_manifest.metadata.offer; the rest of the record is sent back as it was read.
+  body=$(jq -c --argjson o "$offer" '
+      {display_name, description, tags, ttl_seconds, version, extensions, entry_data, registry_url, domain}
+      | with_entries(select(.value != null))
+      | .trust_manifest = ((($rec.trust_manifest // {}) | .metadata = ((.metadata // {}) | if $o == null then del(.offer) else .offer = $o end)))' \
+    --argjson rec "$rec" <<<"$rec")
+  code=$(curl -sS -o /dev/null -w '%{http_code}' -X PUT "$INDEX/api/v1/orgs/$org" -H "Authorization: Bearer $jwt" -H 'Content-Type: application/json' -d "$body")
+  [ "$code" = 200 ] || die "the NANDA Index refused the update (HTTP $code)"
+  stored=$(curl -fsS "$INDEX/api/v1/resolve?locator=$URN$addr" | jq -c '.entry.trustManifest.metadata.offer // null')
+  if [ "$remove" = 1 ]; then
+    [ "$stored" = null ] || die "the Index still shows an offer for $addr: $stored"
+    rm -f "$ST/offer.json"
+    echo "Cleared: the Index shows no offer for $addr."
+  else
+    # The Index writes keys in camelCase and in its own order, so the two are compared as sorted JSON.
+    [ "$(jq -cS . <<<"$stored")" = "$(jq -cS . <<<"$offer")" ] || die "the Index did not keep the offer as sent (it shows: $stored)"
+    # mbx reads this: while the offer announces a History card, a proposal of yours must carry it.
+    jq -nc --argjson h "$hist" '{historyStaple:$h}' > "$ST/offer.json"
+    echo "Published: the Index shows your offer for $addr. Buyers' 'offers find' reads it."
+  fi
   exit 0
 fi
 
@@ -76,6 +162,7 @@ Before you sign up:
 TXT
   read -rp "Create the mailbox for $email? [y/N] " yn; [[ $yn == [yY]* ]] || die "nothing created"
   created=1
+  rm -f "$ST/offer.json"   # a new mailbox has published nothing yet
   body=$(jq -nc --arg e "$email" --arg d "$DESC" '{email:$e, displayName:"Devcon 8 workshop agent", assistant:"goose (devcon-workshop)", description:$d}')
   r=$(curl -fsS -X POST "$BASE/api/agent/mailboxes" -H 'Content-Type: application/json' -d "$body") || die "mailbox creation failed (try again in a minute)"
   (umask 077; jq -r .token <<<"$r" > "$A/key"; jq '{id: .mailbox.id, address: .mailbox.emailAddress, existing: (.existing // false)}' <<<"$r" > "$A/mailbox.json")

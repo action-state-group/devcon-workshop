@@ -120,6 +120,26 @@ class Lightning(unittest.TestCase):
             self.assertNotIn(INVOICE, text)
         self.assertEqual(stat.S_IMODE(os.stat(ln.SPENT).st_mode), 0o600)
 
+    def test_the_offer_check_gates_the_payment(self):
+        self.saved_invoice()
+        chk = os.path.join(ln.DEALS, "conv_1", "offer-check.json")
+
+        def put(v):
+            with open(chk, "w") as f:
+                f.write(v if isinstance(v, str) else json.dumps(v))
+
+        ok = {"item": "claimed", "price": "verified", "rail": "verified", "amount": 500000, "unit": "msat"}
+        for bad, why in ((dict(ok, price="mismatch"), "price mismatch"), (dict(ok, history="claimed"), "not opened"),
+                         (dict(ok, amount=400000), "asks 400000 msat"), (dict(ok, unit="usd_cent"), "not a Lightning price"),
+                         ("not json", "damaged"), ("", "damaged"), ("[]", "damaged")):
+            put(bad)
+            code, out, err = self.run_ln("pay", "conv_1", "500000", DIGEST)
+            self.assertNotEqual(code, 0, bad)
+            self.assertIn(why, err)
+            self.assertEqual(self.sent(), [], "nothing is sent to the wallet")
+        put(dict(ok, history="verified"))
+        self.assertEqual(self.run_ln("pay", "conv_1", "500000", DIGEST)[0], 0)
+
     def test_a_second_payment_in_one_conversation_is_refused(self):
         self.saved_invoice()
         self.assertEqual(self.run_ln("pay", "conv_1", "500000", DIGEST)[0], 0)

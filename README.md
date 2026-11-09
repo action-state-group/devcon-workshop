@@ -373,6 +373,19 @@ second listing in the NANDA Index) with a new key, emails a new six-digit code t
 it. Checked on 2026-11-04 on a local build of the v4 sources. Only one container answers for the mailbox at a time: the one that ran
 `devcon8 nanda` last takes over, and the older container can still read the mailbox but no longer answers from it. On a new volume it also starts your agent after the mailbox's newest message, so messages from earlier runs are not replayed into `devcon8 trade`.
 
+### `devcon8 nanda offer [--rail x402|lightning] [--history]` / `--remove`: publish your offer
+
+Optional, and never run by `devcon8 nanda` or `devcon8 trade`. It writes your sticker offer into your own public NANDA Index record
+(`trust_manifest.metadata.offer`), where a buyer's `offers find` reads it:
+
+    {"v": 0, "item": "digital fox sticker", "price": {"amount": 50, "unit": "usd_cent"}, "rail": "x402", "historyStaple": false}
+
+`unit` is `usd_cent` (x402, 50 cents) or `msat` (`--rail lightning`, your price from `devcon8 lightning`). With `--history` (needs a card staple, Studio step 5) the offer says `"historyStaple": true` and carries `historyKey`, the key your card is signed with; your
+proposals must then carry the card, or a buyer treats it as a mismatch and does not pay: `mbx reply ... proposal` refuses to send one without it until you `--remove` the offer (the command leaves a note, `~/.devcon8/offer.json`, for that). A buyer needs the Studio `card` command to open the card, so `offers pick` prints `"card_check": true` for such an offer. Before anything is written it shows you the exact JSON and asks; the listed price is only a claim, and
+a buyer checks it against your proposal. **Anyone who can read the NANDA Index sees it.** `devcon8 nanda offer --remove` clears the offer and leaves
+the rest of your record (it leaves an empty `trustManifest.metadata`), but it cannot recall copies others have already read or cached. The Index writes the offer's keys in camelCase and re-checks your agent card whenever the record is updated, so `cardValidation` shows `invalid` afterwards (on the one listing we tried it was still found by search and resolve; that `invalid` does not filter or rank it down is our inference, not something the Index states), and `--remove` does not undo that, if the card at your `registry_url` is not a valid MCP server card (checked 2026-11-09). Both commands sign in to your Index account
+through your mailbox (a reset mail to it, about a minute), which **sets a new password** on that account, and then read the record back to check the Index kept what you sent.
+
 ### `devcon8 trade [--buy <address> | --want "<what>"] [--pay lexe]`: the trading agent
 
 Your agent sells your digital fox sticker for 50 cents (in a `--pay lexe` run, for your Lightning price in msat) to any participant's agent that asks. With
@@ -391,10 +404,10 @@ shortlist in the chat and stops. It buys only after you pick one, and only from 
 
 `find` reads the NANDA Index (`agentic-search`) and an AI Catalog / `ard.json` file (by default `https://host39.org/.well-known/ai-catalog.json`,
 plus each `--catalog`), and prints, for each offer: its source, the seller's address, item, price and rail, whether the seller staples a History card,
-and why it ranked there. Nothing is pre-selected and nothing is sent. Item, price, rail and History card come from an entry's `trustManifest.metadata.offer` (the free-form member the NANDA Index's schema gives its entries; where an AI Catalog entry would carry an offer is not defined yet, #84)
-(`item`, `price_minor`, `currency` USD or BTC, `rail` x402 or lightning, `history_staple`); an entry without one shows "not published".
+and why it ranked there. Nothing is pre-selected and nothing is sent. Item, price, rail and History card come from an entry's `trustManifest.metadata.offer` (the free-form member the NANDA Index's schema gives its entries; where an AI Catalog entry would carry an offer is not defined yet). Each field is the seller's claim and is shown as `[claimed]`: nothing a seller publishes can be checked before it answers. When its proposal arrives, `mbx` labels the picked seller's price, rail and card as `verified` (its own payment requirements say the same, exactly), `mismatch` (they differ, or an announced card is missing from this proposal) or `claimed` (the item until delivery; an announced card until `card open BUNDLE --announced-key KEY` shows it is signed by the published key, which does not prove the seller holds that key: a seller could announce another seller's key and forward that seller's card). `pay-x402` and `lightning pay` refuse while any field is a mismatch, while an announced card is not yet verified (`card open --announced-key` ran and passed), and for any amount but the one asked
+(`v` 0, `item`, `price` {`amount`, `unit` usd_cent or msat}, `rail` x402 or lightning, `historyStaple`, `historyKey`); an entry without one shows "not published".
 When this was written (2026-11-06) the NANDA Index and the host39 catalog published none, and the host39 catalog (29 entries) listed no Agent Box mailbox, so
-it adds no row today: `find` says so on stderr. Sellers publishing `trustManifest.metadata.offer` is not done yet. Your own mailbox and any address longer than 64 characters are left out.
+it adds no row today: `find` says so on stderr. A seller publishes its offer with `devcon8 nanda offer` (above); until sellers do, a row says "not published". Your own mailbox and any address longer than 64 characters are left out.
 `pick` records your choice (your words go in the state file until the purchase starts). `mbx send` refuses to open a conversation while a shortlist waits for your pick, and then
 refuses any address but the one you picked; with no shortlist it works as before. `offers clear` closes the search (no purchase until a new `find` and pick), `offers reset` forgets it (`devcon8 trade` does that at start). After the one purchase, a retry may go to the same seller only. Zero matches, or a source that is down, prints a plain message and buys nothing. The pick is a guard against buying the wrong thing, not a lock against someone who runs `offers reset` or edits the file themselves.
 

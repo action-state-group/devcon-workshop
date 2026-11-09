@@ -31,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/goose-approve.sh tests/goose-cancel.sh tests/sim-payment.sh tests/s08-ci.sh tests/test_wallet.sh tests/mbx-net.sh tests/test_nanda.sh tests/test_trade_protocol.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/recipe-prompt.sh build/fetch.sh build/usb.sh
+        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/goose-approve.sh tests/goose-cancel.sh tests/sim-payment.sh tests/s08-ci.sh tests/test_wallet.sh tests/mbx-net.sh tests/test_nanda.sh tests/test_nanda_offer.sh tests/test_offer_gate.sh tests/test_trade_protocol.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/recipe-prompt.sh build/fetch.sh build/usb.sh
       - name: mbx unit tests
         run: python3 -I tests/test_mbx.py
       - name: offers unit tests (fake NANDA Index, catalog and mailbox; no send before the user picks)
@@ -40,6 +40,10 @@ jobs:
         run: python3 -I tests/test_lightning.py
       - name: nanda against a fake gateway
         run: bash tests/test_nanda.sh
+      - name: nanda offer against a fake gateway and Index
+        run: bash tests/test_nanda_offer.sh
+      - name: no payment while the proposal mismatches the picked offer
+        run: bash tests/test_offer_gate.sh
       - name: trade messages against a fake gateway with the real conversation rule
         run: bash tests/test_trade_protocol.sh
 

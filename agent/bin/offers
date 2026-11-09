@@ -15,8 +15,10 @@ and refuses any address but the picked one, so the user's pick is the gate.
   offers reset                    forget the search altogether, so `mbx send` is as it was without one (devcon8 trade does this at start)
 
 An offer's item, price, rail and History card come from the entry's `trustManifest.metadata.offer`
-({"item", "price_minor", "currency", "rail", "history_staple"}); an entry without one is listed as
-"not published". Seller text is never shown, only fields checked here.
+({"v": 0, "item", "price": {"amount", "unit"}, "rail", "historyStaple", "historyKey"}, unit msat or
+usd_cent); an entry without one is listed as "not published". Seller text is never shown, only fields
+checked here. Each field of the shortlist is the seller's claim; `mbx` labels the proposal's price,
+rail and card as verified, claimed or mismatch against the picked offer before anything is paid.
 """
 import json, os, re, sys, urllib.error, urllib.parse, urllib.request
 
@@ -69,25 +71,34 @@ def seller(identifier):
     return a if ADDRESS.match(a) else None
 
 
+UNITS = {"msat": "BTC", "usd_cent": "USD"}
+HISTORY_KEY = re.compile(r"^[A-Za-z0-9:_.-]{8,128}$")
+
+
 def offer_of(entry):
-    """The entry's published offer, reduced to checked fields; {} when it publishes none."""
+    """The entry's published offer, reduced to checked fields; {} when it publishes none.
+    The published shape (v 0): {"v": 0, "item", "price": {"amount", "unit"}, "rail", "historyStaple",
+    "historyKey"} (camelCase: the Index writes keys that way); unit is msat or usd_cent. An offer of another version is not read."""
     tm = entry.get("trustManifest")
     md = tm.get("metadata") if isinstance(tm, dict) else None
     o = md.get("offer") if isinstance(md, dict) else None
-    if not isinstance(o, dict):
+    if not isinstance(o, dict) or o.get("v") != 0 or isinstance(o.get("v"), bool):
         return {}
     out = {}
     if o.get("item") == ITEM:
         out["item"] = ITEM
     elif isinstance(o.get("item"), str):
         out["other_item"] = True
-    cur, price = o.get("currency"), o.get("price_minor")
-    if isinstance(cur, str) and cur in ("USD", "BTC") and isinstance(price, int) and not isinstance(price, bool) and price > 0:
-        out["currency"], out["price_minor"] = cur, price
+    p = o.get("price")
+    if isinstance(p, dict) and isinstance(p.get("unit"), str) and p["unit"] in UNITS and isinstance(p.get("amount"), int) \
+            and not isinstance(p.get("amount"), bool) and p["amount"] > 0:
+        out["currency"], out["price_minor"] = UNITS[p["unit"]], p["amount"]
     if isinstance(o.get("rail"), str) and o["rail"] in RAILS:
         out["rail"] = o["rail"]
-    if isinstance(o.get("history_staple"), bool):
-        out["history_staple"] = o["history_staple"]
+    if isinstance(o.get("historyStaple"), bool):
+        out["history_staple"] = o["historyStaple"]
+        if o["historyStaple"] and isinstance(o.get("historyKey"), str) and HISTORY_KEY.match(o["historyKey"]):
+            out["history_key"] = o["historyKey"]
     return out
 
 
@@ -218,7 +229,10 @@ def show(items):
         staple = {True: "staples a History card", False: "no History card"}.get(o.get("history_staple"), "History card not published")
         print(f"{i}. {c['address']}  [{c['source']}]")
         by = f" [offer published in {c['offer_source']}]" if o and c.get("offer_source") not in (None, c["source"]) else ""
-        print(f"   item: {o.get('item') or ('not this item' if o.get('other_item') else 'not published')} | {price_line(o)} | rail: {o.get('rail', 'not published')} | {staple}{by}")
+        # Nothing a seller publishes can be checked before it answers: every field is its claim here.
+        claim = lambda v: v if v.endswith("not published") else v + " [claimed]"
+        item = claim(o.get("item") or ("not this item" if o.get("other_item") else "not published"))
+        print(f"   item: {item} | {claim(price_line(o))} | rail: {claim(o.get('rail', 'not published'))} | {claim(staple)}{by}")
         print("   ranked because: " + "; ".join(c["why"]) + ("; also listed in " + ", ".join(c["also_in"]) if c.get("also_in") else ""))
 
 
@@ -279,6 +293,8 @@ def pick(args):
     st.update(status="picked", picked=chosen, said=clean(args[2], 200))
     write_state(st)
     out = {"picked": n, "address": chosen["address"], "source": chosen["source"], "offer": chosen["offer"]}
+    if chosen["offer"].get("history_staple"):
+        out["card_check"] = True   # the payment tools refuse until `card open --announced-key` has run
     if st.get("cap_msat") is not None:
         out["cap_msat"] = st["cap_msat"]
     print(json.dumps(out))
