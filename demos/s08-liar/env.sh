@@ -19,6 +19,10 @@ esac
 # Where mesh-llm keeps its caches under a node's HOME (Hugging Face models, weights digests,
 # native runtimes): the platform cache directory, ~/.cache on Linux and ~/Library/Caches on macOS.
 case "$(uname -s)" in Darwin) CACHE_REL=Library/Caches ;; *) CACHE_REL=.cache ;; esac
+# The 0.5B demo models split on near-ties, so this demo names a twin at any split: the referee margin
+# (split_margin_threshold) is 0 here, set by the demo itself. Capsules 0.1.18 and later default to 4.41
+# (Mesh-LLM/capsules-plugin#282); 0.1.15 defaults to 0, so this line changes nothing on the current pin.
+export CAPSULES_SPLIT_MARGIN_THRESHOLD=0
 export DO_NOT_TRACK=1   # mesh-llm sends no usage reports from any demo node (installs included)
 # All four run the builds #33's join README diff v5 proposes for attendees (not yet applied to its
 # source; the open devcon-workshop#4 moves the attendee image to them), and so do Brattain and
