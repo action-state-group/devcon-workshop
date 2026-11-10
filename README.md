@@ -689,7 +689,7 @@ The image builds the same commit with the same recipes, but its bytes are its ow
 | | |
 |---|---|
 | mesh-llm | lab build `1aba71d` of `ethanyzhang/mesh-llm`: Mesh-LLM/mesh-llm main `000440f` plus open PRs [#2620](https://github.com/Mesh-LLM/mesh-llm/pull/2620), [#2649](https://github.com/Mesh-LLM/mesh-llm/pull/2649), [#2721](https://github.com/Mesh-LLM/mesh-llm/pull/2721), [#2741](https://github.com/Mesh-LLM/mesh-llm/pull/2741), [#2744](https://github.com/Mesh-LLM/mesh-llm/pull/2744), [#2748](https://github.com/Mesh-LLM/mesh-llm/pull/2748) and [#2760](https://github.com/Mesh-LLM/mesh-llm/pull/2760). CPU runtime |
-| capsules plugin | `v0.1.15` (the shared History view; referee split-margin threshold 0, the default) |
+| capsules plugin | `v0.1.15` (the shared History view; referee split-margin threshold 0, the default of 0.1.15; the S08 scripts also set `CAPSULES_SPLIT_MARGIN_THRESHOLD=0`, as 0.1.18's default is 4.41) |
 | lexe-wallet plugin | built here from [lexe-wallet-plugin#7](https://github.com/Mesh-LLM/lexe-wallet-plugin/pull/7) (`feat/settled-preimage`, commit `9f830c1`), which reports a settled payment's preimage |
 | S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.15 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook v0.12.2 |
 | capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc37` releases (`versions.lock`; deal carries `capsulectl deal terms-leg`, seals a Lightning payment received and states it in msat) |
