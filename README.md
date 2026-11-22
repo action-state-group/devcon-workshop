@@ -697,14 +697,14 @@ The image builds the same commit with the same recipes, but its bytes are its ow
 | capsules plugin | `v0.1.15` (the shared History view; referee split-margin threshold 0, the default of 0.1.15; the S08 scripts also set `CAPSULES_SPLIT_MARGIN_THRESHOLD=0`, as 0.1.18's default is 4.41) |
 | lexe-wallet plugin | built here from [lexe-wallet-plugin#7](https://github.com/Mesh-LLM/lexe-wallet-plugin/pull/7) (`feat/settled-preimage`, commit `9f830c1`), which reports a settled payment's preimage |
 | S08 | the same mesh-llm and capsules; the liar runs capsules 0.1.15 plus `demos/s08-liar/redteam/selective-log.patch`, built here; step 8's `reconcile/` on evidencebook v0.12.2 |
-| capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc45` releases (`versions.lock`; deal carries `capsulectl deal terms-leg`, seals a Lightning payment received and states it in msat) |
+| capsulectl, capsulectl-deal, capsulectl-book | `v0.1.0-rc46` releases (`versions.lock`; capsulectl from capsule-cli, the two plugins from one evidencebook release; deal carries `capsulectl deal terms-leg`, seals a Lightning payment received and states it in msat) |
 | capsule-engine (`guard check`, the deal profile's rules checker on a buying run: Everyday Rules `asg/everyday/0.3.8`) | built from commit `f93b757` (`versions.lock`) |
 | goose (built from its v1.57.0 commit plus `patches/`, aaif-goose/goose#13273 and #10619), Claude Code, Codex, ACP adapters | `versions.lock`, `package-lock.json` (`claude` is the Claude Code CLI bundled with claude-agent-acp's SDK) |
 | evidencebook Go SDK | v0.12.2, Go 1.27 |
 | models (not in the image; `devcon8 models` downloads them) | Qwen2.5-0.5B-Instruct GGUF, Q8_0 and Q4_K_M, pinned in `versions.lock` |
 
 The buyer's signed terms leg is written by `capsulectl deal terms-leg`
-([evidencebook-deal#70](https://github.com/action-state-group/evidencebook-deal/issues/70)), signed with
+([evidencebook-deal#70](https://github.com/action-state-group/evidencebook-deal/issues/70), now in evidencebook), signed with
 the buyer's own deal key.
 
 Build it yourself: `docker buildx build --platform linux/arm64 -t devcon-workshop .` (about an hour).

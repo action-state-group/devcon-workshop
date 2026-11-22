@@ -13,6 +13,7 @@ STUDIO_SKILLS_COMMIT=584e603adb94a906fc6367ea6c8bf764ba4139ac
 STUDIO_TERMS_ENTRY=scripts/studio/terms
 
 # The ten-sticker-trade replay the presenter runs once before step 1 (`devcon8-studio replay`):
-# evidencebook-deal's scripts/studio-replay.sh and testdata/studio/ at this commit.
-STUDIO_DEAL_REPO=https://github.com/action-state-group/evidencebook-deal
-STUDIO_DEAL_COMMIT=8da40a2f7436b0c6d1ec8cfe3b692e625d33f4b2
+# evidencebook's capsulectl/scripts/studio-replay.sh and capsulectl/testdata/studio/ at this commit (the commit of tag
+# capsulectl/v0.1.0-rc46; the same bytes as evidencebook-deal 8da40a2, which evidencebook#610 moved here).
+STUDIO_DEAL_REPO=https://github.com/action-state-group/evidencebook
+STUDIO_DEAL_COMMIT=f9e1d35ec387ed096721b5e26cea42cf89f4bc0b

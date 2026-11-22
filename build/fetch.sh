@@ -22,10 +22,10 @@ get() { # URL SHA256 FILE
 
 gh=https://github.com
 get "$gh/action-state-group/capsule-cli/releases/download/$CAPSULECTL_VERSION/capsulectl-$CAPSULECTL_VERSION-linux-$ARCH" "$(pin CAPSULECTL)" capsulectl
-get "$gh/action-state-group/evidencebook-deal/releases/download/$DEAL_VERSION/capsulectl-deal-$DEAL_VERSION-linux-$ARCH" "$(pin DEAL)" capsulectl-deal
+get "$gh/action-state-group/evidencebook/releases/download/capsulectl/$DEAL_VERSION/capsulectl-deal-$DEAL_VERSION-linux-$ARCH" "$(pin DEAL)" capsulectl-deal
 get "$gh/action-state-group/evidencebook/releases/download/capsulectl/$BOOK_VERSION/capsulectl-book-$BOOK_VERSION-linux-$ARCH" "$(pin BOOK)" capsulectl-book
-get "$gh/action-state-group/evidencebook-deal/releases/download/$DEAL_VERSION/deal-skill-$DEAL_VERSION.tar.gz" "$DEAL_SKILL_SHA256" deal-skill.tar.gz
-get "$gh/action-state-group/evidencebook-deal/releases/download/$DEAL_VERSION/deal-view-$DEAL_VERSION.tar.gz" "$DEAL_VIEW_SHA256" deal-view.tar.gz
+get "$gh/action-state-group/evidencebook/releases/download/capsulectl/$DEAL_VERSION/deal-skill-$DEAL_VERSION.tar.gz" "$DEAL_SKILL_SHA256" deal-skill.tar.gz
+get "$gh/action-state-group/evidencebook/releases/download/capsulectl/$DEAL_VERSION/deal-view-$DEAL_VERSION.tar.gz" "$DEAL_VIEW_SHA256" deal-view.tar.gz
 get "$gh/action-state-group/evidencebook/releases/download/capsulectl/$BOOK_VERSION/standard-history-$BOOK_VERSION.tar.gz" "$BOOK_HISTORY_SHA256" standard-history.tar.gz
 get "https://go.dev/dl/go$GO_VERSION.linux-$GOARCH.tar.gz" "$(pin GO)" go.tar.gz
 get "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$NODEARCH.tar.xz" "$(pin NODE)" node.tar.xz
