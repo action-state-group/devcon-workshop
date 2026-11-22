@@ -38,6 +38,8 @@ CATALOG = {"specVersion": "1.0", "entries": [
 
 class Fake(http.server.BaseHTTPRequestHandler):
     log = []  # (method, path) of every request, all fakes
+    extra = []   # more workshop agents the Index lists, per test
+    down = False  # the Index refuses the workshop listing query
 
     def _send(self, code, body):
         raw = json.dumps(body).encode()
@@ -48,9 +50,19 @@ class Fake(http.server.BaseHTTPRequestHandler):
         Fake.log.append(("GET", self.path))
         if self.path.startswith("/nanda/agentic-search"):
             # As the real Index (probed 2026-11-22): a whole phrase of an entry's name or description matches, a
-            # buyer's sentence or a word of the offer item ("fox sticker") does not.
-            q = urllib.parse.unquote_plus(self.path.split("q=")[1].split("&")[0])
-            self._send(200, NANDA if q == "devcon 8 workshop agent" else {"candidates": []})
+            # buyer's sentence or a word of the offer item ("fox sticker") does not; at most `limit` (<= 50) come back.
+            u = urllib.parse.urlsplit(self.path)
+            qs = urllib.parse.parse_qs(u.query)
+            q, limit = qs["q"][0], int(qs.get("limit", ["10"])[0])
+            if q == "boom" or (q == "devcon 8 workshop agent" and Fake.down):
+                return self._send(500, {"error": "down"})
+            if q == "devcon 8 workshop agent":
+                c = NANDA["candidates"] + Fake.extra
+            elif q == "fox shop":   # a phrase the Index does match: a seller whose text has no word of a buyer's later query
+                c = [{"identifier": URN + "zed@agentboxnanda.org", "displayName": "Zed"}, NANDA["candidates"][1]]
+            else:
+                c = []
+            self._send(200, {"candidates": c[:limit]})
         elif self.path == "/catalog.json":
             self._send(200, CATALOG)
         elif self.path == "/big.json":   # the same seller as in NANDA, over a 1-sat cap, listed by the catalog only
@@ -108,6 +120,7 @@ class Offers(unittest.TestCase):
         with open(os.path.join(self.tmp.name, ".devcon8", "agentbox", "key"), "w") as f:
             f.write("k")
         Fake.log.clear()
+        Fake.extra, Fake.down = [], False
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -146,19 +159,45 @@ class Offers(unittest.TestCase):
         self.assertLess(out.index(A), out.index(B))  # fox shop: published offer, staple, within cap, in both sources
 
     # #97: the buyer's sentence matches nothing in the Index; the seller listing query still finds the seller
-    def test_buyers_sentence_finds_a_published_seller(self):
-        r = self.find("one fox sticker under 500 sats")
+    def test_buyers_sentence_finds_a_seller_from_its_published_offer(self):
+        Fake.extra = [{"identifier": URN + "idx@agentboxnanda.org", "displayName": "Devcon 8 workshop agent", **M({"offer": {"v": 0,
+            "item": "digital fox sticker", "price": {"amount": 50, "unit": "usd_cent"}, "rail": "x402"}})}]
+        r = self.find("one fox sticker under 500 sats", catalog="/empty.json")  # no catalog: only the Index can supply it
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn(A, r.stdout)
-        self.assertIn("digital fox sticker [claimed]", r.stdout)
-        qs = [p for m, p in Fake.log if p.startswith("/nanda/agentic-search")]
-        self.assertEqual(len(qs), 2)
-        self.assertEqual([c["address"] for c in self.state()["items"]].count(A), 1)  # one row, not one per query
+        i = r.stdout.index("idx@agentboxnanda.org")
+        self.assertIn("item: digital fox sticker [claimed]", r.stdout[i:i + 300])
+        self.assertIn("[NANDA Index]", r.stdout[i:i + 300])
+        self.assertEqual(len([p for m, p in Fake.log if p.startswith("/nanda/agentic-search")]), 2)
+
+    def test_a_seller_past_the_tenth_is_found(self):
+        Fake.extra = [{"identifier": URN + "f%d@agentboxnanda.org" % n, "displayName": "Devcon 8 workshop agent"} for n in range(12)] + [
+            {"identifier": URN + "last@agentboxnanda.org", "displayName": "Devcon 8 workshop agent", **M({"offer": {"v": 0, "item": "digital fox sticker"}})}]
+        r = self.find("sticker", catalog="/empty.json")
+        self.assertIn("last@agentboxnanda.org", r.stdout)  # 16th in the listing; the filter keeps it by its offer item
+        self.assertTrue(any("limit=50" in p for m, p in Fake.log))
 
     def test_listing_query_does_not_list_sellers_for_an_unrelated_request(self):
         r = self.offers("find", "toaster", "--catalog", self.url + "/empty.json")
         self.assertEqual(r.returncode, 1)
         self.assertIn("No offers found", r.stdout)
+
+    def test_sentence_results_are_kept_unfiltered_and_a_seller_in_both_is_one_row(self):
+        r = self.find("fox shop", catalog="/empty.json")
+        self.assertIn("zed@agentboxnanda.org", r.stdout)   # from the buyer's own query, kept as before
+        self.assertEqual([c["address"] for c in self.state()["items"]].count(A), 1)
+
+    def test_one_index_query_failing_costs_only_itself(self):
+        r = self.find("boom", catalog="/empty.json")      # the sentence query is refused, the listing still answers
+        self.assertEqual(r.returncode, 1)                  # nothing matches "boom"
+        self.assertNotIn("could not be read", r.stderr)
+        Fake.down = True
+        r = self.find("fox sticker", catalog="/empty.json")  # the listing query is refused, the sentence query finds nothing
+        self.assertNotIn("could not be read", r.stderr)
+
+    def test_every_index_query_failing_reports_the_index_down(self):
+        Fake.down = True
+        r = self.find("devcon 8 workshop agent", catalog="/empty.json")   # one query only, and it fails
+        self.assertIn("NANDA Index could not be read", r.stderr)
 
     def test_seller_text_never_reaches_the_shortlist(self):
         r = self.find()

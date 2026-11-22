@@ -120,34 +120,38 @@ def safe_candidate(entry, source, position):
         return None
 
 
-# What `devcon8 nanda` sets as a workshop agent's display name (lib/nanda.sh). The Index matches whole phrases
-# against an entry's name and description, never its offer, so the buyer's own sentence ("one fox sticker under
-# 500 sats") does not find a seller; this phrase does. It is asked in addition, and the offer is read locally.
+# What `devcon8 nanda` sets as a workshop agent's display name (lib/nanda.sh). The Index scores an entry's name,
+# description and tags, never its offer, so the buyer's own sentence ("one fox sticker under 500 sats") finds no
+# seller (live probe 2026-11-22); this phrase does. It is asked in addition, and the offer is read locally.
 SELLER_LISTING_QUERY = "devcon 8 workshop agent"
 
 
+# The Index caps a search at 50 results (a larger limit is refused); the listing query uses all of it so a
+# room full of sellers is not cut at the default 10 before the word filter runs.
+LISTING_LIMIT = 50
+
+
 def search_nanda(q):
-    """The Index candidates for the buyer's words plus the workshop seller listing, one entry per identifier."""
-    found, seen, failed = [], set(), 0
-    for query in dict.fromkeys([q, SELLER_LISTING_QUERY]):
+    """The Index candidates for the buyer's words plus the workshop seller listing. A query that fails (network,
+    bad reply) costs only itself; the source is down only when every query asked failed. merge() keeps one row per seller."""
+    queries = list(dict.fromkeys([q, SELLER_LISTING_QUERY]))
+    found, failed = [], 0
+    for query in queries:
+        listing = query == SELLER_LISTING_QUERY
         try:
-            r = get(INDEX + "/agentic-search?q=" + urllib.parse.quote(query) + "&limit=10")
+            r = get(INDEX + "/agentic-search?q=" + urllib.parse.quote(query) + "&limit=" + str(LISTING_LIMIT if listing else 10))
+            got = [c for e in (r.get("candidates") or []) if (c := safe_candidate(e, "NANDA Index", len(found)))]
         except Exception:
             failed += 1
-            if failed == 2:
-                raise
             continue
-        for e in r.get("candidates") or []:
-            if isinstance(e, dict) and e.get("identifier") in seen:
-                continue
-            c = safe_candidate(e, "NANDA Index", len(found))
-            # The listing query returns every workshop agent whatever was asked for: keep one that matches a word
-            # of the buyer's request (its published offer item counts), as a catalog entry must.
-            if c and query == SELLER_LISTING_QUERY != q and not any(has_word(c["_text"], w) for w in words_of(q)):
-                continue
-            if c:
-                seen.add(e.get("identifier"))
-                found.append(c)
+        # The listing query returns every workshop agent whatever was asked for: keep one that matches a word
+        # of the buyer's request (its published offer item counts), as a catalog entry must.
+        if listing and q != SELLER_LISTING_QUERY:
+            words = words_of(q)
+            got = [c for c in got if any(has_word(c["_text"], w) for w in words)]
+        found += got
+    if failed == len(queries):
+        raise ValueError("no Index query answered")
     return found
 
 
