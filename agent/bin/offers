@@ -120,9 +120,35 @@ def safe_candidate(entry, source, position):
         return None
 
 
+# What `devcon8 nanda` sets as a workshop agent's display name (lib/nanda.sh). The Index matches whole phrases
+# against an entry's name and description, never its offer, so the buyer's own sentence ("one fox sticker under
+# 500 sats") does not find a seller; this phrase does. It is asked in addition, and the offer is read locally.
+SELLER_LISTING_QUERY = "devcon 8 workshop agent"
+
+
 def search_nanda(q):
-    r = get(INDEX + "/agentic-search?q=" + urllib.parse.quote(q) + "&limit=10")
-    return [c for i, e in enumerate(r.get("candidates") or []) if (c := safe_candidate(e, "NANDA Index", i))]
+    """The Index candidates for the buyer's words plus the workshop seller listing, one entry per identifier."""
+    found, seen, failed = [], set(), 0
+    for query in dict.fromkeys([q, SELLER_LISTING_QUERY]):
+        try:
+            r = get(INDEX + "/agentic-search?q=" + urllib.parse.quote(query) + "&limit=10")
+        except Exception:
+            failed += 1
+            if failed == 2:
+                raise
+            continue
+        for e in r.get("candidates") or []:
+            if isinstance(e, dict) and e.get("identifier") in seen:
+                continue
+            c = safe_candidate(e, "NANDA Index", len(found))
+            # The listing query returns every workshop agent whatever was asked for: keep one that matches a word
+            # of the buyer's request (its published offer item counts), as a catalog entry must.
+            if c and query == SELLER_LISTING_QUERY != q and not any(has_word(c["_text"], w) for w in words_of(q)):
+                continue
+            if c:
+                seen.add(e.get("identifier"))
+                found.append(c)
+    return found
 
 
 def search_catalog(url, q):

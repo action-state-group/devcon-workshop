@@ -2,7 +2,7 @@
 
 Run: python3 -I tests/test_offers.py   (local fake NANDA Index, catalog and mailbox gateway; no real network)
 """
-import http.server, json, os, subprocess, sys, tempfile, threading, unittest
+import http.server, json, os, subprocess, sys, tempfile, threading, unittest, urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OFFERS = os.path.join(HERE, "..", "agent", "bin", "offers")
@@ -47,8 +47,10 @@ class Fake(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         Fake.log.append(("GET", self.path))
         if self.path.startswith("/nanda/agentic-search"):
-            q = self.path.split("q=")[1].split("&")[0]
-            self._send(200, NANDA if "fox" in q else {"candidates": []})
+            # As the real Index (probed 2026-11-22): a whole phrase of an entry's name or description matches, a
+            # buyer's sentence or a word of the offer item ("fox sticker") does not.
+            q = urllib.parse.unquote_plus(self.path.split("q=")[1].split("&")[0])
+            self._send(200, NANDA if q == "devcon 8 workshop agent" else {"candidates": []})
         elif self.path == "/catalog.json":
             self._send(200, CATALOG)
         elif self.path == "/big.json":   # the same seller as in NANDA, over a 1-sat cap, listed by the catalog only
@@ -142,6 +144,21 @@ class Offers(unittest.TestCase):
         self.assertEqual(self.state()["status"], "pending")
         self.assertNotIn("picked", self.state())
         self.assertLess(out.index(A), out.index(B))  # fox shop: published offer, staple, within cap, in both sources
+
+    # #97: the buyer's sentence matches nothing in the Index; the seller listing query still finds the seller
+    def test_buyers_sentence_finds_a_published_seller(self):
+        r = self.find("one fox sticker under 500 sats")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(A, r.stdout)
+        self.assertIn("digital fox sticker [claimed]", r.stdout)
+        qs = [p for m, p in Fake.log if p.startswith("/nanda/agentic-search")]
+        self.assertEqual(len(qs), 2)
+        self.assertEqual([c["address"] for c in self.state()["items"]].count(A), 1)  # one row, not one per query
+
+    def test_listing_query_does_not_list_sellers_for_an_unrelated_request(self):
+        r = self.offers("find", "toaster", "--catalog", self.url + "/empty.json")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("No offers found", r.stdout)
 
     def test_seller_text_never_reaches_the_shortlist(self):
         r = self.find()
