@@ -116,6 +116,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=fetch /fetch/opt/go /usr/local/go
 ENV PATH=/usr/local/go/bin:$PATH CGO_ENABLED=0 GOFLAGS=-trimpath GOTOOLCHAIN=local
 COPY examples/ /src/examples/
+# The rules checker the deal profile pins (trade.sh): `capsule-engine guard check`, built at the pinned commit.
+COPY versions.lock /src/versions.lock
+RUN . /src/versions.lock && GOBIN=/out GOFLAGS=-trimpath go install "github.com/action-state-group/capsule-engine/go/cmd/capsule-engine@$CAPSULE_ENGINE_COMMIT"
 RUN cd /src/examples/go-seal && go mod download && go mod vendor && go build -mod=vendor -o /out/go-seal .
 # s08 step 8's reconcile tool (demos/s08-liar/reconcile).
 COPY demos/s08-liar/reconcile/ /src/reconcile/
@@ -162,6 +165,7 @@ COPY --from=gobuild /out/reconcile-asked $D/s08/bin-tools/reconcile-asked
 COPY --from=npm /opt/devcon8/npm/ $D/npm/
 COPY --from=gobuild /src/examples/go-seal/ $D/examples/go-seal/
 COPY --from=gobuild /out/go-seal $D/bin/go-seal
+COPY --from=gobuild /out/capsule-engine $D/bin/capsule-engine
 COPY --from=fetch /fetch/opt/agent/ $D/agent/
 COPY --from=fetch /fetch/opt/plugin-assets/ $D/plugin-assets/
 COPY versions.lock $D/versions.lock

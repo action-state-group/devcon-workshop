@@ -12,6 +12,8 @@ deal() { capsulectl --profile deal deal "$@"; }
 capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
 capsulectl plugin install "$D/bin/capsulectl-book" >/dev/null
 deal init --dir "$T/.local/share/capsule-deal" --materiality builtin:neutral --no-witness >/dev/null
+export ST=$T/.devcon8; . "$D/lib/common.sh"
+pin_rules_checker || fail "could not pin the rules checker"
 
 SHOP=shop@agentboxnanda.org
 # The recipe pays the proposal's price_cents, at most 50: the full price and one below it.
@@ -28,6 +30,9 @@ deal open --deal-id "$ID" --records typed --input open.json >/dev/null
 jq -n --argjson p "$PRICE" --argjson t "$terms" --argjson who "$who" '{action: "pay", description: "one digital fox sticker",
   amount_minor: $p, authorized_max_minor: $p, terms: $t, who: $who, recourse: {rail: "x402", refundable: false}}' > check-pay.json
 deal check --deal "$ID" --input check-pay.json > pay.check.json
+# The pinned checker ran Everyday Rules on this buyer's check and its verdict is sealed in the check.
+jq -e --arg d "$(. "$D/versions.lock"; echo "$EVERYDAY_DEFINITION_DIGEST")" '.rules.status == "evaluated" and .rules.ruleset_id == "asg/everyday/0.3.8" and .rules.definition_digest == $d' pay.check.json >/dev/null \
+  || { jq .rules pay.check.json; fail "the pay check did not run Everyday Rules (asg/everyday/0.3.8) through the pinned checker"; }
 case $(jq -r .verdict pay.check.json) in
   pass) ;;
   pause) jq -r .approval_text pay.check.json > card.txt

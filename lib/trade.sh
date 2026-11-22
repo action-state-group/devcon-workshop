@@ -49,6 +49,8 @@ if ! capsulectl --profile deal deal list >/dev/null 2>&1; then
     || die "the deal profile exists but its store does not answer; move ~/.local/share/capsule-deal and the 'deal' profile aside (capsulectl profile --help), then run devcon8 trade again"
   echo "deal store ready: $HOME/.local/share/capsule-deal"
 fi
+pin_rules_checker \
+  || die "could not pin the rules checker on the deal profile; run devcon8 trade again, and if it repeats move the 'deal' profile aside (capsulectl profile --help)"
 mkdir -p "$HOME/deals"
 cd "$HOME"
 if [ "$pay" = lexe ]; then
