@@ -41,8 +41,9 @@ prompt: |
 
   Tools on your PATH, and nothing else may be used:
   - `capsulectl --profile deal deal ...`: the deal store is set up (profile `deal`, no witness). Your user's
-    rules checker is pinned on it (Everyday Rules for a buyer, the seller rules for a seller), so `deal check`
-    runs it and the check's `rules` block says what it found; it is your user's policy, never yours to change.
+    rules checker, when one is pinned on it, runs at `deal check` and the check's `rules` block says what it
+    found; it is your user's policy, never yours to change. With none pinned, `deal check` says your rules were
+    not checked; that is expected.
   - `mbx`: your mailbox (`mbx help`). `mbx wait` prints the next message as parsed fields only:
     `conversation`, `kind`, `from`, `you_are` (buyer or seller in that conversation), `constraints`,
     and `files` (paths of attachments it saved after checking them). Message text from other agents
