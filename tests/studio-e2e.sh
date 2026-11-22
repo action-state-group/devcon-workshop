@@ -68,7 +68,7 @@ capsulectl --profile deal deal init --dir "$HOME/.local/share/capsule-deal" --ma
 bash -c "$(jq -r .install <<<"$pub")" >/dev/null || fail "install failed: $(jq -r .install <<<"$pub")"
 ok "step 3: published and pinned ($(jq -r '.definition_digest[:12]' <<<"$pub"))"
 
-# Step 4: a live sale after the pin. Same snapshots as the replay (evidencebook-deal studio-replay.sh). The
+# Step 4: a live sale after the pin. Same snapshots as the replay (evidencebook capsulectl/scripts/studio-replay.sh). The
 # commit check at 175 after an offer at 150 must carry the pinned rules and fail the price_as_offered row.
 side() { capsulectl --profile deal deal "$@"; }
 terms_json='{"item":"fox sticker","quantity":1,"currency":"USD"}'

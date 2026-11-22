@@ -27,12 +27,12 @@ RUN mkdir -p /usr/local/lib/capsulectl/plugins \
     && test -x "/usr/local/lib/capsulectl/plugins/terms-pack-studio/$STUDIO_TERMS_ENTRY" \
     && mkdir -p /opt/devcon8/agent/skills \
     && cp -r /usr/local/lib/capsulectl/plugins/terms-pack-studio/skills/terms-pack-author /opt/devcon8/agent/skills/terms-pack-author
-# The past sales for step 1: evidencebook-deal's replay script and fixture, run by `devcon8-studio replay`.
+# The past sales for step 1: evidencebook's replay script and fixture, run by `devcon8-studio replay`.
 RUN git clone --filter=blob:none "$STUDIO_DEAL_REPO" /tmp/deal \
     && git -C /tmp/deal checkout --detach "$STUDIO_DEAL_COMMIT" \
     && mkdir -p /opt/devcon8/studio/replay/scripts /opt/devcon8/studio/replay/testdata \
-    && cp /tmp/deal/scripts/studio-replay.sh /opt/devcon8/studio/replay/scripts/ \
-    && cp -r /tmp/deal/testdata/studio /opt/devcon8/studio/replay/testdata/studio \
+    && cp /tmp/deal/capsulectl/scripts/studio-replay.sh /opt/devcon8/studio/replay/scripts/ \
+    && cp -r /tmp/deal/capsulectl/testdata/studio /opt/devcon8/studio/replay/testdata/studio \
     && test -s /opt/devcon8/studio/replay/testdata/studio/sticker-trades.json \
     && rm -rf /tmp/deal
 # trade.sh, trader.yaml, bin/devcon8 and offers from this checkout: `devcon8 trade --want` and `devcon8-studio --want`
