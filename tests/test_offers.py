@@ -49,8 +49,9 @@ class Fake(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         Fake.log.append(("GET", self.path))
         if self.path.startswith("/nanda/agentic-search"):
-            # As the real Index (probed 2026-11-22): a whole phrase of an entry's name or description matches, a
-            # buyer's sentence or a word of the offer item ("fox sticker") does not; at most `limit` (<= 50) come back.
+            # As the real Index (probed 2026-11-22): it scores an entry's name, description and tags (a single word
+            # of them can match), never its offer, so a buyer's sentence or "fox sticker" finds no seller; at most
+            # `limit` (<= 50) come back.
             u = urllib.parse.urlsplit(self.path)
             qs = urllib.parse.parse_qs(u.query)
             q, limit = qs["q"][0], int(qs.get("limit", ["10"])[0])
