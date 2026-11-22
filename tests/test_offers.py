@@ -177,6 +177,12 @@ class Offers(unittest.TestCase):
         self.assertIn("last@agentboxnanda.org", r.stdout)  # 16th in the listing; the filter keeps it by its offer item
         self.assertTrue(any("limit=50" in p for m, p in Fake.log))
 
+    def test_each_index_candidate_keeps_its_own_position(self):
+        r = self.find("fox sticker", catalog="/empty.json")
+        ranks = [int(l.rsplit("NANDA Index #", 1)[1]) for l in r.stdout.splitlines() if "ranked because" in l and "NANDA Index #" in l]
+        self.assertGreater(len(ranks), 1)
+        self.assertEqual(len(set(ranks)), len(ranks))   # not every candidate "#1"
+
     def test_listing_query_does_not_list_sellers_for_an_unrelated_request(self):
         r = self.offers("find", "toaster", "--catalog", self.url + "/empty.json")
         self.assertEqual(r.returncode, 1)

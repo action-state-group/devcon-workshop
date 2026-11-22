@@ -140,7 +140,7 @@ def search_nanda(q):
         listing = query == SELLER_LISTING_QUERY
         try:
             r = get(INDEX + "/agentic-search?q=" + urllib.parse.quote(query) + "&limit=" + str(LISTING_LIMIT if listing else 10))
-            got = [c for e in (r.get("candidates") or []) if (c := safe_candidate(e, "NANDA Index", len(found)))]
+            got = [c for i, e in enumerate(r.get("candidates") or []) if (c := safe_candidate(e, "NANDA Index", len(found) + i))]
         except Exception:
             failed += 1
             continue
