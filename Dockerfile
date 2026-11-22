@@ -120,6 +120,9 @@ RUN cd /src/examples/go-seal && go mod download && go mod vendor && go build -mo
 # s08 step 8's reconcile tool (demos/s08-liar/reconcile).
 COPY demos/s08-liar/reconcile/ /src/reconcile/
 RUN cd /src/reconcile && go build -o /out/reconcile-asked .
+# The rules checker the deal profile pins on a buying run (trade.sh): `capsule-engine guard check`, built at the pinned commit.
+COPY versions.lock /src/versions.lock
+RUN . /src/versions.lock && GOBIN=/out GOFLAGS=-trimpath go install "github.com/action-state-group/capsule-engine/go/cmd/capsule-engine@$CAPSULE_ENGINE_COMMIT"
 
 # --- goose: the pinned release commit plus patches/ (see versions.lock) -----------------------------
 # The release build (`cargo build --release -p goose-cli --bin goose`, as goose's build-cli-linux workflow)
@@ -162,6 +165,7 @@ COPY --from=gobuild /out/reconcile-asked $D/s08/bin-tools/reconcile-asked
 COPY --from=npm /opt/devcon8/npm/ $D/npm/
 COPY --from=gobuild /src/examples/go-seal/ $D/examples/go-seal/
 COPY --from=gobuild /out/go-seal $D/bin/go-seal
+COPY --from=gobuild /out/capsule-engine $D/bin/capsule-engine
 COPY --from=fetch /fetch/opt/agent/ $D/agent/
 COPY --from=fetch /fetch/opt/plugin-assets/ $D/plugin-assets/
 COPY versions.lock $D/versions.lock
@@ -175,6 +179,7 @@ COPY agent/fixtures/x402/ $D/agent/fixtures/x402/
 COPY README.md $D/README.md
 COPY tests/goose-approve/ $D/tests/goose-approve/
 COPY tests/goose-cancel/ $D/tests/goose-cancel/
+COPY tests/fixtures/ $D/tests/fixtures/
 COPY tests/smoke.sh tests/console-relay-serve.sh tests/goose-approve.sh tests/goose-cancel.sh tests/sim-payment.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/fake_sidecar.py tests/test_wallet.sh tests/s08-ci.sh tests/mbx-net.sh tests/recipe-prompt.sh $D/tests/
 # claude: the Claude Code CLI that claude-agent-acp's SDK bundles, so it ships once (package.json).
 RUN case "$TARGETARCH" in amd64) a=x64;; arm64) a=arm64;; esac \
