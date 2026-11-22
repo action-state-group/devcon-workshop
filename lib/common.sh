@@ -30,9 +30,10 @@ mesh_config() {
 # The rules checker is the user's policy, pinned on the deal profile and never the agent's: `capsule-engine guard check`
 # runs Everyday Rules (asg/everyday/0.3.8) on a buyer's deal and the seller rules (asg/seller/0.1.5) on a seller's, and
 # the deal check seals its verdict. It is copied under the trusted plugin root and pinned by sha256 on every call, like
-# the plugins, so an image upgrade never leaves an older checker pinned. Needs the profile `deal` to exist.
+# the plugins, so an image upgrade never leaves an older checker pinned. Needs the profile `deal` to exist. A pin covers
+# both roles: capsulectl pauses any deal whose role's pack is not in the pin, so the seller pack's digest is pinned too.
 pin_rules_checker() {
-  local root=$HOME/.local/lib/capsulectl/plugins pin
+  local root=$HOME/.local/lib/capsulectl/plugins pin rc
   . "$D/versions.lock"
   mkdir -p "$root" || return 1
   install -m 0755 "$D/bin/capsule-engine" "$root/capsule-engine" || return 1
@@ -40,10 +41,13 @@ pin_rules_checker() {
   jq -n --arg cmd "$root/capsule-engine" --arg e "$EVERYDAY_DEFINITION_DIGEST" --arg s "$SELLER_DEFINITION_DIGEST" \
     '{command: [$cmd, "guard", "check"], kind: "deal", definition_digests: [$e, $s]}' > "$pin" || return 1
   capsulectl --profile deal profile update --rules-checker "$pin" >/dev/null
-  local rc=$?
+  rc=$?
   rm -f "$pin"
   return $rc
 }
+# A run that only sells has no rules checker: asg/seller/0.1.5 allows the rails card and p2p only, so it would pause every
+# workshop sale (x402, Lightning) for a person who is not there. Person-set limits could allow them (capsule-engine#314).
+unpin_rules_checker() { capsulectl --profile deal profile update --rules-checker "" >/dev/null; }
 
 # Install each bundled plugin into the volume when its installed version, or the archive it came from,
 # differs from this image's (the lexe-wallet fork build carries the same version as the release).

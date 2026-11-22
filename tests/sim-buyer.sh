@@ -14,6 +14,12 @@ capsulectl plugin install "$D/bin/capsulectl-book" >/dev/null
 deal init --dir "$T/.local/share/capsule-deal" --materiality builtin:neutral --no-witness >/dev/null
 export ST=$T/.devcon8; . "$D/lib/common.sh"
 pin_rules_checker || fail "could not pin the rules checker"
+# The two digests versions.lock pins are the packs the built checker reports for a buyer and for a seller.
+for role in buyer seller; do
+  want=$(. "$D/versions.lock"; if [ $role = buyer ]; then echo "$EVERYDAY_DEFINITION_DIGEST"; else echo "$SELLER_DEFINITION_DIGEST"; fi)
+  got=$(jq --arg r $role '.party_role = $r' "$D/tests/fixtures/rules-check-input.json" | "$D/bin/capsule-engine" guard check | jq -r .definition_digest)
+  [ "$got" = "$want" ] || fail "the checker's $role pack digest is $got, versions.lock pins $want"
+done
 
 SHOP=shop@agentboxnanda.org
 # The recipe pays the proposal's price_cents, at most 50: the full price and one below it.

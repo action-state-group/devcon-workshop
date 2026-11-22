@@ -56,8 +56,8 @@ BOOK_HISTORY_SHA256=c9f973afeb7ca5e970e13c712d0bd9020ebdadf65fc439116085dc5a2b9b
 
 # The rules checker pinned on the deal profile: `capsule-engine guard check` (capsule-engine#313), built from source in
 # the gobuild stage at this commit. It runs the pack by the deal's role: a buyer asg/everyday/0.3.8 (Everyday Rules), a
-# seller asg/seller/0.1.5. The definition digests are the packs' own; trade.sh pins them and tests/smoke.sh checks the
-# built binary reports the same two.
+# seller asg/seller/0.1.5. The definition digests are the packs' own; trade.sh pins them on a buying run and
+# tests/sim-buyer.sh checks the built binary reports the same two.
 CAPSULE_ENGINE_COMMIT=f93b7576ba3e8553713912faf61b24eb133aa873
 EVERYDAY_DEFINITION_DIGEST=ac7697061fd1c50177000648e2458f6236068679fc67ae924870ee8fb1cd8488
 SELLER_DEFINITION_DIGEST=81013aedbc3d930dcb9a4871d932373eca9de6968e5cff9fb450158d1fcc576a

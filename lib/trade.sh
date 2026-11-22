@@ -49,8 +49,17 @@ if ! capsulectl --profile deal deal list >/dev/null 2>&1; then
     || die "the deal profile exists but its store does not answer; move ~/.local/share/capsule-deal and the 'deal' profile aside (capsulectl profile --help), then run devcon8 trade again"
   echo "deal store ready: $HOME/.local/share/capsule-deal"
 fi
-pin_rules_checker \
-  || die "could not pin the rules checker on the deal profile; run devcon8 trade again, and if it repeats move the 'deal' profile aside (capsulectl profile --help)"
+# Everyday Rules run on a buying run (--buy or --want). A sell-only run has no rules checker, as before. The Studio layer
+# (TRADE_RECIPE) pins its own checker and keeps it.
+if [ -z "${TRADE_RECIPE:-}" ]; then
+  if [ -n "$buy$want" ]; then
+    pin_rules_checker \
+      || die "could not pin the rules checker on the deal profile; run devcon8 trade again, and if it repeats move the 'deal' profile aside (capsulectl profile --help)"
+    echo "Everyday Rules are on for this run: your deal checks run them (asg/everyday/0.3.8)."
+  else
+    unpin_rules_checker || die "could not clear the rules checker on the deal profile; run devcon8 trade again"
+  fi
+fi
 mkdir -p "$HOME/deals"
 cd "$HOME"
 if [ "$pay" = lexe ]; then

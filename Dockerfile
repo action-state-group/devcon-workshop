@@ -116,13 +116,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=fetch /fetch/opt/go /usr/local/go
 ENV PATH=/usr/local/go/bin:$PATH CGO_ENABLED=0 GOFLAGS=-trimpath GOTOOLCHAIN=local
 COPY examples/ /src/examples/
-# The rules checker the deal profile pins (trade.sh): `capsule-engine guard check`, built at the pinned commit.
-COPY versions.lock /src/versions.lock
-RUN . /src/versions.lock && GOBIN=/out GOFLAGS=-trimpath go install "github.com/action-state-group/capsule-engine/go/cmd/capsule-engine@$CAPSULE_ENGINE_COMMIT"
 RUN cd /src/examples/go-seal && go mod download && go mod vendor && go build -mod=vendor -o /out/go-seal .
 # s08 step 8's reconcile tool (demos/s08-liar/reconcile).
 COPY demos/s08-liar/reconcile/ /src/reconcile/
 RUN cd /src/reconcile && go build -o /out/reconcile-asked .
+# The rules checker the deal profile pins on a buying run (trade.sh): `capsule-engine guard check`, built at the pinned commit.
+COPY versions.lock /src/versions.lock
+RUN . /src/versions.lock && GOBIN=/out GOFLAGS=-trimpath go install "github.com/action-state-group/capsule-engine/go/cmd/capsule-engine@$CAPSULE_ENGINE_COMMIT"
 
 # --- goose: the pinned release commit plus patches/ (see versions.lock) -----------------------------
 # The release build (`cargo build --release -p goose-cli --bin goose`, as goose's build-cli-linux workflow)
@@ -179,6 +179,7 @@ COPY agent/fixtures/x402/ $D/agent/fixtures/x402/
 COPY README.md $D/README.md
 COPY tests/goose-approve/ $D/tests/goose-approve/
 COPY tests/goose-cancel/ $D/tests/goose-cancel/
+COPY tests/fixtures/ $D/tests/fixtures/
 COPY tests/smoke.sh tests/console-relay-serve.sh tests/goose-approve.sh tests/goose-cancel.sh tests/sim-payment.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/fake_sidecar.py tests/test_wallet.sh tests/s08-ci.sh tests/mbx-net.sh tests/recipe-prompt.sh $D/tests/
 # claude: the Claude Code CLI that claude-agent-acp's SDK bundles, so it ships once (package.json).
 RUN case "$TARGETARCH" in amd64) a=x64;; arm64) a=arm64;; esac \
