@@ -36,6 +36,7 @@ home() { # name: a participant's HOME with its deal store
   if [ "$1" = seller ]; then export DEVCON8_LEXE_API=http://127.0.0.1:$sport; else export DEVCON8_LEXE_API=http://127.0.0.1:$bport; fi
   capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
   deal init --dir "$HOME/.local/share/capsule-deal" --materiality builtin:neutral --no-witness >/dev/null
+  deal set-version x-deal-v0 >/dev/null   # x-deal-v1 is the default since rc50; these tests walk x-deal-v0 sales
 }
 caps() { jq -n --argjson p "$1" --argjson n "$2" --argjson t "$3" '{price_sats:$p,per_payment_sats:$n,total_sats:$t}' > "$HOME/.devcon8/lightning.json"; }
 

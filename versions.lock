@@ -32,25 +32,25 @@ LEXE_VERSION=v0.1.0
 LEXE_REPO=https://github.com/ethanyzhang/lexe-wallet-plugin
 LEXE_COMMIT=9f830c181b4042a81069df50752cf19d035a5047
 
-# capsulectl, the deal plugin and the book plugin: the paired rc46 releases (capsule-cli v0.1.0-rc46, and evidencebook tag capsulectl/v0.1.0-rc46, one release that carries both the deal and the book plugin since evidencebook#610; the plugins' handshake core_version must equal the core's; the same set the Muse plugin
+# capsulectl, the deal plugin and the book plugin: the paired rc50 releases (capsule-cli v0.1.0-rc50, and evidencebook tag capsulectl/v0.1.0-rc50, one release that carries both the deal and the book plugin since evidencebook#610; the plugins' handshake core_version must equal the core's; the same set the Muse plugin
 # pins). Moved from rc37 to run the rules checker below (the checker's input and result schemas are evidencebook's at rc46; rc46 moved the deal plugin from evidencebook-deal into evidencebook with the same assets and digests). What each rc added up to rc37: since rc29 the deal plugin seals a Lightning payment_received with its preimage (evidencebook-deal#90, on evidencebook
 # v0.12.1), which `devcon8 trade --pay lexe` needs; it carries `deal terms-leg` (evidencebook-deal#70). Since rc33 a Lightning
 # deal's receipt reads in msat (terms currency BTC, amount_minor in msat: evidencebook-deal#133). Since rc34 (evidencebook v0.13.5)
 # `deal standard-history card` prices such a deal as BTC at assetScale 11 instead of refusing it (evidencebook#388). Since rc35 the book plugin's History card module is capsule-viewer 0.18.2
 # (the "Everything on the card" fold-out has a gap under the card: capsule-viewer#283). Since rc36 the deal plugin seals a dispute and a ruling (`deal note --kind dispute|ruling`, evidencebook-deal#151) and the History card's disputes tally reads them. Since rc37 the deal card names a terms pack's row in the pack's words (evidencebook-deal#158) and the book plugin's History card module is capsule-viewer 0.18.3 (rounded PRIVATE notice, gap under the checks line: capsule-viewer#298).
-CAPSULECTL_VERSION=v0.1.0-rc46
-CAPSULECTL_SHA256_AMD64=d913ce7a475277e31b8a20035dfb33aba6f4b799f9967119d9ec9f7656200d1b
-CAPSULECTL_SHA256_ARM64=5ab3cf71fffa91741ebe8f66263e7f354dd94497a5925bb52ae7b759cb793062
-DEAL_VERSION=v0.1.0-rc46
-DEAL_SHA256_AMD64=559194c187a16f7f7ab45b57e8b5968d03112ca0ad3737dc95a65b3771a06cc2
-DEAL_SHA256_ARM64=3018ebf0c6b8cd7c55f9106c1a51f9a012bc74c7d278b79e715972c99354529d
-DEAL_SKILL_SHA256=3f1d8c5c404702e0b07a4c546b2db27820006404af9a402f0345909b7785f327
+CAPSULECTL_VERSION=v0.1.0-rc50
+CAPSULECTL_SHA256_AMD64=2e5f652152d751c4220820747318f5d05f6107c012134dfd813d53aac0479270
+CAPSULECTL_SHA256_ARM64=9829b6e6a0f1e10c958ab3b4fc20be879937a9b98c8fad0fffb1f42bb01d4e13
+DEAL_VERSION=v0.1.0-rc50
+DEAL_SHA256_AMD64=a3182fdada2bb58fd88674c37f46d5915cf30c743176e9e06937684003f00377
+DEAL_SHA256_ARM64=cc90c24a428009dda6d0f3f7d74e491000fc083e71b12327e117c8ebec4ec492
+DEAL_SKILL_SHA256=6406e0cbdca9413f9052191d6159bb7da469f4867fe0c8baf1a557ac6ec7a2cb
 # The plugins' presentation assets (capsulectl-deal.d/, standard-history-module/), unpacked beside the binaries; without
 # them `presentation build` refuses both modules and writes the generic page. One archive each, same for both architectures.
 DEAL_VIEW_SHA256=9c63cf4ff16c7f517ca52d59efb3bd1d85c83529ba667b0b03ff458d5f373ee5
-BOOK_VERSION=v0.1.0-rc46
-BOOK_SHA256_AMD64=8876fe8295fae79aa5a28cf96f5c73a4e61fe8dcb9ea15e866e901ebd5780e52
-BOOK_SHA256_ARM64=0440b4a03007d970cd543f0536d017780b5c77afb3a929fca13d40e004d4c74b
+BOOK_VERSION=v0.1.0-rc50
+BOOK_SHA256_AMD64=e6007cf27158d5fe107b9a5a443fb20a9937faddc3ebab50798ce66a7c4a2f18
+BOOK_SHA256_ARM64=698f7d50178e37d5ebfb7824f7587313c4cf7b5a36e8b458696c2c9f788c377b
 BOOK_HISTORY_SHA256=c9f973afeb7ca5e970e13c712d0bd9020ebdadf65fc439116085dc5a2b9bb1c8
 
 # The rules checker pinned on the deal profile: `capsule-engine guard check` (capsule-engine#313), built from source in

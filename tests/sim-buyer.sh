@@ -12,6 +12,7 @@ deal() { capsulectl --profile deal deal "$@"; }
 capsulectl plugin install "$D/bin/capsulectl-deal" >/dev/null
 capsulectl plugin install "$D/bin/capsulectl-book" >/dev/null
 deal init --dir "$T/.local/share/capsule-deal" --materiality builtin:neutral --no-witness >/dev/null
+deal set-version x-deal-v0 >/dev/null   # x-deal-v1 is the default since rc50; these tests walk x-deal-v0 sales
 export ST=$T/.devcon8; . "$D/lib/common.sh"
 pin_rules_checker || fail "could not pin the rules checker"
 # The two digests versions.lock pins are the packs the built checker reports for a buyer and for a seller.
