@@ -49,6 +49,11 @@ if ! capsulectl --profile deal deal list >/dev/null 2>&1; then
     || die "the deal profile exists but its store does not answer; move ~/.local/share/capsule-deal and the 'deal' profile aside (capsulectl profile --help), then run devcon8 trade again"
   echo "deal store ready: $HOME/.local/share/capsule-deal"
 fi
+# x-deal-v1 is the default since capsulectl rc50; the workshop's trade walks an x-deal-v0 sale (deal sale new), so the profile is set to x-deal-v0, new or existing.
+# (A deal plugin older than rc50, such as the Studio layer base image's, has no set-version and writes x-deal-v0 already.)
+if capsulectl --profile deal deal set-version --help >/dev/null 2>&1; then
+  capsulectl --profile deal deal set-version x-deal-v0 >/dev/null || die "could not set the deal profile to x-deal-v0; run devcon8 trade again"
+fi
 # Everyday Rules run on a buying run (--buy or --want). A sell-only run has no rules checker, as before. The Studio layer
 # (TRADE_RECIPE) pins its own checker and keeps it.
 if [ -z "${TRADE_RECIPE:-}" ]; then
