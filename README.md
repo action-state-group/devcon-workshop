@@ -711,10 +711,15 @@ Build it yourself: `docker buildx build --platform linux/arm64 -t devcon-worksho
 
 ## Publishing the image (maintainers)
 
-A push to `main` builds the image and runs every test, then stops: the `publish` job in
+A push to `main` that changes an input of the image (its `push: paths:` list), or a manual run of that workflow on `main`
+(a manual run on another branch builds and tests only), builds the image and runs every test, then stops: the `publish` job in
 `.github/workflows/image.yml` waits for approval under the `image-release` environment (Settings, Environments;
 required reviewers ethanyzhang and StevenMih, either one suffices; administrators cannot bypass). Open the run in the Actions tab, choose "Review deployments", select
 `image-release` and approve. Only then are the per-architecture tags, the multi-arch tag and `latest` pushed,
 from the same image bytes the tests ran against. Rejecting the run publishes nothing, and `latest`
 stays where it was. Reject a run you will not publish: publishes are serialized, so an unanswered approval holds back every later one. Approve within 14 days: the tested images are kept as run artifacts that long, and after that
 the run must be rebuilt. This workflow moves `latest` only from the approved `publish` job.
+A push that changes nothing the image reads (for example only `WORKSHOP.md`, `docs/` or `studio/`) starts
+no image run. To build and publish main as it is now, run the workflow by hand: in the Actions tab choose
+"image", then "Run workflow" on `main` (or `gh workflow run image.yml --ref main`). It builds the head of
+`main`, which includes every earlier commit, and stops at the same approval.

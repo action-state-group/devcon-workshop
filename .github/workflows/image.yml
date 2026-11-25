@@ -5,12 +5,40 @@ name: image
 # tag per architecture plus a multi-arch manifest list, which a moving `latest` tag also points at:
 #   ghcr.io/action-state-group/devcon-workshop:YYYYMMDD-ml<lab commit>-cap<capsules version>-b<build>.<run>
 # `publish` runs under the `image-release` environment and waits for a reviewer's approval, so a
-# push to main alone publishes nothing and never moves `latest`. Pull requests build and test only.
+# push to main alone publishes nothing and never moves `latest`.
+#
+# Pull requests run only `unit` (asg-agent-team-ethan#409). The two image builds and the in-image
+# tests after them (about 80 to 110 minutes each) run on push to main when an input of the image
+# changed (the `paths:` list below) and on a manual dispatch. Locally, `scripts/check.sh` builds
+# and tests the arm64 image unless a branch changes only paths on its non-image list (CONTRIBUTING.md);
+# amd64 is built and tested only here, on main, before `image-release`. There is no nightly:
+# PUBLISH and `publish` accept any non-PR event on main, so a schedule would ask to publish. A red
+# main run, pushed or manual, opens or comments on one `ci-red` issue (`report-failure`).
 
 on:
   pull_request:
   push:
     branches: [main]
+    # Everything the Dockerfile copies or the jobs below read. Only WORKSHOP.md, docs/, studio/ (its
+    # own workflow) and the other workflows are left out.
+    paths:
+      - .github/workflows/image.yml
+      - .github/scripts/report-failure.sh
+      - Dockerfile
+      - .dockerignore
+      - versions.lock
+      - package.json
+      - package-lock.json
+      - README.md
+      - agent/**
+      - bin/**
+      - build/**
+      - demos/**
+      - examples/**
+      - lib/**
+      - patches/**
+      - scripts/**
+      - tests/**
   workflow_dispatch:
 
 permissions:
@@ -30,48 +58,17 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: shellcheck
-        run: shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/goose-approve.sh tests/goose-cancel.sh tests/sim-payment.sh tests/s08-ci.sh tests/test_wallet.sh tests/mbx-net.sh tests/test_nanda.sh tests/test_nanda_offer.sh tests/test_offer_gate.sh tests/test_trade_protocol.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/recipe-prompt.sh build/fetch.sh build/usb.sh
-      - name: mbx unit tests
-        run: python3 -I tests/test_mbx.py
-      - name: offers unit tests (fake NANDA Index, catalog and mailbox; no send before the user picks)
-        run: python3 -I tests/test_offers.py
-      - name: lightning unit tests (fake wallet API, no money moves)
-        run: python3 -I tests/test_lightning.py
-      - name: nanda against a fake gateway
-        run: bash tests/test_nanda.sh
-      - name: nanda offer against a fake gateway and Index
-        run: bash tests/test_nanda_offer.sh
-      - name: no payment while the proposal mismatches the picked offer
-        run: bash tests/test_offer_gate.sh
-      - name: trade messages against a fake gateway with the real conversation rule
-        run: bash tests/test_trade_protocol.sh
+      # The shellcheck call and the python and bash unit tests: the unit tier of the local check.
+      - name: unit (scripts/check.sh --unit)
+        run: scripts/check.sh --unit
 
   meta:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      build: ${{ steps.changes.outputs.build }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      # The two image builds take about 80 minutes each. A pull request that changes only docs (README.md,
-      # WORKSHOP.md, docs/) skips them: the README is copied into the image but no test reads it, and the
-      # push to main that follows always builds. Anything else, including demos/**.md, still builds.
-      - name: Does this change need an image build?
-        id: changes
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-        run: |
-          build=true
-          if [ "${{ github.event_name }}" = pull_request ]; then
-            files=$(git diff --name-only "$BASE" "$GITHUB_SHA")
-            echo "$files"
-            if ! echo "$files" | grep -qv -E '^(README\.md|WORKSHOP\.md|docs/.*)$'; then build=false; fi
-          fi
-          echo "build=$build" >> "$GITHUB_OUTPUT"
-          echo "build: $build"
       - name: Tag (one value for both architectures)
         id: tag
         run: |
@@ -82,7 +79,8 @@ jobs:
 
   build:
     needs: [unit, meta]
-    if: needs.meta.outputs.build == 'true'
+    # Never on a pull request (see the top of this file).
+    if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -147,77 +145,13 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
 
-      - name: Size
-        run: |
-          df -h / /mnt
-          bytes=$(docker image inspect devcon-workshop:ci --format '{{.Size}}')
-          echo "uncompressed: $(( bytes / 1024 / 1024 )) MiB"
-          # Reviewed 2026-10-31 at 3.3 GiB (design section 4 asks for review over 3 GB), when models 1.1G (since moved out to `devcon8 models`) and the
-          # agent CLIs 0.7G after shipping each once, goose 0.2G, Go 0.3G plus go-seal's vendored modules
-          # 0.14G, mesh-llm and plugins 0.2G. S08 now shares the host build. Anything beyond this needs review.
-          [ "$bytes" -le $(( 3584 * 1024 * 1024 )) ] || { echo "over 3.5 GiB: review before shipping"; exit 1; }
+      - name: Disk after the build
+        run: df -h / /mnt
 
-      - name: Secret scan (negative test first, then the image)
-        run: |
-          for neg in Dockerfile env.Dockerfile key.Dockerfile; do
-            docker build -q -t dw-scan-neg -f "tests/secret-scan/$neg" tests/secret-scan
-            docker save dw-scan-neg -o /tmp/neg.tar
-            if python3 -I build/secret-scan.py /tmp/neg.tar; then echo "the scanner missed the secret in $neg"; exit 1; fi
-          done
-          docker save devcon-workshop:ci -o /tmp/image.tar
-          python3 -I build/secret-scan.py /tmp/image.tar
-          rm -f /tmp/image.tar /tmp/neg.tar
-
-      - name: Smoke tests
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/smoke.sh
-      - name: goose approve mode shows each card once (patched goose, mock ACP agent)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/goose-approve.sh
-      - name: Ctrl-C cancels the agent turn and the next line reaches it (patched goose, mock ACP agent)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/goose-cancel.sh
-
-      - name: The trader reaches the NANDA Index (no Cloudflare 403)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/mbx-net.sh
-
-      - name: Simulated payment seals on a test network
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-payment.sh
-
-      - name: The buyer's pay is checked with the shop as payee
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-buyer.sh
-
-      - name: Lightning payment against a fake wallet (caps, paused pay, payment_received, no preimage kept)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-lightning.sh
-
-      - name: The lexe wallet command and sidecar lifecycle against a fake sidecar (asks first, 0600 seed, signs up once, backup reminder)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/test_wallet.sh
-
-      - name: The recipe's protocol reaches the model, in the right payment mode (both modes rendered; sent through claude-acp)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/recipe-prompt.sh
-
-      - name: The published console port serves the management routes (the relay)
-        run: |
-          id=$(docker run -d -p 127.0.0.1:3141:3132 devcon-workshop:ci /opt/devcon8/tests/console-relay-serve.sh)
-          code=000
-          for _ in $(seq 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' -m 3 http://127.0.0.1:3141/api/plugins || true)
-            [ "$code" = 200 ] && break; sleep 2
-          done
-          [ "$code" = 200 ] || { docker logs "$id"; docker exec "$id" sh -c 'cat /tmp/dw-*/run.log /tmp/dw-*/.devcon8/relay.log' || true; }
-          docker rm -f "$id" >/dev/null
-          [ "$code" = 200 ] || { echo "/api/plugins through the published port: HTTP $code"; exit 1; }
-
-      - name: S08 in the container (start, console through the published port, lie, twins, referee, stop)
-        timeout-minutes: 45
-        run: |
-          id=$(docker run -d -e S08_CI_HOLD=1 -p 127.0.0.1:9614:9624 devcon-workshop:ci /opt/devcon8/tests/s08-ci.sh)
-          until docker exec "$id" test -e /tmp/s08-started 2>/dev/null; do
-            [ "$(docker inspect -f '{{.State.Running}}' "$id")" = true ] || { docker logs "$id"; exit 1; }
-            sleep 5
-          done
-          code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 http://127.0.0.1:9614/api/plugins || true)
-          docker exec "$id" touch /tmp/s08-continue
-          rc=$(docker wait "$id"); docker logs "$id"; docker rm "$id" >/dev/null
-          [ "$code" = 200 ] || { echo "s08 asker /api/plugins through the published port: HTTP $code"; exit 1; }
-          [ "$rc" = 0 ] || { echo "s08-ci exited $rc"; exit 1; }
+      # The size check, the secret scan with its negative test, the in-image tests, the console relay and
+      # S08 (bounded at 45 minutes). The local check's image tier runs the same code on arm64.
+      - name: Image tests (scripts/check.sh --image-tests)
+        run: scripts/check.sh --image-tests devcon-workshop:ci
 
       # Nothing is published from here: the tested image is handed to the `publish` job, which waits
       # for approval. The same bytes that passed the tests above are what gets pushed.
@@ -281,3 +215,25 @@ jobs:
           docker buildx imagetools inspect "$IMAGE:$tag" | tee /tmp/inspect
           echo "### $IMAGE:$tag" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"; cat /tmp/inspect >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  # A red main run (a push or a manual run on main) reaches a person the same day: it opens or comments
+  # on one `ci-red` issue. It does not wait for `publish`, which parks on a reviewer's approval. A
+  # cancelled run is not reported.
+  report-failure:
+    name: report a red main run
+    needs: [unit, meta, build]
+    if: failure() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report on the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: "image failed on main"
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ASSIGNEE: ${{ vars.CI_FAILURE_ASSIGNEE }}
+        run: bash .github/scripts/report-failure.sh
