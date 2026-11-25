@@ -9,8 +9,8 @@ name: image
 #
 # Pull requests run only `unit` (asg-agent-team-ethan#409). The two image builds and the in-image
 # tests after them (about 80 to 110 minutes each) run on push to main when an input of the image
-# changed (the `paths:` list below) and on a manual dispatch. Locally, `scripts/check.sh` reads
-# that list and builds and tests the arm64 image when a branch changes an input (CONTRIBUTING.md);
+# changed (the `paths:` list below) and on a manual dispatch. Locally, `scripts/check.sh` builds
+# and tests the arm64 image unless a branch changes only paths on its non-image list (CONTRIBUTING.md);
 # amd64 is built and tested only here, on main, before `image-release`. There is no nightly:
 # PUBLISH and `publish` accept any non-PR event on main, so a schedule would ask to publish. A red
 # main run, pushed or manual, opens or comments on one `ci-red` issue (`report-failure`).

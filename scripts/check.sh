@@ -2,17 +2,19 @@
 # The repository's local check (CONTRIBUTING.md, asg-agent-team-ethan#409), and the one home of the
 # image tests that image.yml's build job runs.
 #
-#   scripts/check.sh                    the check before every push. Runs the unit tier, then, when
-#                                       this branch changes an input of the image, the image tier
-#                                       too. "Changes" means a path in the diff from the merge base
-#                                       with origin/main to HEAD, or an uncommitted or untracked
-#                                       path, that matches image.yml's `on.push.paths` list (read
-#                                       from the workflow, so the list has one home; both sides of a
-#                                       rename count).
+#   scripts/check.sh                    the check before every push. Runs the unit tier, then the
+#                                       image tier too unless every changed path is on the fixed
+#                                       list of non-image paths below (`non_image_path`). Changed
+#                                       paths are the diff from the merge base with origin/main to
+#                                       HEAD (both sides of a rename, deletions included) and every
+#                                       uncommitted or untracked file, read NUL-delimited, so no name
+#                                       can be quoted or split into a skip.
 #   scripts/check.sh --unit             the unit tier only: the shellcheck call and the python and
 #                                       bash unit tests. image.yml's `unit` job runs this. Needs bash,
 #                                       python3 and shellcheck.
 #   scripts/check.sh --full             the unit tier and the image tier, whatever changed.
+#   scripts/check.sh --self-test        only the self-test of that rule, on throwaway git
+#                                       repositories (the unit tier runs it too).
 #   scripts/check.sh --image-tests TAG  only the image tests, on an image already built as TAG: the
 #                                       size check, the secret scan with its negative test, the
 #                                       in-image tests, the console relay and S08. image.yml's build
@@ -34,12 +36,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-usage() { echo "usage: scripts/check.sh [--unit | --full | --image-tests TAG]" >&2; exit 2; }
+usage() { echo "usage: scripts/check.sh [--unit | --full | --self-test | --image-tests TAG]" >&2; exit 2; }
 mode=auto
 case "${1:-}" in
   "") [ $# -eq 0 ] || usage ;;
   --unit) [ $# -eq 1 ] || usage; mode=unit ;;
   --full) [ $# -eq 1 ] || usage; mode=full ;;
+  --self-test) [ $# -eq 1 ] || usage; mode=self-test ;;
   --image-tests) [ $# -eq 2 ] || usage; mode=image; tag=$2 ;;
   *) usage ;;
 esac
@@ -63,54 +66,105 @@ unit_tests() {
   bash tests/test_offer_gate.sh
   step "trade messages against a fake gateway with the real conversation rule"
   bash tests/test_trade_protocol.sh
+  step "self-test of the image-input rule"
+  self_test
 }
 
-# Prints the changed paths that match image.yml's on.push.paths list, one per line. Fails when the
-# list cannot be read or origin/main is missing, so a broken rule never skips the image tier quietly.
-image_inputs_changed() {
-  local base
-  base=$(git merge-base HEAD origin/main) || { echo "check.sh: no merge base with origin/main; run git fetch origin" >&2; return 2; }
-  {
-    git diff --name-only --no-renames "$base" HEAD
-    git diff --name-only --no-renames HEAD
-    git ls-files --others --exclude-standard
-  } | python3 -I -c '
-import re, sys
-lines = open(".github/workflows/image.yml").read().split("\n")
-globs, state = [], None
-for l in lines:
-    if re.match(r"^on:\s*$", l): state = "on"; continue
-    if state and re.match(r"^\S", l): break
-    if state in ("on", "push", "paths") and re.match(r"^  \S", l):
-        state = "push" if re.match(r"^  push:\s*$", l) else "on"; continue
-    if state in ("push", "paths") and re.match(r"^    paths:\s*$", l): state = "paths"; continue
-    if state == "paths":
-        m = re.match(r"^      - (\S+)\s*$", l)
-        if m: globs.append(m.group(1).strip("\"\x27")); continue
-        if re.match(r"^    \S", l): state = "push"
-if not globs:
-    sys.exit("check.sh: cannot read on.push.paths from .github/workflows/image.yml")
-# GitHub filter globs: ** matches any characters, * any characters but /.
-rx = re.compile("^(" + "|".join(re.escape(g).replace(r"\*\*", "\x01").replace(r"\*", "[^/]*").replace("\x01", ".*") for g in globs) + ")$")
-for p in sorted(set(sys.stdin.read().split("\n"))):
-    if p and rx.match(p): print(p)
-'
+# The paths no image build reads: the complement of image.yml's `on.push.paths` list that can be
+# defended without parsing it (the Dockerfile copies none of these, and no job in image.yml reads
+# them). A path not on this list counts as an image input, so a missing entry costs a build, never
+# a skipped one. Keep it in step with image.yml's list by hand.
+non_image_path() {
+  case "$1" in
+    .github/workflows/image.yml) return 1 ;;
+    WORKSHOP.md | CONTRIBUTING.md | docs/* | studio/* | .github/workflows/*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
+
+# Prints (shell-quoted, one per line) each changed path that is not on the non-image list, in the
+# git repository of the current directory. Fails when a git command fails, so an error never skips
+# the image tier.
+image_paths_changed() {
+  local base list f
+  base=$(git merge-base HEAD origin/main) || { echo "check.sh: no merge base with origin/main; run git fetch origin" >&2; return 2; }
+  list=$(mktemp)
+  # The three commands one by one, each checked, into one NUL-delimited list.
+  if ! { git diff -z --name-only --no-renames "$base" HEAD > "$list" &&
+    git diff -z --name-only --no-renames HEAD >> "$list" &&
+    git ls-files -z --others --exclude-standard >> "$list"; }; then
+    rm -f "$list"
+    echo "check.sh: git failed listing changed paths" >&2
+    return 2
+  fi
+  while IFS= read -r -d '' f; do
+    non_image_path "$f" || printf '%q\n' "$f"
+  done < "$list"
+  rm -f "$list"
+}
+
+# The rule's self-test: each case is a branch in a throwaway repository with origin/main set.
+self_test() {
+  local root fails=0
+  root=$(mktemp -d)
+  g() { git -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
+  # case NAME EXPECT(unit|build) SETUP: SETUP runs in a fresh clone of the base repository.
+  case_() {
+    local name=$1 want=$2 setup=$3 repo got out
+    repo="$root/$RANDOM$RANDOM"
+    git clone -q "$root/base" "$repo"
+    (cd "$repo" && git update-ref refs/remotes/origin/main HEAD && git checkout -q -b case && eval "$setup") >/dev/null
+    out=$(cd "$repo" && image_paths_changed) || { echo "FAIL $name: the rule failed"; fails=$((fails + 1)); return; }
+    if [ -n "$out" ]; then got=build; else got=unit; fi
+    if [ "$got" = "$want" ]; then echo "ok   $name -> $got"; else echo "FAIL $name -> $got, want $want: $out"; fails=$((fails + 1)); fi
+  }
+  mkdir -p "$root/base/docs" "$root/base/tests" "$root/base/lib"
+  (
+    cd "$root/base" && git init -q -b main . &&
+      echo a > docs/a.md && echo t > tests/t.sh && echo l > lib/l.sh && echo w > WORKSHOP.md &&
+      g add . && g commit -q -m base
+  )
+  local nl=$'\n' tab=$'\t'
+  case_ "docs only" unit 'echo b >> docs/a.md && echo w >> WORKSHOP.md && g commit -qam x'
+  case_ "non-ASCII name in docs/" unit 'echo x > docs/é.md && g add . && g commit -qm x'
+  case_ "tab in a name in docs/" unit "echo x > 'docs/a${tab}b.md' && g add . && g commit -qm x"
+  case_ "newline in a name in docs/" unit "echo x > 'docs/a${nl}b.md' && g add . && g commit -qm x"
+  case_ "non-ASCII name in tests/" build 'echo x > tests/é.json && g add . && g commit -qm x'
+  case_ "tab in a name in tests/" build "echo x > 'tests/a${tab}b.json' && g add . && g commit -qm x"
+  case_ "newline in a name in tests/" build "echo x > 'tests/a${nl}b.json' && g add . && g commit -qm x"
+  case_ "newline name in tests/ that ends like docs/" build "mkdir 'tests/x${nl}docs' && echo x > 'tests/x${nl}docs/y.md' && g add . && g commit -qm x"
+  case_ "rename from docs/ into tests/" build 'g mv docs/a.md tests/a.md && g commit -qm x'
+  case_ "deleted image input" build 'g rm -q lib/l.sh && g commit -qm x'
+  case_ "uncommitted change to an image input" build 'echo y >> lib/l.sh'
+  case_ "untracked image input" build 'echo y > lib/new.sh'
+  case_ "other workflow only" unit 'mkdir -p .github/workflows && echo x > .github/workflows/studio.yml && g add . && g commit -qm x'
+  case_ "image.yml" build 'mkdir -p .github/workflows && echo x > .github/workflows/image.yml && g add . && g commit -qm x'
+  rm -rf "$root"
+  [ "$fails" -eq 0 ] || { echo "self-test: $fails case(s) failed"; return 1; }
+  echo "self-test passed"
+}
+
+if [ "$mode" = self-test ]; then
+  step "self-test of the image-input rule"
+  self_test
+  exit 0
+fi
 
 if [ "$mode" = auto ]; then
-  changed=$(image_inputs_changed)
+  changed=$(image_paths_changed)
   if [ -n "$changed" ]; then
-    step "this branch changes inputs of the image, so the image tier runs too:"
+    step "this branch changes paths outside the non-image list, so the image tier runs too:"
     printf '%s\n' "$changed"
     mode=full
   else
     mode=unit
+    why="; every changed path is on the non-image list"
   fi
 fi
 
 if [ "$mode" = unit ]; then
   unit_tests
-  step "check passed (unit tier; no input of the image changed)"
+  step "check passed (unit tier${why:-})"
   exit 0
 fi
 
