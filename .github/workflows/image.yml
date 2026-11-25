@@ -9,8 +9,9 @@ name: image
 #
 # Pull requests run only `unit` (asg-agent-team-ethan#409). The two image builds and the in-image
 # tests after them (about 80 to 110 minutes each) run on push to main when an input of the image
-# changed (the `paths:` list below) and on a manual dispatch; contributors run `scripts/check.sh
-# --full` before pushing a change to the image's inputs (CONTRIBUTING.md). There is no nightly:
+# changed (the `paths:` list below) and on a manual dispatch. Locally, `scripts/check.sh` reads
+# that list and builds and tests the arm64 image when a branch changes an input (CONTRIBUTING.md);
+# amd64 is built and tested only here, on main, before `image-release`. There is no nightly:
 # PUBLISH and `publish` accept any non-PR event on main, so a schedule would ask to publish. A red
 # main run, pushed or manual, opens or comments on one `ci-red` issue (`report-failure`).
 
@@ -57,9 +58,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      # shellcheck and the python and bash unit tests; the same command is the local `check` tier.
-      - name: unit (scripts/check.sh)
-        run: scripts/check.sh
+      # The shellcheck call and the python and bash unit tests: the unit tier of the local check.
+      - name: unit (scripts/check.sh --unit)
+        run: scripts/check.sh --unit
 
   meta:
     if: github.event_name != 'pull_request'
@@ -148,7 +149,7 @@ jobs:
         run: df -h / /mnt
 
       # The size check, the secret scan with its negative test, the in-image tests, the console relay and
-      # S08 (bounded at 45 minutes). The same script is the local `scripts/check.sh --full`.
+      # S08 (bounded at 45 minutes). The local check's image tier runs the same code on arm64.
       - name: Image tests (scripts/check.sh --image-tests)
         run: scripts/check.sh --image-tests devcon-workshop:ci
 

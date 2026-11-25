@@ -1,29 +1,44 @@
 #!/usr/bin/env bash
-# The repository's local check, in two tiers (CONTRIBUTING.md, asg-agent-team-ethan#409), and the
-# one home of the image tests that image.yml's build job runs.
+# The repository's local check (CONTRIBUTING.md, asg-agent-team-ethan#409), and the one home of the
+# image tests that image.yml's build job runs.
 #
-#   scripts/check.sh                    the `unit` job of image.yml, which runs this same command:
-#                                       the shellcheck call and the python and bash unit tests.
-#                                       Needs shellcheck, python3 and bash.
-#   scripts/check.sh --full             the unit tier, then builds the image for this machine's
-#                                       native architecture only (arm64 on an Apple-silicon Mac; it
-#                                       does not build amd64) and runs --image-tests on it. Needs
-#                                       Docker with buildx, curl and network access for the build.
+#   scripts/check.sh                    the check before every push. Runs the unit tier, then, when
+#                                       this branch changes an input of the image, the image tier
+#                                       too. "Changes" means a path in the diff from the merge base
+#                                       with origin/main to HEAD, or an uncommitted or untracked
+#                                       path, that matches image.yml's `on.push.paths` list (read
+#                                       from the workflow, so the list has one home; both sides of a
+#                                       rename count).
+#   scripts/check.sh --unit             the unit tier only: the shellcheck call and the python and
+#                                       bash unit tests. image.yml's `unit` job runs this. Needs bash,
+#                                       python3 and shellcheck.
+#   scripts/check.sh --full             the unit tier and the image tier, whatever changed.
 #   scripts/check.sh --image-tests TAG  only the image tests, on an image already built as TAG: the
 #                                       size check, the secret scan with its negative test, the
 #                                       in-image tests, the console relay and S08. image.yml's build
 #                                       job runs this after its build.
 #
+# The image tier builds linux/arm64 only (native on an Apple-silicon Mac) and runs --image-tests on
+# it. It needs Docker with buildx, curl and network access for the build.
+#
+# Exception (coordinator ruling, asg-agent-team-ethan#409): no local tier and no pull request builds
+# amd64. What it skips: the amd64 image build and its in-image tests. Why: it cannot practically run
+# on Apple silicon (emulated), and it takes 80 to 110 minutes per run on CI. Where it is caught:
+# image.yml's run on main builds and tests both architectures before the `image-release` approval,
+# so nothing untested on amd64 is published, and a red main run opens or comments on a `ci-red`
+# issue (its `report-failure` job).
+#
 # Exits non-zero at the first failure. Images and containers it creates carry a per-run tag or name
 # and are removed, with their anonymous volumes, on exit; an image passed as TAG is kept. The build
-# cache of --full stays in Docker (`docker builder prune` reclaims it). Nothing else is touched.
+# cache stays in Docker (`docker builder prune` reclaims it). Nothing else is touched.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-usage() { echo "usage: scripts/check.sh [--full | --image-tests TAG]" >&2; exit 2; }
-mode=unit
+usage() { echo "usage: scripts/check.sh [--unit | --full | --image-tests TAG]" >&2; exit 2; }
+mode=auto
 case "${1:-}" in
   "") [ $# -eq 0 ] || usage ;;
+  --unit) [ $# -eq 1 ] || usage; mode=unit ;;
   --full) [ $# -eq 1 ] || usage; mode=full ;;
   --image-tests) [ $# -eq 2 ] || usage; mode=image; tag=$2 ;;
   *) usage ;;
@@ -50,9 +65,52 @@ unit_tests() {
   bash tests/test_trade_protocol.sh
 }
 
+# Prints the changed paths that match image.yml's on.push.paths list, one per line. Fails when the
+# list cannot be read or origin/main is missing, so a broken rule never skips the image tier quietly.
+image_inputs_changed() {
+  local base
+  base=$(git merge-base HEAD origin/main) || { echo "check.sh: no merge base with origin/main; run git fetch origin" >&2; return 2; }
+  {
+    git diff --name-only --no-renames "$base" HEAD
+    git diff --name-only --no-renames HEAD
+    git ls-files --others --exclude-standard
+  } | python3 -I -c '
+import re, sys
+lines = open(".github/workflows/image.yml").read().split("\n")
+globs, state = [], None
+for l in lines:
+    if re.match(r"^on:\s*$", l): state = "on"; continue
+    if state and re.match(r"^\S", l): break
+    if state in ("on", "push", "paths") and re.match(r"^  \S", l):
+        state = "push" if re.match(r"^  push:\s*$", l) else "on"; continue
+    if state in ("push", "paths") and re.match(r"^    paths:\s*$", l): state = "paths"; continue
+    if state == "paths":
+        m = re.match(r"^      - (\S+)\s*$", l)
+        if m: globs.append(m.group(1).strip("\"\x27")); continue
+        if re.match(r"^    \S", l): state = "push"
+if not globs:
+    sys.exit("check.sh: cannot read on.push.paths from .github/workflows/image.yml")
+# GitHub filter globs: ** matches any characters, * any characters but /.
+rx = re.compile("^(" + "|".join(re.escape(g).replace(r"\*\*", "\x01").replace(r"\*", "[^/]*").replace("\x01", ".*") for g in globs) + ")$")
+for p in sorted(set(sys.stdin.read().split("\n"))):
+    if p and rx.match(p): print(p)
+'
+}
+
+if [ "$mode" = auto ]; then
+  changed=$(image_inputs_changed)
+  if [ -n "$changed" ]; then
+    step "this branch changes inputs of the image, so the image tier runs too:"
+    printf '%s\n' "$changed"
+    mode=full
+  else
+    mode=unit
+  fi
+fi
+
 if [ "$mode" = unit ]; then
   unit_tests
-  step "check passed"
+  step "check passed (unit tier; no input of the image changed)"
   exit 0
 fi
 
@@ -70,11 +128,8 @@ trap cleanup EXIT
 
 if [ "$mode" = full ]; then
   unit_tests
-  case "$(uname -m)" in
-    arm64 | aarch64) arch=arm64 ;;
-    x86_64 | amd64) arch=amd64 ;;
-    *) echo "unsupported architecture $(uname -m)" >&2; exit 1 ;;
-  esac
+  # arm64 only, on every machine: amd64 is built and tested only by image.yml's run on main.
+  arch=arm64
   tag="devcon-workshop:check-$id"
   built=$tag
   step "build the image for linux/$arch (the build job's build arguments)"
@@ -160,7 +215,7 @@ docker rm -fv "$c" >/dev/null
 [ "$rc" = 0 ] || { echo "s08-ci exited $rc"; exit 1; }
 
 if [ "$mode" = full ]; then
-  step "check --full passed (linux/$arch only; amd64 is built and tested only by the main run)"
+  step "check passed with the image tier (linux/$arch only; amd64 is built and tested only by the main run)"
 else
   step "image tests passed on $tag"
 fi
