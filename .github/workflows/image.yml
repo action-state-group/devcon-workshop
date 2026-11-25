@@ -12,7 +12,7 @@ name: image
 # changed (the `paths:` list below) and on a manual dispatch; contributors run `scripts/check.sh
 # --full` before pushing a change to the image's inputs (CONTRIBUTING.md). There is no nightly:
 # PUBLISH and `publish` accept any non-PR event on main, so a schedule would ask to publish. A red
-# main run opens or comments on one `ci-red` issue (`report-failure`).
+# main run, pushed or manual, opens or comments on one `ci-red` issue (`report-failure`).
 
 on:
   pull_request:
@@ -144,77 +144,13 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
 
-      - name: Size
-        run: |
-          df -h / /mnt
-          bytes=$(docker image inspect devcon-workshop:ci --format '{{.Size}}')
-          echo "uncompressed: $(( bytes / 1024 / 1024 )) MiB"
-          # Reviewed 2026-10-31 at 3.3 GiB (design section 4 asks for review over 3 GB), when models 1.1G (since moved out to `devcon8 models`) and the
-          # agent CLIs 0.7G after shipping each once, goose 0.2G, Go 0.3G plus go-seal's vendored modules
-          # 0.14G, mesh-llm and plugins 0.2G. S08 now shares the host build. Anything beyond this needs review.
-          [ "$bytes" -le $(( 3584 * 1024 * 1024 )) ] || { echo "over 3.5 GiB: review before shipping"; exit 1; }
+      - name: Disk after the build
+        run: df -h / /mnt
 
-      - name: Secret scan (negative test first, then the image)
-        run: |
-          for neg in Dockerfile env.Dockerfile key.Dockerfile; do
-            docker build -q -t dw-scan-neg -f "tests/secret-scan/$neg" tests/secret-scan
-            docker save dw-scan-neg -o /tmp/neg.tar
-            if python3 -I build/secret-scan.py /tmp/neg.tar; then echo "the scanner missed the secret in $neg"; exit 1; fi
-          done
-          docker save devcon-workshop:ci -o /tmp/image.tar
-          python3 -I build/secret-scan.py /tmp/image.tar
-          rm -f /tmp/image.tar /tmp/neg.tar
-
-      - name: Smoke tests
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/smoke.sh
-      - name: goose approve mode shows each card once (patched goose, mock ACP agent)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/goose-approve.sh
-      - name: Ctrl-C cancels the agent turn and the next line reaches it (patched goose, mock ACP agent)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/goose-cancel.sh
-
-      - name: The trader reaches the NANDA Index (no Cloudflare 403)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/mbx-net.sh
-
-      - name: Simulated payment seals on a test network
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-payment.sh
-
-      - name: The buyer's pay is checked with the shop as payee
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-buyer.sh
-
-      - name: Lightning payment against a fake wallet (caps, paused pay, payment_received, no preimage kept)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/sim-lightning.sh
-
-      - name: The lexe wallet command and sidecar lifecycle against a fake sidecar (asks first, 0600 seed, signs up once, backup reminder)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/test_wallet.sh
-
-      - name: The recipe's protocol reaches the model, in the right payment mode (both modes rendered; sent through claude-acp)
-        run: docker run --rm devcon-workshop:ci /opt/devcon8/tests/recipe-prompt.sh
-
-      - name: The published console port serves the management routes (the relay)
-        run: |
-          id=$(docker run -d -p 127.0.0.1:3141:3132 devcon-workshop:ci /opt/devcon8/tests/console-relay-serve.sh)
-          code=000
-          for _ in $(seq 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' -m 3 http://127.0.0.1:3141/api/plugins || true)
-            [ "$code" = 200 ] && break; sleep 2
-          done
-          [ "$code" = 200 ] || { docker logs "$id"; docker exec "$id" sh -c 'cat /tmp/dw-*/run.log /tmp/dw-*/.devcon8/relay.log' || true; }
-          docker rm -f "$id" >/dev/null
-          [ "$code" = 200 ] || { echo "/api/plugins through the published port: HTTP $code"; exit 1; }
-
-      - name: S08 in the container (start, console through the published port, lie, twins, referee, stop)
-        timeout-minutes: 45
-        run: |
-          id=$(docker run -d -e S08_CI_HOLD=1 -p 127.0.0.1:9614:9624 devcon-workshop:ci /opt/devcon8/tests/s08-ci.sh)
-          until docker exec "$id" test -e /tmp/s08-started 2>/dev/null; do
-            [ "$(docker inspect -f '{{.State.Running}}' "$id")" = true ] || { docker logs "$id"; exit 1; }
-            sleep 5
-          done
-          code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 http://127.0.0.1:9614/api/plugins || true)
-          docker exec "$id" touch /tmp/s08-continue
-          rc=$(docker wait "$id"); docker logs "$id"; docker rm "$id" >/dev/null
-          [ "$code" = 200 ] || { echo "s08 asker /api/plugins through the published port: HTTP $code"; exit 1; }
-          [ "$rc" = 0 ] || { echo "s08-ci exited $rc"; exit 1; }
+      # The size check, the secret scan with its negative test, the in-image tests, the console relay and
+      # S08 (bounded at 45 minutes). The same script is the local `scripts/check.sh --full`.
+      - name: Image tests (scripts/check.sh --image-tests)
+        run: scripts/check.sh --image-tests devcon-workshop:ci
 
       # Nothing is published from here: the tested image is handed to the `publish` job, which waits
       # for approval. The same bytes that passed the tests above are what gets pushed.
@@ -279,12 +215,13 @@ jobs:
           echo "### $IMAGE:$tag" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"; cat /tmp/inspect >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-  # A red main run reaches a person the same day: it opens or comments on one `ci-red` issue. It does
-  # not wait for `publish`, which parks on a reviewer's approval. A cancelled run is not reported.
+  # A red main run (a push or a manual run on main) reaches a person the same day: it opens or comments
+  # on one `ci-red` issue. It does not wait for `publish`, which parks on a reviewer's approval. A
+  # cancelled run is not reported.
   report-failure:
     name: report a red main run
     needs: [unit, meta, build]
-    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: failure() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -295,7 +232,7 @@ jobs:
       - name: Report on the issue
         env:
           GH_TOKEN: ${{ github.token }}
-          TITLE: "image failed on main or nightly"
+          TITLE: "image failed on main"
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ASSIGNEE: ${{ vars.CI_FAILURE_ASSIGNEE }}
         run: bash .github/scripts/report-failure.sh
