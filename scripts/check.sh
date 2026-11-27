@@ -74,10 +74,10 @@ actionlint_bin() {
   if [ ! -x "$dir/actionlint" ]; then
     # Download and unpack in a private directory, then publish the binary with one rename, so a
     # concurrent or interrupted check never runs a partly written file. Bounded: 20 s to connect,
-    # 120 s per attempt, three attempts.
+    # 120 s per attempt, three attempts, and 300 s for the retries in all (a long Retry-After included).
     mkdir -p "$dir"
     tmpd=$(mktemp -d "$dir/.tmp.XXXXXX")
-    if ! curl -fsSL --connect-timeout 20 --max-time 120 --retry 2 -o "$tmpd/a.tgz" \
+    if ! curl -fsSL --connect-timeout 20 --max-time 120 --retry 2 --retry-max-time 300 -o "$tmpd/a.tgz" \
       "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION}_${os}_${arch}.tar.gz" >&2; then
       rm -rf "$tmpd"; echo "check.sh: actionlint download failed" >&2; return 1
     fi
