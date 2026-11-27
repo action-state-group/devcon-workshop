@@ -11,9 +11,12 @@ name: mesh-llm lab release
 # Targets are the ones mesh-llm itself supports natively: Linux x86_64, Linux aarch64, macOS arm64.
 
 on:
-  # A pull request that changes this file builds all three targets with the defaults below and
-  # uploads nothing; only a manual run publishes.
-  pull_request:
+  # A change to this file is checked twice: on its pull request by actionlint (image.yml's `unit` job,
+  # scripts/check.sh --unit), and after it merges by this workflow building all three targets with the
+  # defaults below (about 45 minutes, too long for a pull request, #110). That run uploads nothing, and
+  # a red one opens or comments on a `ci-red` issue. Only a manual run publishes.
+  push:
+    branches: [main]
     paths: [.github/workflows/mesh-llm-lab-release.yml]
   workflow_dispatch:
     inputs:
@@ -164,3 +167,23 @@ jobs:
           gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber ./*.tar.gz ./*.tar.gz.sha256
           echo "### Uploaded to $TAG" >> "$GITHUB_STEP_SUMMARY"
           cat ./*.sha256 >> "$GITHUB_STEP_SUMMARY"
+
+  # A red run after a merge reaches a person the same day: it opens or comments on one `ci-red` issue.
+  report-failure:
+    name: report a red main run
+    needs: build
+    if: failure() && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report on the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: "mesh-llm lab release build failed on main"
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ASSIGNEE: ${{ vars.CI_FAILURE_ASSIGNEE }}
+        run: bash .github/scripts/report-failure.sh
