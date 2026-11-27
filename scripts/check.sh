@@ -12,8 +12,8 @@
 #                                       skip; a git error fails the check.
 #   scripts/check.sh --unit             the unit tier: actionlint on every workflow, the shellcheck
 #                                       call and the python and bash unit tests. image.yml's `unit`
-#                                       job runs this on every pull request. Needs bash, curl,
-#                                       python3 and shellcheck (actionlint is fetched once, pinned).
+#                                       job runs this on every pull request. Needs bash, curl and
+#                                       python3 (actionlint and shellcheck are fetched once, pinned).
 #   scripts/check.sh --studio-unit      studio.yml's `unit` job: its shellcheck call, the generated
 #                                       recipe check and the recipe render in the pinned base image.
 #   scripts/check.sh --studio-layer     studio.yml's `layer` job: build the layer on the pinned base
@@ -59,45 +59,78 @@ on_exit() {
 }
 trap on_exit EXIT
 
-# actionlint, pinned by version and sha256, fetched once into the user cache (CI fetches it each run).
+# The linters, pinned by version and sha256 and fetched once into the user cache (CI fetches them each
+# run), so the local check and the pull request job run the same binaries: a distribution's shellcheck
+# can report what another version does not. shellcheck publishes no checksums; its sums below were
+# taken from the v0.11.0 release assets on 2026-11-27.
 ACTIONLINT_VERSION=1.7.12
-actionlint_bin() {
-  local os arch sum dir tmpd got
-  case "$(uname -s)-$(uname -m)" in
-    Linux-x86_64) os=linux arch=amd64 sum=8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 ;;
-    Linux-aarch64 | Linux-arm64) os=linux arch=arm64 sum=325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6 ;;
-    Darwin-arm64) os=darwin arch=arm64 sum=aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f ;;
-    Darwin-x86_64) os=darwin arch=amd64 sum=5b44c3bc2255115c9b69e30efc0fecdf498fdb63c5d58e17084fd5f16324c644 ;;
-    *) echo "check.sh: no pinned actionlint for $(uname -s)-$(uname -m)" >&2; return 1 ;;
-  esac
-  dir="${XDG_CACHE_HOME:-$HOME/.cache}/devcon-workshop/actionlint-$ACTIONLINT_VERSION-$sum"
-  if [ ! -x "$dir/actionlint" ]; then
-    # Download and unpack in a private directory, then publish the binary with one rename, so a
-    # concurrent or interrupted check never runs a partly written file. Bounded: 20 s to connect,
-    # 120 s per attempt, three attempts, and 300 s for the retries in all (a long Retry-After included).
+SHELLCHECK_VERSION=0.11.0
+
+# fetch_tool NAME URL SHA256 MEMBER: prints the path of NAME, downloading URL (a .tar.gz) when it is not
+# cached yet and taking MEMBER from it. Download and unpack happen in a private directory, then one
+# rename publishes the binary, so a concurrent or interrupted check never runs a partly written file.
+# Bounded: 20 s to connect, 120 s per attempt, three attempts, 300 s for the retries in all.
+fetch_tool() {
+  local name=$1 url=$2 sum=$3 member=$4 dir tmpd got
+  dir="${XDG_CACHE_HOME:-$HOME/.cache}/devcon-workshop/$name-$sum"
+  if [ ! -x "$dir/$name" ]; then
     mkdir -p "$dir"
     tmpd=$(mktemp -d "$dir/.tmp.XXXXXX")
-    if ! curl -fsSL --connect-timeout 20 --max-time 120 --retry 2 --retry-max-time 300 -o "$tmpd/a.tgz" \
-      "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION}_${os}_${arch}.tar.gz" >&2; then
-      rm -rf "$tmpd"; echo "check.sh: actionlint download failed" >&2; return 1
+    if ! curl -fsSL --connect-timeout 20 --max-time 120 --retry 2 --retry-max-time 300 -o "$tmpd/a.tgz" "$url" >&2; then
+      rm -rf "$tmpd"; echo "check.sh: $name download failed" >&2; return 1
     fi
     if command -v sha256sum >/dev/null; then got=$(sha256sum "$tmpd/a.tgz" | cut -d' ' -f1); else got=$(shasum -a 256 "$tmpd/a.tgz" | cut -d' ' -f1); fi
-    [ "$got" = "$sum" ] || { rm -rf "$tmpd"; echo "check.sh: actionlint download has sha256 $got, want $sum" >&2; return 1; }
-    if ! { tar -xzf "$tmpd/a.tgz" -C "$tmpd" actionlint && [ -x "$tmpd/actionlint" ] && mv -f "$tmpd/actionlint" "$dir/actionlint"; }; then
-      rm -rf "$tmpd"; echo "check.sh: could not unpack actionlint" >&2; return 1
+    [ "$got" = "$sum" ] || { rm -rf "$tmpd"; echo "check.sh: $name download has sha256 $got, want $sum" >&2; return 1; }
+    if ! { tar -xzf "$tmpd/a.tgz" -C "$tmpd" "$member" && [ -x "$tmpd/$member" ] && mv -f "$tmpd/$member" "$dir/$name"; }; then
+      rm -rf "$tmpd"; echo "check.sh: could not unpack $name" >&2; return 1
     fi
     rm -rf "$tmpd"
   fi
-  echo "$dir/actionlint"
+  echo "$dir/$name"
+}
+
+platform() {
+  case "$(uname -s)-$(uname -m)" in
+    Linux-x86_64) echo linux-amd64 ;;
+    Linux-aarch64 | Linux-arm64) echo linux-arm64 ;;
+    Darwin-arm64) echo darwin-arm64 ;;
+    Darwin-x86_64) echo darwin-amd64 ;;
+    *) echo "check.sh: no pinned linters for $(uname -s)-$(uname -m)" >&2; return 1 ;;
+  esac
+}
+
+actionlint_bin() {
+  local p sum
+  p=$(platform) || return 1
+  case "$p" in
+    linux-amd64) sum=8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 ;;
+    linux-arm64) sum=325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6 ;;
+    darwin-arm64) sum=aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f ;;
+    darwin-amd64) sum=5b44c3bc2255115c9b69e30efc0fecdf498fdb63c5d58e17084fd5f16324c644 ;;
+  esac
+  fetch_tool actionlint "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION}_${p%-*}_${p#*-}.tar.gz" "$sum" actionlint
+}
+
+shellcheck_bin() {
+  local p sum a
+  p=$(platform) || return 1
+  case "$p" in
+    linux-amd64) a=linux.x86_64 sum=b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6 ;;
+    linux-arm64) a=linux.aarch64 sum=68a8133197a50beb8803f8d42f9908d1af1c5540d4bb05fdfca8c1fa47decefc ;;
+    darwin-arm64) a=darwin.aarch64 sum=339b930feb1ea764467013cc1f72d09cd6b869ebf1013296ba9055ab2ffbd26f ;;
+    darwin-amd64) a=darwin.x86_64 sum=c2c15e08df0e8fbc374c335b230a7ee958c313fa5714817a59aa59f1aa594f51 ;;
+  esac
+  fetch_tool shellcheck "https://github.com/koalaman/shellcheck/releases/download/v$SHELLCHECK_VERSION/shellcheck-v$SHELLCHECK_VERSION.$a.tar.gz" "$sum" "shellcheck-v$SHELLCHECK_VERSION/shellcheck"
 }
 
 unit_tests() {
-  local al
-  step "actionlint $ACTIONLINT_VERSION on every workflow (with shellcheck on their run steps)"
+  local al sc
+  step "actionlint $ACTIONLINT_VERSION on every workflow (with shellcheck $SHELLCHECK_VERSION on their run steps)"
   al=$(actionlint_bin)
-  "$al" .github/workflows/*.yml
-  step shellcheck
-  shellcheck -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/goose-approve.sh tests/goose-cancel.sh tests/sim-payment.sh tests/s08-ci.sh tests/test_wallet.sh tests/mbx-net.sh tests/test_nanda.sh tests/test_nanda_offer.sh tests/test_offer_gate.sh tests/test_trade_protocol.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/recipe-prompt.sh build/fetch.sh build/usb.sh scripts/check.sh .github/scripts/report-failure.sh
+  sc=$(shellcheck_bin)
+  "$al" -shellcheck="$sc" .github/workflows/*.yml
+  step "shellcheck $SHELLCHECK_VERSION"
+  "$sc" -x -e SC1091 bin/devcon8 bin/devcon8-entry lib/*.sh agent/bin/pay-x402 tests/smoke.sh tests/goose-approve.sh tests/goose-cancel.sh tests/sim-payment.sh tests/s08-ci.sh tests/test_wallet.sh tests/mbx-net.sh tests/test_nanda.sh tests/test_nanda_offer.sh tests/test_offer_gate.sh tests/test_trade_protocol.sh tests/sim-buyer.sh tests/sim-lightning.sh tests/recipe-prompt.sh build/fetch.sh build/usb.sh scripts/check.sh .github/scripts/report-failure.sh
   step "mbx unit tests"
   python3 -I tests/test_mbx.py
   step "offers unit tests (fake NANDA Index, catalog and mailbox; no send before the user picks)"
@@ -118,8 +151,10 @@ unit_tests() {
 
 # studio.yml's `unit` job.
 studio_unit() {
-  step "studio: shellcheck"
-  shellcheck -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh tests/studio-card.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio studio/bin/card studio/bin/dispute studio/bin/referee tests/studio-ruling.sh
+  local sc
+  step "studio: shellcheck $SHELLCHECK_VERSION"
+  sc=$(shellcheck_bin)
+  "$sc" -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh tests/studio-card.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio studio/bin/card studio/bin/dispute studio/bin/referee tests/studio-ruling.sh
   step "studio: studio.yaml is trader.yaml plus the Studio edits (generated file is current)"
   python3 -I studio/build-recipe.py --check
   python3 -I tests/test_build_recipe.py

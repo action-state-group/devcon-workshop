@@ -4,7 +4,7 @@
 
 Before every push: `scripts/check.sh`. It runs everything the pull request jobs run for your branch, with the same commands, so a branch that passes it passes them.
 
-- **Unit tier, always:** `scripts/check.sh --unit`, the `unit` job of `.github/workflows/image.yml` on every pull request. actionlint on every workflow (with shellcheck on their `run:` steps), shellcheck on the scripts, and the python and bash unit tests. About 25 seconds on an Apple-silicon Mac. Needs bash, curl, python3 and shellcheck; the first run downloads actionlint (pinned version and sha256) into `~/.cache/devcon-workshop/`.
+- **Unit tier, always:** `scripts/check.sh --unit`, the `unit` job of `.github/workflows/image.yml` on every pull request. actionlint on every workflow (with shellcheck on their `run:` steps), shellcheck on the scripts, and the python and bash unit tests. About 25 seconds on an Apple-silicon Mac. Needs bash, curl and python3; the first run downloads actionlint and shellcheck (pinned versions and sha256) into `~/.cache/devcon-workshop/`, so your check and the pull request job run the same linters.
 - **Studio tiers, when your branch changes a path that starts `.github/workflows/studio.yml`:** `scripts/check.sh --studio-unit` and `--studio-layer`, its `unit` and `layer` jobs. They need Docker; the first run pulls the pinned base image named in `studio/versions.lock`. The list is `studio_path` in `scripts/check.sh`, kept in step with the workflow's `paths:`; `scripts/check.sh --self-test` checks the rule.
 
 Changed paths are your branch's diff from its merge base on `origin/main` (both sides of a rename, and deletions) plus uncommitted and untracked files, so fetch `origin` first.
