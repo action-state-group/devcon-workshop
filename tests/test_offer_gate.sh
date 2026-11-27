@@ -21,7 +21,6 @@ echo "ok   pay-x402 refuses while a field is a mismatch, and writes nothing"
 echo 'not json' > "$T/home/deals/c1/offer-check.json"
 pay c1 50 "$D" >/dev/null && { echo "FAIL paid with a damaged check"; exit 1; }
 echo "ok   pay-x402 refuses on a damaged check"
-pay c1 50 "$D" >/dev/null 2>&1 && { echo "FAIL paid with a damaged check"; exit 1; }
 : > "$T/home/deals/c1/offer-check.json"
 pay c1 50 "$D" >/dev/null && { echo "FAIL paid with an empty check"; exit 1; }
 echo "ok   pay-x402 refuses on an empty check"

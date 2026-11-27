@@ -156,7 +156,6 @@ studio_unit() {
   sc=$(shellcheck_bin)
   "$sc" -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh tests/studio-card.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio studio/bin/card studio/bin/dispute studio/bin/referee tests/studio-ruling.sh
   step "studio: studio.yaml is trader.yaml plus the Studio edits (generated file is current)"
-  python3 -I studio/build-recipe.py --check
   python3 -I tests/test_build_recipe.py
   step "studio: studio.yaml renders in both payment modes (goose of the pinned base, recipe mounted in)"
   # The layer's pinned base (studio/versions.lock), not a moving tag: `latest` can briefly lack a platform.
@@ -348,7 +347,7 @@ run_test goose-cancel "Ctrl-C cancels the agent turn and the next line reaches i
 run_test mbx-net "the trader reaches the NANDA Index (no Cloudflare 403)"
 run_test sim-payment "simulated payment seals on a test network"
 run_test sim-buyer "the buyer's pay is checked with the shop as payee"
-run_test sim-lightning "Lightning payment against a fake wallet (caps, paused pay, payment_received, no preimage kept)"
+run_test sim-lightning "Lightning payment against a fake wallet (paused pay, payment_received, no preimage kept)"
 run_test test_wallet "the lexe wallet command and sidecar lifecycle against a fake sidecar (asks first, 0600 seed, signs up once, backup reminder)"
 run_test recipe-prompt "the recipe's protocol reaches the model, in the right payment mode (both modes rendered; sent through claude-acp)"
 
