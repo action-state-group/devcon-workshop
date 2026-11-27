@@ -34,8 +34,8 @@
 #
 # Exits non-zero at the first failure. Images and containers the image tier creates carry a per-run
 # tag or name and are removed, with their anonymous volumes, on exit; an image passed as TAG is kept.
-# The Studio layer keeps studio/build.sh's own tag, devcon-workshop-studio:dev. The build cache stays
-# in Docker (`docker builder prune` reclaims it).
+# The Studio layer is built under a per-run tag and removed too. The build cache stays in Docker
+# (`docker builder prune` reclaims it).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -50,10 +50,19 @@ esac
 
 step() { printf '\n== %s\n' "$*"; }
 
+# Everything a run creates in Docker is removed on exit, pass or fail: the Studio layer's per-run tag
+# here, and the image tier's images and containers through its `cleanup`.
+studio_tag=""
+on_exit() {
+  if [ -n "$studio_tag" ]; then docker image rm -f "$studio_tag" >/dev/null 2>&1 || true; fi
+  if declare -F cleanup >/dev/null; then cleanup; fi
+}
+trap on_exit EXIT
+
 # actionlint, pinned by version and sha256, fetched once into the user cache (CI fetches it each run).
 ACTIONLINT_VERSION=1.7.12
 actionlint_bin() {
-  local os arch sum dir tgz
+  local os arch sum dir tmpd got
   case "$(uname -s)-$(uname -m)" in
     Linux-x86_64) os=linux arch=amd64 sum=8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 ;;
     Linux-aarch64 | Linux-arm64) os=linux arch=arm64 sum=325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6 ;;
@@ -63,11 +72,21 @@ actionlint_bin() {
   esac
   dir="${XDG_CACHE_HOME:-$HOME/.cache}/devcon-workshop/actionlint-$ACTIONLINT_VERSION-$sum"
   if [ ! -x "$dir/actionlint" ]; then
-    tgz=$(mktemp)
-    curl -fsSL --retry 5 -o "$tgz" "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION}_${os}_${arch}.tar.gz" >&2
-    if command -v sha256sum >/dev/null; then got=$(sha256sum "$tgz" | cut -d' ' -f1); else got=$(shasum -a 256 "$tgz" | cut -d' ' -f1); fi
-    [ "$got" = "$sum" ] || { rm -f "$tgz"; echo "check.sh: actionlint download has sha256 $got, want $sum" >&2; return 1; }
-    mkdir -p "$dir" && tar -xzf "$tgz" -C "$dir" actionlint && rm -f "$tgz"
+    # Download and unpack in a private directory, then publish the binary with one rename, so a
+    # concurrent or interrupted check never runs a partly written file. Bounded: 20 s to connect,
+    # 120 s per attempt, three attempts.
+    mkdir -p "$dir"
+    tmpd=$(mktemp -d "$dir/.tmp.XXXXXX")
+    if ! curl -fsSL --connect-timeout 20 --max-time 120 --retry 2 -o "$tmpd/a.tgz" \
+      "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION}_${os}_${arch}.tar.gz" >&2; then
+      rm -rf "$tmpd"; echo "check.sh: actionlint download failed" >&2; return 1
+    fi
+    if command -v sha256sum >/dev/null; then got=$(sha256sum "$tmpd/a.tgz" | cut -d' ' -f1); else got=$(shasum -a 256 "$tmpd/a.tgz" | cut -d' ' -f1); fi
+    [ "$got" = "$sum" ] || { rm -rf "$tmpd"; echo "check.sh: actionlint download has sha256 $got, want $sum" >&2; return 1; }
+    if ! { tar -xzf "$tmpd/a.tgz" -C "$tmpd" actionlint && [ -x "$tmpd/actionlint" ] && mv -f "$tmpd/actionlint" "$dir/actionlint"; }; then
+      rm -rf "$tmpd"; echo "check.sh: could not unpack actionlint" >&2; return 1
+    fi
+    rm -rf "$tmpd"
   fi
   echo "$dir/actionlint"
 }
@@ -114,18 +133,22 @@ studio_unit() {
 }
 
 # studio.yml's `layer` job: the layer on the pinned base, then demo steps 1-6 without a model against
-# a replay of ten sticker trades. Nothing is pushed.
+# a replay of ten sticker trades. Nothing is pushed. The layer gets a per-run tag, so two checks at
+# once (two worktrees) never test each other's layer, and a developer's own :dev tag is left alone;
+# the tag is removed when the step ends.
 studio_layer() {
+  local t="devcon-workshop-studio:check-$$"
+  studio_tag=$t # removed by on_exit
   step "studio: build the layer"
-  studio/build.sh
+  studio/build.sh "check-$$"
   step "studio: layer contents"
-  docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-layer.sh
+  docker run --rm "$t" /opt/devcon8/tests/studio-layer.sh
   step "studio: demo steps 1-4 (tests/studio-e2e.sh)"
-  docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-e2e.sh
+  docker run --rm "$t" /opt/devcon8/tests/studio-e2e.sh
   step "studio: demo step 5, the History cards and the staple (tests/studio-card.sh; waits for a checkpoint)"
-  docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-card.sh
+  docker run --rm "$t" /opt/devcon8/tests/studio-card.sh
   step "studio: demo step 6, the dispute, the ruling and both cards (tests/studio-ruling.sh; waits for checkpoints)"
-  docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-ruling.sh
+  docker run --rm "$t" /opt/devcon8/tests/studio-ruling.sh
 }
 
 # The paths that start studio.yml on a pull request (its `on.pull_request.paths`), as shell patterns.
@@ -240,7 +263,6 @@ cleanup() {
   docker image rm -f "$neg" ${built:+"$built"} >/dev/null 2>&1 || true
   rm -rf "$tmp"
 }
-trap cleanup EXIT
 
 if [ "$mode" = full ]; then
   unit_tests
