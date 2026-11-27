@@ -7,11 +7,12 @@ name: image
 # `publish` runs under the `image-release` environment and waits for a reviewer's approval, so a
 # push to main alone publishes nothing and never moves `latest`.
 #
-# Pull requests run only `unit` (asg-agent-team-ethan#409). The two image builds and the in-image
-# tests after them (about 80 to 110 minutes each) run on push to main when an input of the image
-# changed (the `paths:` list below) and on a manual dispatch. Locally, `scripts/check.sh` builds
-# and tests the arm64 image unless a branch changes only paths on its non-image list (CONTRIBUTING.md);
-# amd64 is built and tested only here, on main, before `image-release`. There is no nightly:
+# Pull requests run only `unit` (asg-agent-team-ethan#409): actionlint on every workflow and the unit
+# tests, the same `scripts/check.sh --unit` the local check runs. The two image builds and the in-image
+# tests after them run on push to main when an input of the image changed (the `paths:` list below)
+# and on a manual dispatch; no pull request and no local check before a push builds the image
+# (CONTRIBUTING.md, #110). With the build cache warm they take about 15 to 25 minutes; a bump of a
+# Rust source pin recompiles that stage. There is no nightly:
 # PUBLISH and `publish` accept any non-PR event on main, so a schedule would ask to publish. A red
 # main run, pushed or manual, opens or comments on one `ci-red` issue (`report-failure`).
 
@@ -213,8 +214,7 @@ jobs:
           # `latest` moves only on an approved publish; the immutable tag and its digest stay the reproducible reference.
           docker buildx imagetools create -t "$IMAGE:$tag" -t "$IMAGE:latest" "$IMAGE:$tag-amd64" "$IMAGE:$tag-arm64"
           docker buildx imagetools inspect "$IMAGE:$tag" | tee /tmp/inspect
-          echo "### $IMAGE:$tag" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"; cat /tmp/inspect >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
+          { echo "### $IMAGE:$tag"; echo '```'; cat /tmp/inspect; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
   # A red main run (a push or a manual run on main) reaches a person the same day: it opens or comments
   # on one `ci-red` issue. It does not wait for `publish`, which parks on a reviewer's approval. A

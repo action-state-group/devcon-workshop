@@ -15,44 +15,29 @@ on:
       - agent/recipes/**
       - tests/studio-*
       - tests/test_build_recipe.py
+      - scripts/check.sh
       - .github/workflows/studio.yml
 
 permissions:
   contents: read
 
+# Both jobs run the steps in scripts/check.sh, which the local check before a push also runs when a
+# path above changed (its `studio_path` list, kept in step with this one).
 jobs:
   unit:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: shellcheck
-        run: shellcheck -x -e SC1091 tests/studio-recipe.sh tests/studio-layer.sh tests/studio-e2e.sh tests/studio-card.sh studio/build.sh studio/run.sh studio/bin/terms studio/bin/devcon8-studio studio/bin/card studio/bin/dispute studio/bin/referee tests/studio-ruling.sh
-      - name: studio.yaml is trader.yaml plus the Studio edits (generated file is current)
-        run: |
-          python3 -I studio/build-recipe.py --check
-          python3 -I tests/test_build_recipe.py
-      - name: studio.yaml renders in both payment modes (goose of the published image, recipe mounted in)
-        run: |
-          # The layer's pinned base (studio/versions.lock), not a moving tag: `latest` can briefly lack a platform.
-          . studio/versions.lock
-          docker run --rm \
-            -v "$PWD/agent/recipes/studio.yaml:/opt/devcon8/agent/recipes/studio.yaml:ro" \
-            -v "$PWD/tests/studio-recipe.sh:/opt/devcon8/tests/studio-recipe.sh:ro" \
-            "$STUDIO_BASE" /opt/devcon8/tests/studio-recipe.sh
+      - name: shellcheck, the generated recipe, and the recipe render on the pinned base
+        run: scripts/check.sh --studio-unit
 
-  # The layer itself, on the pinned base: build it, check its contents, then run demo steps 1-4 without a
+  # The layer itself, on the pinned base: build it, check its contents, then run demo steps 1-6 without a
   # model against a replay of ten sticker trades. Built locally in the job; nothing is pushed.
   layer:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: build the layer
-        run: studio/build.sh
-      - name: layer contents
-        run: docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-layer.sh
-      - name: demo steps 1-4 (tests/studio-e2e.sh)
-        run: docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-e2e.sh
-      - name: demo step 5, the History cards and the staple (tests/studio-card.sh; waits for a checkpoint)
-        run: docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-card.sh
-      - name: demo step 6, the dispute, the ruling and both cards (tests/studio-ruling.sh; waits for checkpoints)
-        run: docker run --rm devcon-workshop-studio:dev /opt/devcon8/tests/studio-ruling.sh
+      - name: build the layer and run demo steps 1-6 in it
+        run: scripts/check.sh --studio-layer

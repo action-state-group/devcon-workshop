@@ -44,6 +44,11 @@ ENV PATH=/root/.cargo/bin:/usr/local/node/bin:$PATH CARGO_NET_GIT_FETCH_WITH_CLI
 RUN . /src/versions.lock \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$RUST_TOOLCHAIN" \
     && cargo install --locked just --version "$JUST_VERSION"
+# Each source build below ends its compile RUN by deleting its checkout, build tree and these per-user
+# caches, so the layer it leaves holds only /out (the one path a later stage copies). The build trees are
+# several GB per architecture; kept in the layers, they pushed image.yml's type=gha,mode=max cache past
+# the repository's 10 GB Actions cache, its blobs were evicted and every main run recompiled (#110).
+ENV DROP_BUILD_CACHES="/root/.cache /root/.npm /root/.local/share/pnpm /root/.cargo/git"
 
 # --- mesh-llm lab build: host, CPU native runtimes ------------------------------------------------
 FROM toolchain AS mesh
@@ -68,7 +73,8 @@ RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.carg
     && (cd /bundle && sha256sum -c "mesh-llm-$triple.tar.gz.sha256") \
     && mkdir -p /x /out/bin && tar -xzf "/bundle/mesh-llm-$triple.tar.gz" -C /x \
     && cp -a /x/mesh-bundle/mesh-llm /x/mesh-bundle/native-runtimes /out/bin/ \
-    && /out/bin/mesh-llm --version | tee /out/version
+    && /out/bin/mesh-llm --version | tee /out/version \
+    && cd / && rm -rf /build/mesh-llm /bundle /x $DROP_BUILD_CACHES
 
 # --- s08's liar plugin: the pinned capsules plus selective-log.patch -----------------------------------
 FROM toolchain AS redteam
@@ -89,7 +95,8 @@ RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.carg
     && [ "$(/pkg/capsules/capsules --print-package-manifest | jq -S .)" = "$(jq -S . /pkg/capsules/plugin-manifest.json)" ] \
     && mkdir -p /out \
     && (cd /pkg && tar --sort=name --format=ustar --owner=0 --group=0 --numeric-owner -cf - capsules) \
-       | gzip -n -9 > "/out/capsules-$CAPSULES_VERSION-selective-log-$triple.tar.gz"
+       | gzip -n -9 > "/out/capsules-$CAPSULES_VERSION-selective-log-$triple.tar.gz" \
+    && cd / && rm -rf /build/capsules /pkg $DROP_BUILD_CACHES
 
 # --- lexe-wallet plugin (mesh-llm paid inference only; `--pay lexe` uses lexe-sidecar from fetch), built from the settled-preimage branch (Mesh-LLM/lexe-wallet-plugin#7) ----
 FROM toolchain AS lexe
@@ -100,7 +107,8 @@ RUN . /src/versions.lock && git clone --filter=blob:none "$LEXE_REPO" /build/lex
 WORKDIR /build/lexe
 RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry,sharing=locked \
     cargo build --release --locked && python3 scripts/package.py \
-    && mkdir -p /out && cp dist/lexe-wallet-v*.tar.gz /out/
+    && mkdir -p /out && cp dist/lexe-wallet-v*.tar.gz /out/ \
+    && cd / && rm -rf /build/lexe $DROP_BUILD_CACHES
 
 # --- npm CLIs (claude, codex and their ACP adapters) ----------------------------------------------
 FROM ${BASE} AS npm
@@ -140,7 +148,8 @@ WORKDIR /build/goose
 RUN --mount=type=cache,id=devcon-cargo-registry-${TARGETARCH},target=/root/.cargo/registry,sharing=locked \
     cargo build --release --locked -p goose-cli --bin goose \
     && mkdir -p /out && install -m 0755 target/release/goose /out/goose \
-    && /out/goose --version
+    && /out/goose --version \
+    && cd / && rm -rf /build/goose $DROP_BUILD_CACHES
 
 # --- the participant image ------------------------------------------------------------------------
 FROM ${BASE}
