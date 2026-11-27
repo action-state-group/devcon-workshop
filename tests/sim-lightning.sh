@@ -4,8 +4,8 @@
 # opened and no money moves. The buyer's `lightning pay` writes its terms leg; the seller's
 # `lightning receive` writes what `deal note --kind payment_received --ln-invoice --ln-transaction`
 # seals, the preimage included. Fails if a preimage is kept or printed anywhere but the seller's
-# transaction file and deal store, if the invoice is kept outside its own files, if a cap is not
-# enforced, or if the buyer's Lightning pay check does not pause.
+# transaction file and deal store, if the invoice is kept outside its own files, or if the buyer's
+# Lightning pay check does not pause. The caps are tests/test_lightning.py's.
 # Run inside the image: docker run --rm IMAGE /opt/devcon8/tests/sim-lightning.sh
 set -euo pipefail
 D=${D:-/opt/devcon8}
@@ -42,30 +42,24 @@ caps() { jq -n --argjson p "$1" --argjson n "$2" --argjson t "$3" '{price_sats:$
 
 # Seller: an invoice at its price.
 home seller; caps 500 500 500
-# The image's deal plugin must record Lightning payments, or `devcon8 trade --pay lexe` refuses
-# (lib/trade.sh) and there is nothing to run here yet.
-if ! capsulectl deal note --help 2>/dev/null | grep -q -- '--ln-invoice'; then
-  echo "skip lightning: this image's capsulectl-deal has no --ln-invoice, so 'devcon8 trade --pay lexe' refuses (needs deal v0.1.0-rc29)"
-  exit 0
-fi
+# The image's deal plugin must record Lightning payments, or `devcon8 trade --pay lexe` refuses (lib/trade.sh).
+# grep reads all of the help (no -q), so an early exit cannot SIGPIPE the producer under pipefail.
+capsulectl deal note --help 2>/dev/null | grep -- '--ln-invoice' >/dev/null \
+  || fail "this image's capsulectl-deal has no --ln-invoice, so 'devcon8 trade --pay lexe' refuses (needs deal v0.1.0-rc29)"
 
 "$D/agent/bin/lightning" invoice "$CONV" > invoice.out
 grep -q lnbc invoice.out && fail "lightning invoice printed the invoice"
 bolt11=$(jq -r .bolt11 "$T/seller/deals/$CONV/outgoing/invoice.json")
 
-# Buyer: mbx saved the proposal's invoice; caps are checked before anything is sent.
+# Buyer: mbx saved the proposal's invoice. Cap refusals and the refused second payment happen before
+# any wallet call, so tests/test_lightning.py covers them.
 home buyer; mkdir -p "deals/$CONV"; printf '%s\n' "$bolt11" > "deals/$CONV/invoice.txt"
-caps 1 400 1000
-if "$D/agent/bin/lightning" pay "$CONV" 500000 "$DIGEST" 2>err.txt; then fail "paid over the per-payment cap"; fi
-grep -q 'over your per-payment cap' err.txt || { cat err.txt; fail "no per-payment refusal"; }
-grep -q '^pay_invoice$' "$T/wallet.log" && fail "a send reached the wallet over the cap"
 caps 1 600 1000
 "$D/agent/bin/lightning" pay "$CONV" 500000 "$DIGEST" > pay.out 2> pay.err
 [ "$(jq -r .payment_hash pay.out)" = "$HASH" ] || { cat pay.out pay.err; fail "lightning pay did not pay"; }
 terms=$HOME/deals/$CONV/outgoing/buyer-terms.json
 [ "$(jq -r .settlement.amount.assetCode "$terms")" = "bip122:000000000019d6689c085ae165831e93/slip44:0" ] || fail "terms leg asset"
 [ "$(jq -r .settlement.amount.value "$terms")" = 500000 ] || fail "terms leg amount"
-if "$D/agent/bin/lightning" pay "$CONV" 500000 "$DIGEST" 2>/dev/null; then fail "paid twice in one conversation"; fi
 
 # The buyer's pay check on Lightning pauses: money sent this way cannot be pulled back.
 ID=deal-00000000000051ff
@@ -140,4 +134,4 @@ fi
 if grep -rlaF "$bolt11" "$T" | grep -vE "/deals/$CONV/(invoice\.txt|outgoing/invoice\.json)$" | grep -q .; then
   grep -rlaF "$bolt11" "$T"; fail "the invoice was kept outside its own files"
 fi
-echo "ok   lightning: caps enforced, Lightning pay paused and checked, payment_received sealed by payment hash with its preimage, none printed or shared, no invoice kept"
+echo "ok   lightning: Lightning pay paused and checked, payment_received sealed by payment hash with its preimage, none printed or shared, no invoice kept"

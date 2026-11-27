@@ -287,7 +287,7 @@ class Lightning(unittest.TestCase):
         finally:
             ln.subprocess.run = real
         self.assertIn("over your total cap", err)
-        self.assertNotIn("send", self.commands())
+        self.assertEqual(self.commands(), [])
         self.assertIn("ee" * 32, read_json(ln.SPENT), "the other run's entry is kept")
 
     def test_inspect_shows_sats_node_and_expiry(self):
